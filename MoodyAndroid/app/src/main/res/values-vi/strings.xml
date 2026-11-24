@@ -63,6 +63,9 @@
     <string name="nav_moodsShort">Tâm trạng</string>
     <string name="nav_manage">Quản lý</string>
     <string name="nav_newCheckin">Check-in mới</string>
+    <string name="nav_openMenu">Mở menu</string>
+    <string name="nav_label">Điều hướng chính</string>
+    <string name="nav_tagline">Moody — theo dõi tâm trạng mỗi ngày</string>
     <string name="theme_light">Giao diện sáng</string>
     <string name="theme_dark">Giao diện tối</string>
     <string name="theme_system">Theo hệ thống</string>
@@ -185,6 +188,9 @@
     <string name="themeColor_grey">Xám</string>
     <string name="themeColor_blue_grey">Xanh xám</string>
     <string name="settings_language">Ngôn ngữ</string>
+    <string name="settings_fontFamily">Font chữ</string>
+    <string name="settings_fontFamilyHint">Áp dụng cho toàn bộ ứng dụng.</string>
+    <string name="settings_fontPreview">Hôm nay bạn cảm thấy thế nào?</string>
     <string name="settings_fontSize">Cỡ chữ</string>
     <string name="settings_font_0_9">Nhỏ</string>
     <string name="settings_font_1">Vừa</string>
@@ -226,7 +232,7 @@
     <string name="manageActs_searchPlaceholder">Tìm hoạt động theo tên…</string>
     <string name="manageActs_clearSearch">Xóa tìm kiếm</string>
     <string name="manageActs_noResults">Không tìm thấy hoạt động phù hợp.</string>
-    <string name="settings_exportImportSub">CSV, Excel hoặc JSON — từng mục hoặc toàn bộ</string>
+    <string name="settings_exportImportSub">CSV hoặc JSON — theo từng mục hoặc toàn bộ</string>
     <string name="settings_all">Toàn bộ dữ liệu</string>
     <string name="settings_allHint_json">Một file .json chứa cả lịch sử check-in, hoạt động và tâm trạng.</string>
     <string name="settings_allHint_xlsx">Một file .xlsx gồm 3 sheet: lịch sử check-in, hoạt động, tâm trạng.</string>
@@ -303,4 +309,20 @@
     <string name="settings_signIn">Đăng nhập với Google</string>
     <string name="login_error">Đăng nhập thất bại. Vui lòng thử lại.</string>
     <string name="common_reorder">Sắp xếp</string>
+    <string name="settings_exactAlarm">Cho phép báo thức chính xác</string>
+    <string name="settings_exactAlarmHint">Không có quyền này, nhắc nhở có thể đến trễ vài phút.</string>
+    <string name="settings_exactAlarmOk">Đã cho phép báo thức chính xác — nhắc nhở sẽ đến đúng giờ.</string>
+    <string name="settings_notifBlocked">Thông báo của Moody đang bị chặn.</string>
+    <string name="settings_notifOpenSettings">Cài đặt thông báo</string>
+    <string name="settings_batteryHint">Nếu nhắc nhở không hiện trên máy (Samsung, Xiaomi, Oppo…), hãy đặt Moody ở chế độ “Không hạn chế” / “Không tối ưu” trong cài đặt pin.</string>
+    <string name="settings_batteryBtn">Cài đặt pin</string>
+    <string name="settings_remindTestAlarm">Thử sau 10 giây</string>
+    <string name="settings_testScheduled">Đã hẹn thử — bạn có thể khóa màn hình, thông báo sẽ đến sau khoảng 10 giây.</string>
+    <string name="settings_testSent">Đã gửi thông báo thử.</string>
+    <string name="checkin_discardTitle">Bỏ check-in này?</string>
+    <string name="checkin_discardText">Các thay đổi của bạn chưa được lưu.</string>
+    <string name="checkin_discard">Bỏ</string>
+    <string name="checkin_keepEditing">Tiếp tục sửa</string>
+    <string name="checkin_pickMood">Hãy chọn tâm trạng để lưu.</string>
+    <string name="common_themeCycle">Đổi giao diện</string>
 </resources>

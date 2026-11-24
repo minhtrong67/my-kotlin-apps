@@ -1,6 +1,8 @@
 package com.expenser.app.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,8 +28,9 @@ import com.expenser.app.ui.theme.LocalIncomeColors
 import com.expenser.app.util.*
 import java.util.Calendar
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
-private data class CatRow(val id: Long, val category: Category?, val value: Long, val count: Int, val pct: Int)
+private data class CatRow(val id: String, val category: Category?, val value: Long, val count: Int, val pct: Int)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -58,7 +61,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     val categoryRows = remember(filtered) {
         val expenses = filtered.filter { it.type == TxType.EXPENSE }
         val total = expenses.sumOf { it.amount }.coerceAtLeast(1)
-        expenses.groupBy { it.categoryId ?: -1L }.map { (id, list) ->
+        expenses.groupBy { it.categoryId ?: "" }.map { (id, list) ->
             val v = list.sumOf { it.amount }
             CatRow(id, catById[id], v, list.size, (v * 100.0 / total).roundToInt())
         }.sortedByDescending { it.value }
@@ -68,10 +71,25 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     val inc = LocalIncomeColors.current
     val errorColor = MaterialTheme.colorScheme.error
 
-    LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val headers = listOf(R.string.export_col_date, R.string.export_col_time, R.string.export_col_type, R.string.export_col_category, R.string.export_col_wallet, R.string.export_col_amount, R.string.export_col_note).map { stringResource(it) }
+    val typeLabels = mapOf(TxType.INCOME to stringResource(R.string.export_type_income), TxType.EXPENSE to stringResource(R.string.export_type_expense))
+    val exporter = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val csv = com.expenser.app.data.CsvIo.build(headers, filtered, { catById[it ?: ""]?.name ?: "" }, { walletById[it ?: ""]?.name ?: "" }, { typeLabels[it] ?: it })
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ctx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray(Charsets.UTF_8)) } }
+                vm.toast(R.string.settings_exported)
+            } catch (e: Exception) { vm.toast(R.string.settings_export_error) }
+        }
+    }
+
+    LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(Range.TODAY to R.string.stats_range_today, Range.WEEK to R.string.stats_range_week, Range.MONTH to R.string.stats_range_month, Range.YEAR to R.string.stats_range_year, Range.ALL to R.string.stats_range_all).forEach { (r, res) ->
                         FilterChip(range == r, { range = r; anchor = System.currentTimeMillis() }, { Text(stringResource(res)) })
                     }
@@ -88,6 +106,12 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
             Spacer(Modifier.height(10.dp))
             StatTile(Icons.Rounded.Balance, stringResource(R.string.stats_difference), Format.money(income - expense), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, Modifier.fillMaxWidth(),
                 hint = stringResource(R.string.stats_transactions_count, filtered.size))
+        }
+
+        item {
+            OutlinedButton(onClick = { if (filtered.isEmpty()) vm.toast(R.string.settings_export_empty) else exporter.launch("expenser-report-${Format.date(period.start).replace('/', '-')}.csv") }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.stats_export))
+            }
         }
 
         if (filtered.isEmpty()) {
@@ -136,7 +160,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
 
     sheetCategory?.let { row ->
         ModalBottomSheet(onDismissRequest = { sheetCategory = null }) {
-            val list = filtered.filter { it.type == TxType.EXPENSE && (it.categoryId ?: -1L) == row.id }
+            val list = filtered.filter { it.type == TxType.EXPENSE && (it.categoryId ?: "") == row.id }
             Column(Modifier.padding(bottom = 24.dp)) {
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     CategoryAvatar(row.category?.emoji ?: "🏷️", row.category?.color?.toColor() ?: Color(0xFF94A3B8))

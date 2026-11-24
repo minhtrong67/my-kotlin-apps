@@ -31,6 +31,8 @@ data class Settings(
     val dailyTime: String = "20:00",
     val weeklyEnabled: Boolean = false,
     val monthlyEnabled: Boolean = false,
+    val checkedInDate: String = "",                // yyyy-MM-dd of the last known check-in "today" (skips the daily nudge)
+    val fontFamily: String = "google-sans-flex",
 )
 
 class SettingsStore(private val context: Context) {
@@ -49,6 +51,8 @@ class SettingsStore(private val context: Context) {
         val dailyTime = stringPreferencesKey("notif_daily_time")
         val weeklyEnabled = booleanPreferencesKey("notif_weekly_enabled")
         val monthlyEnabled = booleanPreferencesKey("notif_monthly_enabled")
+        val checkedInDate = stringPreferencesKey("checked_in_date")
+        val fontFamily = stringPreferencesKey("font_family")
         val localActivities = stringPreferencesKey("local_activities")
         val localMoods = stringPreferencesKey("local_moods")
     }
@@ -65,6 +69,8 @@ class SettingsStore(private val context: Context) {
             dailyTime = p[K.dailyTime] ?: "20:00",
             weeklyEnabled = p[K.weeklyEnabled] ?: false,
             monthlyEnabled = p[K.monthlyEnabled] ?: false,
+            checkedInDate = p[K.checkedInDate] ?: "",
+            fontFamily = p[K.fontFamily] ?: "google-sans-flex",
         )
     }
 
@@ -78,6 +84,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setDailyTime(v: String) { ds.edit { it[K.dailyTime] = v } }
     suspend fun setWeeklyEnabled(v: Boolean) { ds.edit { it[K.weeklyEnabled] = v } }
     suspend fun setMonthlyEnabled(v: Boolean) { ds.edit { it[K.monthlyEnabled] = v } }
+    suspend fun setCheckedInDate(v: String) { ds.edit { it[K.checkedInDate] = v } }
+    suspend fun setFontFamily(v: String) { ds.edit { it[K.fontFamily] = v } }
 
     // ---- Guest-mode copies of the "meta" documents (activities, mood overrides) ----
     val localActivities: Flow<ActivitiesState> = ds.data.map { p ->

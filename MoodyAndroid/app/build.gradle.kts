@@ -26,6 +26,9 @@ android {
 
     buildTypes {
         release {
+            // Out of the box the release build is signed with the debug key so you can sideload it and feel the real
+            // (R8-optimised, much smoother) performance. Replace with your own keystore before publishing.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -73,7 +76,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.reorderable)
+    implementation(libs.androidx.profileinstaller)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.coil.compose)

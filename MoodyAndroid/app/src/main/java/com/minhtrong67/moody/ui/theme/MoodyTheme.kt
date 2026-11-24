@@ -9,6 +9,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -57,16 +58,20 @@ fun MoodyTheme(
     themeMode: String,
     themeColor: String,
     fontScale: Float,
+    fontFamily: String,
     content: @Composable () -> Unit,
 ) {
     val dark = resolveDark(themeMode)
-    val palette = Palettes.byId(themeColor)
-    val colors = scheme(if (dark) palette.dark else palette.light)
+    // Remembered so a recomposition of the root never rebuilds the scheme / typography (they are static
+    // composition locals: a new instance would force the whole UI tree to recompose).
+    val colors = remember(dark, themeColor) { Palettes.byId(themeColor).let { scheme(if (dark) it.dark else it.light) } }
+    val typography = remember(fontFamily) { typographyFor(fontFamily) }
     val d = LocalDensity.current
+    val density = remember(d.density, d.fontScale, fontScale) { Density(d.density, d.fontScale * fontScale) }
     CompositionLocalProvider(
         LocalIsDark provides dark,
-        LocalDensity provides Density(d.density, d.fontScale * fontScale),
+        LocalDensity provides density,
     ) {
-        MaterialTheme(colorScheme = colors, shapes = MoodyShapes, content = content)
+        MaterialTheme(colorScheme = colors, typography = typography, shapes = MoodyShapes, content = content)
     }
 }

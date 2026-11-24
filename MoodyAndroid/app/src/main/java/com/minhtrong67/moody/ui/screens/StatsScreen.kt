@@ -78,6 +78,8 @@ import com.minhtrong67.moody.ui.components.ActionButton
 import com.minhtrong67.moody.ui.components.EmptyText
 import com.minhtrong67.moody.ui.components.MoodyCard
 import com.minhtrong67.moody.ui.components.SegmentedTabs
+import com.minhtrong67.moody.ui.components.ScrollToTopButton
+import com.minhtrong67.moody.ui.components.WavyProgress
 import com.minhtrong67.moody.ui.theme.LocalIsDark
 import com.minhtrong67.moody.util.Period
 import com.minhtrong67.moody.util.Slice
@@ -128,7 +130,10 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
     })
     val failedMsg = stringResource(R.string.stats_exportFailed)
 
-    Column(modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+    val scroll = rememberScrollState()
+    val showTop by remember { androidx.compose.runtime.derivedStateOf { scroll.value > 500 } }
+    Box(modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 20.dp)) {
         Text(stringResource(R.string.stats_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
         SegmentedTabs(
             options = Period.entries.map { it.key to stringResource(when (it) {
@@ -226,6 +231,8 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(96.dp))
     }
+    ScrollToTopButton(showTop, { scope.launch { scroll.animateScrollTo(0) } }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
 }
 
 @Composable
@@ -250,30 +257,46 @@ private fun ChartSection(title: String, pieSlices: List<Slice>, legend: List<Sli
     Legend(legend)
 }
 
-/** Pie with "emoji + %" labels outside each slice (slices under 3% show the emoji only). */
+/** Pie that sweeps in, with "emoji + %" labels outside each slice joined by a short leader line (slices under 3%: emoji only). */
 @Composable
 private fun PieChart(slices: List<Slice>, modifier: Modifier = Modifier) {
     val total = slices.sumOf { it.count }.coerceAtLeast(1)
     val stroke = MaterialTheme.colorScheme.surfaceContainerHighest
     val ink = MaterialTheme.colorScheme.onSurface.toArgb()
+    val line = MaterialTheme.colorScheme.outline
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(slices.map { it.count }) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+    }
     Canvas(modifier) {
-        val radius = size.minDimension * 0.31f
+        val radius = size.minDimension * 0.30f
         val center = Offset(size.width / 2f, size.height / 2f)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = 12.sp.toPx() }
+        val topLeft = Offset(center.x - radius, center.y - radius)
+        val arcSize = Size(radius * 2, radius * 2)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = 12.sp.toPx(); alpha = (255 * progress.value).toInt() }
         var start = -90f
         slices.forEach { s ->
-            val sweep = 360f * s.count / total
-            drawArc(s.color, start, sweep, true, Offset(center.x - radius, center.y - radius), Size(radius * 2, radius * 2))
-            drawArc(stroke, start, sweep, true, Offset(center.x - radius, center.y - radius), Size(radius * 2, radius * 2), style = Stroke(2.dp.toPx()))
-            val mid = Math.toRadians((start + sweep / 2).toDouble())
-            val r = radius + 22.dp.toPx()
-            val x = center.x + (r * cos(mid)).toFloat()
-            val y = center.y + (r * sin(mid)).toFloat()
-            val pct = (100f * s.count / total)
-            val text = if (pct < 3f) s.emoji else "${s.emoji} ${pct.toInt()}%"
-            paint.textAlign = if (x > center.x) Paint.Align.LEFT else Paint.Align.RIGHT
-            drawContext.canvas.nativeCanvas.drawText(text, x, y + paint.textSize / 3f, paint)
-            start += sweep
+            val full = 360f * s.count / total
+            val sweep = full * progress.value
+            drawArc(s.color, start, sweep, true, topLeft, arcSize)
+            drawArc(stroke, start, sweep, true, topLeft, arcSize, style = Stroke(2.dp.toPx()))
+            if (progress.value > 0.6f) {
+                val mid = Math.toRadians((start + full / 2).toDouble())
+                val r0 = radius + 4.dp.toPx()
+                val r1 = radius + 14.dp.toPx()
+                val a = ((progress.value - 0.6f) / 0.4f).coerceIn(0f, 1f)
+                drawLine(line.copy(alpha = a), Offset(center.x + (r0 * cos(mid)).toFloat(), center.y + (r0 * sin(mid)).toFloat()),
+                    Offset(center.x + (r1 * cos(mid)).toFloat(), center.y + (r1 * sin(mid)).toFloat()), 1.dp.toPx())
+                val x = center.x + ((r1 + 3.dp.toPx()) * cos(mid)).toFloat()
+                val y = center.y + ((r1 + 3.dp.toPx()) * sin(mid)).toFloat()
+                val pct = 100f * s.count / total
+                val text = if (pct < 3f) s.emoji else "${s.emoji} ${pct.toInt()}%"
+                paint.alpha = (255 * a).toInt()
+                paint.textAlign = if (x > center.x) Paint.Align.LEFT else Paint.Align.RIGHT
+                drawContext.canvas.nativeCanvas.drawText(text, x, y + paint.textSize / 3f, paint)
+            }
+            start += full
         }
     }
 }
@@ -294,13 +317,7 @@ private fun Legend(items: List<Slice>) {
                     Text("${pcts[i]}%", style = MaterialTheme.typography.labelLarge, modifier = Modifier.size(width = 44.dp, height = 20.dp), textAlign = TextAlign.End)
                 }
                 Spacer(Modifier.height(6.dp))
-                LinearProgressIndicator(
-                    progress = { it.count.toFloat() / total },
-                    modifier = Modifier.fillMaxWidth().height(8.dp),
-                    color = it.color,
-                    trackColor = it.color.copy(alpha = 0.24f),
-                    strokeCap = StrokeCap.Round,
-                )
+                WavyProgress(progress = it.count.toFloat() / total, color = it.color)
             }
         }
     }

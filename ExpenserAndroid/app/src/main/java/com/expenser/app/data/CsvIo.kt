@@ -53,8 +53,8 @@ object CsvIo {
     fun build(
         headers: List<String>,
         txs: List<Tx>,
-        categoryName: (Long?) -> String,
-        walletName: (Long?) -> String,
+        categoryName: (String?) -> String,
+        walletName: (String?) -> String,
         typeLabel: (String) -> String,
     ): String {
         val sb = StringBuilder("﻿")

@@ -47,14 +47,15 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     var view by rememberSaveable { mutableStateOf(TxView.LIST) }
     var search by rememberSaveable { mutableStateOf("") }
     var typeFilter by rememberSaveable { mutableStateOf("all") }
-    var categoryFilter by rememberSaveable { mutableStateOf<Long?>(null) }
-    var walletFilter by rememberSaveable { mutableStateOf<Long?>(null) }
+    var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var walletFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var from by rememberSaveable { mutableStateOf<Long?>(periodFor(Range.MONTH, System.currentTimeMillis()).start) }
     var to by rememberSaveable { mutableStateOf<Long?>(periodFor(Range.MONTH, System.currentTimeMillis()).fullEnd) }
     var newestFirst by rememberSaveable { mutableStateOf(true) }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var limit by rememberSaveable { mutableIntStateOf(PAGE) }
     var deleteTarget by remember { mutableStateOf<Tx?>(null) }
+    val listState0 = rememberLazyListState()
 
     val monthDefault = remember { periodFor(Range.MONTH, System.currentTimeMillis()) }
     val activeFilters = listOf(typeFilter != "all", categoryFilter != null, walletFilter != null, from != monthDefault.start || to != monthDefault.fullEnd, !newestFirst).count { it }
@@ -66,7 +67,7 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                 (categoryFilter == null || tx.categoryId == categoryFilter) &&
                 (walletFilter == null || tx.walletId == walletFilter || tx.fromWalletId == walletFilter || tx.toWalletId == walletFilter) &&
                 (from == null || tx.date >= from!!) && (to == null || tx.date <= to!!) &&
-                (q.isEmpty() || tx.note.lowercase().contains(q) || (catById[tx.categoryId]?.name?.lowercase()?.contains(q) == true))
+                (q.isEmpty() || tx.note.lowercase().contains(q) || (catById[tx.categoryId ?: ""]?.name?.lowercase()?.contains(q) == true))
         }.let { if (newestFirst) it else it.reversed() }
     }
 
@@ -78,128 +79,90 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                val inc = LocalIncomeColors.current
-                StatTile(Icons.Rounded.ArrowUpward, stringResource(R.string.tx_month_income), Format.money(monthStats.first), inc.container, inc.onContainer, Modifier.weight(1f))
-                StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.tx_month_expense), Format.money(monthStats.second), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
-                    SegmentedButton(view == TxView.LIST, { view = TxView.LIST }, SegmentedButtonDefaults.itemShape(0, 2), icon = {}) { Icon(Icons.AutoMirrored.Rounded.ViewList, stringResource(R.string.tx_view_list)) }
-                    SegmentedButton(view == TxView.CALENDAR, { view = TxView.CALENDAR }, SegmentedButtonDefaults.itemShape(1, 2), icon = {}) { Icon(Icons.Rounded.CalendarMonth, stringResource(R.string.tx_view_calendar)) }
-                }
-                BadgedBox(badge = { if (activeFilters > 0) Badge { Text("$activeFilters") } }) {
-                    FilledTonalIconButton(onClick = { showFilters = true }) { Icon(Icons.Rounded.FilterList, stringResource(R.string.filters_title)) }
+        val inc = LocalIncomeColors.current
+        LazyColumn(Modifier.weight(1f), state = listState0, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item(key = "stats") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatTile(Icons.Rounded.ArrowUpward, stringResource(R.string.tx_month_income), Format.money(monthStats.first), inc.container, inc.onContainer, Modifier.weight(1f))
+                    StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.tx_month_expense), Format.money(monthStats.second), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f))
                 }
             }
-            SearchField(search, { search = it; limit = PAGE }, stringResource(R.string.filters_search))
-        }
-
-        if (view == TxView.CALENDAR) {
-            CalendarView(transactions, catById, walletById, onEdit)
-        } else if (loading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        } else if (filtered.isEmpty()) {
-            EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(if (transactions.isEmpty()) R.string.dashboard_no_tx else R.string.tx_no_match))
-        } else {
-            val visible = filtered.take(limit)
-            val groups = remember(visible) { visible.groupBy { dayKey(it.date) }.toList() }
-            val listState = rememberLazyListState()
-            // Infinite scroll: reveal the next page when the end is near.
-            val nearEnd by remember { derivedStateOf { val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0; last >= listState.layoutInfo.totalItemsCount - 8 } }
-            LaunchedEffect(nearEnd, filtered.size) { if (nearEnd && limit < filtered.size) limit += PAGE }
-
-            Text(stringResource(R.string.tx_result_count, filtered.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp))
-            LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 96.dp, start = 16.dp, end = 16.dp, top = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            item(key = "view") {
+                PillSegmented(
+                    listOf(Seg(TxView.LIST.name, stringResource(R.string.tx_view_list), Icons.AutoMirrored.Rounded.ViewList), Seg(TxView.CALENDAR.name, stringResource(R.string.tx_view_calendar), Icons.Rounded.CalendarMonth)),
+                    view.name, { view = TxView.valueOf(it) },
+                )
+            }
+            item(key = "filters") {
+                AccordionCard(stringResource(R.string.filters_title), Icons.Rounded.FilterList, showFilters, { showFilters = !showFilters }, badge = activeFilters) {
+                    FiltersPanel(
+                        categories = categories, wallets = wallets, search = search, onSearch = { search = it; limit = PAGE },
+                        type = typeFilter, onType = { typeFilter = it; categoryFilter = null; limit = PAGE },
+                        categoryId = categoryFilter, onCategory = { categoryFilter = it; limit = PAGE },
+                        walletId = walletFilter, onWallet = { walletFilter = it; limit = PAGE },
+                        from = from, to = to, onRange = { f, t -> from = f; to = t; limit = PAGE },
+                        newestFirst = newestFirst, onSort = { newestFirst = it },
+                        onReset = { search = ""; typeFilter = "all"; categoryFilter = null; walletFilter = null; from = monthDefault.start; to = monthDefault.fullEnd; newestFirst = true; limit = PAGE },
+                    )
+                }
+            }
+            if (view == TxView.CALENDAR) {
+                item(key = "calendar") { CalendarView(transactions, catById, walletById, onEdit) }
+            } else if (loading) {
+                item { Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+            } else if (filtered.isEmpty()) {
+                item { EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(if (transactions.isEmpty()) R.string.dashboard_no_tx else R.string.tx_no_match)) }
+            } else {
+                val visible = filtered.take(limit)
+                val groups = visible.groupBy { dayKey(it.date) }.toList()
+                item(key = "count") { Text(stringResource(R.string.tx_result_count, filtered.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp)) }
                 groups.forEach { (day, dayItems) ->
                     item(key = "h$day") {
-                        val inc = dayItems.filter { it.type == TxType.INCOME }.sumOf { it.amount }
-                        val exp = dayItems.filter { it.type == TxType.EXPENSE }.sumOf { it.amount }
-                        Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 4.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val di = dayItems.filter { it.type == TxType.INCOME }.sumOf { it.amount }
+                        val de = dayItems.filter { it.type == TxType.EXPENSE }.sumOf { it.amount }
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(Format.dayHeader(dayItems.first().date), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (inc > 0) Text("+" + Format.compactMoney(inc), style = MaterialTheme.typography.labelMedium, color = LocalIncomeColors.current.income, modifier = Modifier.padding(end = 8.dp))
-                            if (exp > 0) Text("-" + Format.compactMoney(exp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                            if (di > 0) Text("+" + Format.compactMoney(di), style = MaterialTheme.typography.labelMedium, color = inc.income, modifier = Modifier.padding(end = 8.dp))
+                            if (de > 0) Text("-" + Format.compactMoney(de), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
                         }
                     }
                     items(dayItems, key = { it.id }) { tx ->
-                        SwipeableTx(tx, catById[tx.categoryId], walletById, onEdit = { onEdit(tx) }, onDelete = { deleteTarget = tx })
+                        SwipeRow(onEdit = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null, onDelete = { deleteTarget = tx }, modifier = Modifier.animateItem()) {
+                            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp)) {
+                                TxRow(tx, catById[tx.categoryId ?: ""], walletById, showDate = false, onClick = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null)
+                            }
+                        }
                     }
                 }
             }
         }
     }
+    // Infinite scroll: reveal the next page when the end is near.
+    val nearEnd by remember { derivedStateOf { val last = listState0.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0; last >= listState0.layoutInfo.totalItemsCount - 8 } }
+    LaunchedEffect(nearEnd, filtered.size) { if (nearEnd && limit < filtered.size) limit += PAGE }
 
     deleteTarget?.let { tx ->
         ConfirmDialog(stringResource(R.string.tx_confirm_delete), onConfirm = { vm.deleteTransaction(tx) }, onDismiss = { deleteTarget = null })
     }
 
-    if (showFilters) {
-        ModalBottomSheet(onDismissRequest = { showFilters = false }) {
-            FiltersSheet(
-                categories = categories, wallets = wallets,
-                type = typeFilter, onType = { typeFilter = it; categoryFilter = null; limit = PAGE },
-                categoryId = categoryFilter, onCategory = { categoryFilter = it; limit = PAGE },
-                walletId = walletFilter, onWallet = { walletFilter = it; limit = PAGE },
-                from = from, to = to, onRange = { f, t -> from = f; to = t; limit = PAGE },
-                newestFirst = newestFirst, onSort = { newestFirst = it },
-                onReset = {
-                    typeFilter = "all"; categoryFilter = null; walletFilter = null; from = monthDefault.start; to = monthDefault.fullEnd; newestFirst = true; limit = PAGE
-                },
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SwipeableTx(tx: Tx, category: Category?, wallets: Map<Long, Wallet>, onEdit: () -> Unit, onDelete: () -> Unit) {
-    val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
-        when (v) {
-            SwipeToDismissBoxValue.StartToEnd -> { if (tx.type != TxType.TRANSFER) onEdit(); false } // snap back
-            SwipeToDismissBoxValue.EndToStart -> { onDelete(); false }
-            else -> false
-        }
-    })
-    SwipeToDismissBox(
-        state = state,
-        enableDismissFromStartToEnd = tx.type != TxType.TRANSFER,
-        backgroundContent = {
-            val dir = state.dismissDirection
-            val (bg, icon, align) = when (dir) {
-                SwipeToDismissBoxValue.StartToEnd -> Triple(MaterialTheme.colorScheme.primaryContainer, Icons.Rounded.Edit, Alignment.CenterStart)
-                SwipeToDismissBoxValue.EndToStart -> Triple(MaterialTheme.colorScheme.errorContainer, Icons.Rounded.Delete, Alignment.CenterEnd)
-                else -> Triple(Color.Transparent, Icons.Rounded.Edit, Alignment.CenterStart)
-            }
-            Box(Modifier.fillMaxSize().background(bg, MaterialTheme.shapes.medium).padding(horizontal = 20.dp), contentAlignment = align) {
-                if (dir != SwipeToDismissBoxValue.Settled) Icon(icon, null)
-            }
-        },
-    ) {
-        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
-            TxRow(tx, category, wallets, showDate = false, onClick = if (tx.type != TxType.TRANSFER) onEdit else null)
-        }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun FiltersSheet(
+private fun FiltersPanel(
+    search: String, onSearch: (String) -> Unit,
     categories: List<Category>, wallets: List<Wallet>,
     type: String, onType: (String) -> Unit,
-    categoryId: Long?, onCategory: (Long?) -> Unit,
-    walletId: Long?, onWallet: (Long?) -> Unit,
+    categoryId: String?, onCategory: (String?) -> Unit,
+    walletId: String?, onWallet: (String?) -> Unit,
     from: Long?, to: Long?, onRange: (Long?, Long?) -> Unit,
     newestFirst: Boolean, onSort: (Boolean) -> Unit,
     onReset: () -> Unit,
 ) {
     var pickFrom by remember { mutableStateOf(false) }
     var pickTo by remember { mutableStateOf(false) }
-    Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.filters_title), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            TextButton(onClick = onReset) { Text(stringResource(R.string.filters_reset)) }
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SearchField(search, onSearch, stringResource(R.string.filters_search))
         Text(stringResource(R.string.filters_type), style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("all" to R.string.filters_all_types, TxType.INCOME to R.string.tx_income, TxType.EXPENSE to R.string.tx_expense, TxType.TRANSFER to R.string.tx_transfer).forEach { (id, label) ->
@@ -222,20 +185,20 @@ private fun FiltersSheet(
             OutlinedButton({ pickFrom = true }, Modifier.weight(1f)) { Text(from?.let { stringResource(R.string.filters_from) + ": " + Format.dateShort(it) } ?: stringResource(R.string.filters_from)) }
             OutlinedButton({ pickTo = true }, Modifier.weight(1f)) { Text(to?.let { stringResource(R.string.filters_to) + ": " + Format.dateShort(it) } ?: stringResource(R.string.filters_to)) }
         }
-        TextButton(onClick = { onRange(null, null) }) { Text(stringResource(R.string.tx_show_all)) }
+        Row { TextButton(onClick = { onRange(null, null) }) { Text(stringResource(R.string.tx_show_all)) }; Spacer(Modifier.weight(1f)); TextButton(onClick = onReset) { Text(stringResource(R.string.filters_reset)) } }
         Text(stringResource(R.string.tx_sort), style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(newestFirst, { onSort(true) }, { Text(stringResource(R.string.tx_sort_newest)) })
             FilterChip(!newestFirst, { onSort(false) }, { Text(stringResource(R.string.tx_sort_oldest)) })
         }
     }
-    if (pickFrom) SimpleDatePicker(from ?: System.currentTimeMillis(), { onRange(startOfDay(it), to) }) { pickFrom = false }
-    if (pickTo) SimpleDatePicker(to ?: System.currentTimeMillis(), { onRange(from, endOfDay(it)) }) { pickTo = false }
+    if (pickFrom) SimpleDatePicker(from ?: System.currentTimeMillis(), { onRange(startOfDay(it), to) }, { pickFrom = false })
+    if (pickTo) SimpleDatePicker(to ?: System.currentTimeMillis(), { onRange(from, endOfDay(it)) }, { pickTo = false })
 }
 
 /** Month grid with net income / expense per day; tapping a day lists its transactions below. */
 @Composable
-private fun CalendarView(transactions: List<Tx>, catById: Map<Long, Category>, walletById: Map<Long, Wallet>, onEdit: (Tx) -> Unit) {
+private fun CalendarView(transactions: List<Tx>, catById: Map<String, Category>, walletById: Map<String, Wallet>, onEdit: (Tx) -> Unit) {
     var anchor by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var selected by rememberSaveable { mutableStateOf<Long?>(null) }
     val period = remember(anchor) { periodFor(Range.MONTH, anchor) }
@@ -244,7 +207,7 @@ private fun CalendarView(transactions: List<Tx>, catById: Map<Long, Category>, w
     val weekdays = stringArrayResource(R.array.weekdays_short)
     val income = LocalIncomeColors.current.income
 
-    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         PeriodNavigator(Format.monthYear(anchor), period.isCurrent, { anchor = shiftAnchor(Range.MONTH, anchor, -1); selected = null }, { anchor = shiftAnchor(Range.MONTH, anchor, 1); selected = null }, { anchor = System.currentTimeMillis(); selected = null })
         Row { weekdays.forEach { Text(it, Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         val first = Calendar.getInstance().apply { timeInMillis = period.start }
@@ -278,7 +241,7 @@ private fun CalendarView(transactions: List<Tx>, catById: Map<Long, Category>, w
         if (sel != null) {
             val list = byDay[sel].orEmpty()
             if (list.isEmpty()) Text(stringResource(R.string.calendar_no_tx), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else Column { list.forEach { TxRow(it, catById[it.categoryId], walletById, showDate = false, onClick = { onEdit(it) }) } }
+            else Column { list.forEach { TxRow(it, catById[it.categoryId ?: ""], walletById, showDate = false, onClick = { onEdit(it) }) } }
         }
     }
 }

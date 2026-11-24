@@ -5,7 +5,7 @@ Bản **Android native** (Kotlin + Jetpack Compose + Material Design 3) của we
 - Kotlin 2.0, Jetpack Compose (BOM 2024.12), Material 3
 - Room + DataStore (chế độ khách, lưu trên máy)
 - Firebase Auth (Google, qua Credential Manager) + Firestore — **cùng cấu trúc dữ liệu với web**, nên cùng một tài khoản Google sẽ thấy cùng dữ liệu ở web và Android
-- WorkManager cho nhắc nhở nền (chạy cả khi app đã đóng — web không làm được)
+- Nhắc nhở bằng AlarmManager (chạy cả khi app đã đóng, đặt lại sau khi khởi động máy) — web không làm được
 - Song ngữ Tiếng Việt / English (đổi ngôn ngữ từng app, theo thiết bị hoặc chọn thủ công)
 
 ## Chạy thử
@@ -35,13 +35,26 @@ App chạy được ngay ở **chế độ khách** (dữ liệu lưu trên máy
 | Quản lý hoạt động / tâm trạng | `ManageScreens` |
 | 19 màu chủ đề Material 3, sáng/tối/hệ thống, cỡ chữ, ngôn ngữ, trang mặc định | `SettingsScreen`, bảng màu sinh từ `palettes.js` |
 | Xuất/nhập CSV, JSON, "toàn bộ" (.zip 3 CSV) | `transfer/DataTransfer.kt` (file tương thích hai chiều với web) |
-| Nhắc nhở (chỉ khi mở app) | Nhắc hằng ngày / báo cáo tuần / tháng bằng WorkManager |
+| Nhắc nhở (chỉ khi mở app) | Nhắc hằng ngày / báo cáo tuần / tháng bằng AlarmManager (xem mục Nhắc nhở) |
 
 ## Chưa chuyển (có chủ đích)
 
 - Landing page marketing và nút "Cài đặt ứng dụng" (PWA) — không còn ý nghĩa trong app native.
 - Xuất/nhập **.xlsx** (CSV/JSON/ZIP đã đủ để trao đổi dữ liệu với web). Có thể thêm bằng thư viện `fastexcel`.
-- Chọn font chữ (Google Sans Flex, Inter…): app dùng font hệ thống; cỡ chữ vẫn chỉnh được.
+
+## Nhắc nhở hoạt động thế nào
+
+- Dùng `AlarmManager` (không dùng WorkManager vì WorkManager có thể bị trễ hàng giờ khi máy ở chế độ Doze).
+- Android 13+: app xin quyền thông báo khi bạn bật một nhắc nhở.
+- Android 12+: để nhắc **đúng giờ**, vào Cài đặt → Nhắc nhở → "Cho phép báo thức chính xác". Nếu không cấp, nhắc nhở vẫn chạy nhưng có thể trễ vài phút.
+- Samsung/Xiaomi/Oppo… hay chặn app nền: đặt Moody ở "Không hạn chế/Không tối ưu pin" (có nút mở thẳng trong Cài đặt).
+- Nhắc hằng ngày tự bỏ qua nếu bạn đã check-in hôm nay. Nút "Thử sau 10 giây" kiểm tra cả đường báo thức → thông báo (khóa màn hình rồi chờ).
+- Báo thức được đặt lại tự động sau khi khởi động máy, cập nhật app, đổi giờ/múi giờ.
+
+## Muốn thấy độ mượt thật sự
+
+Bản **debug** của Jetpack Compose chậm hơn rất nhiều. Hãy thử bản release (đã ký tạm bằng khóa debug):
+`gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
 
 ## Cấu trúc
 

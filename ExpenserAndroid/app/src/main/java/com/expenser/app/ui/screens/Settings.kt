@@ -16,8 +16,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,32 +44,28 @@ import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 private val ACCENTS = listOf(
-    "" to "#4CAF50", "#F44336" to "#F44336", "#E91E63" to "#E91E63", "#9C27B0" to "#9C27B0", "#673AB7" to "#673AB7",
+    "" to "#0061A4", "#F44336" to "#F44336", "#E91E63" to "#E91E63", "#9C27B0" to "#9C27B0", "#673AB7" to "#673AB7",
     "#3F51B5" to "#3F51B5", "#2196F3" to "#2196F3", "#03A9F4" to "#03A9F4", "#00BCD4" to "#00BCD4", "#009688" to "#009688",
     "#8BC34A" to "#8BC34A", "#CDDC39" to "#CDDC39", "#FFEB3B" to "#FFEB3B", "#FFC107" to "#FFC107", "#FF9800" to "#FF9800",
     "#FF5722" to "#FF5722", "#795548" to "#795548", "#607D8B" to "#607D8B",
 )
 
 @Composable
-private fun Group(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(10.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium)
-            }
-            content()
-        }
-    }
+private fun Group(title: String, icon: ImageVector, id: String, open: Set<String>, onToggle: (String) -> Unit, subtitle: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    AccordionCard(title, icon, id in open, { onToggle(id) }, subtitle = subtitle) { content() }
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: MainViewModel, onNavigate: (String) -> Unit) {
+fun SettingsScreen(vm: MainViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var confirmReset by remember { mutableStateOf(false) }
+    var confirmSignOut by remember { mutableStateOf(false) }
+    val user by vm.user.collectAsStateWithLifecycle()
+    var open by rememberSaveable { mutableStateOf(setOf("account")) }
+    val toggle: (String) -> Unit = { id -> open = if (id in open) open - id else open + id }
     var showTime by remember { mutableStateOf(false) }
 
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().takeIf { it.isNotBlank() }?.substringBefore('-')
@@ -100,22 +98,25 @@ fun SettingsScreen(vm: MainViewModel, onNavigate: (String) -> Unit) {
         if (granted) vm.setReminder(true, settings.reminderTime) else vm.toast(R.string.reminder_denied)
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Group(stringResource(R.string.settings_manage), Icons.Rounded.Tune) {
-            @Composable fun Link(label: String, icon: ImageVector, route: String) {
-                ListItem(
-                    modifier = Modifier.clip(MaterialTheme.shapes.medium).clickable { onNavigate(route) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    leadingContent = { Icon(icon, null) }, headlineContent = { Text(label) }, trailingContent = { Icon(Icons.Rounded.ChevronRight, null) },
-                )
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Group(stringResource(R.string.settings_account), Icons.Rounded.Person, "account", open, toggle, stringResource(R.string.settings_account_desc)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                    if (user?.photoUrl != null) coil.compose.AsyncImage(user?.photoUrl, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                    else Text((user?.name?.firstOrNull() ?: user?.email?.firstOrNull() ?: '?').uppercase(), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(user?.name?.ifBlank { null } ?: stringResource(R.string.settings_no_name), style = MaterialTheme.typography.titleMedium)
+                    Text(user?.email.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Link(stringResource(R.string.nav_categories), Icons.Rounded.Category, ROUTE_CATEGORIES)
-            Link(stringResource(R.string.nav_cafe), Icons.Rounded.LocalCafe, ROUTE_CAFE)
-            Link(stringResource(R.string.nav_cafe_shops), Icons.Rounded.Storefront, ROUTE_CAFE_SHOPS)
-            Link(stringResource(R.string.nav_cafe_drinks), Icons.Rounded.Coffee, ROUTE_CAFE_DRINKS)
+            OutlinedButton(onClick = { confirmSignOut = true }, colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                Icon(Icons.AutoMirrored.Rounded.Logout, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.common_logout))
+            }
         }
 
-        Group(stringResource(R.string.settings_language), Icons.Rounded.Language) {
+        Group(stringResource(R.string.settings_language), Icons.Rounded.Language, "language", open, toggle) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("vi" to "Tiếng Việt", "en" to "English").forEach { (code, label) ->
                     FilterChip(currentLang == code, { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(code)) }, { Text(label) })
@@ -123,13 +124,9 @@ fun SettingsScreen(vm: MainViewModel, onNavigate: (String) -> Unit) {
             }
         }
 
-        Group(stringResource(R.string.settings_appearance), Icons.Rounded.Palette) {
+        Group(stringResource(R.string.settings_appearance), Icons.Rounded.Palette, "appearance", open, toggle) {
             Text(stringResource(R.string.settings_mode), style = MaterialTheme.typography.titleSmall)
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf("light" to R.string.settings_mode_light, "dark" to R.string.settings_mode_dark, "system" to R.string.settings_mode_system).forEachIndexed { i, (id, res) ->
-                    SegmentedButton(settings.themeMode == id, { vm.setThemeMode(id) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(res)) }
-                }
-            }
+            PillSegmented(listOf(Seg("light", stringResource(R.string.settings_mode_light), Icons.Rounded.LightMode), Seg("dark", stringResource(R.string.settings_mode_dark), Icons.Rounded.DarkMode), Seg("system", stringResource(R.string.settings_mode_system), Icons.Rounded.BrightnessAuto)), settings.themeMode, { vm.setThemeMode(it) })
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -155,15 +152,11 @@ fun SettingsScreen(vm: MainViewModel, onNavigate: (String) -> Unit) {
                 }
             }
             Text(stringResource(R.string.settings_font_size), style = MaterialTheme.typography.titleSmall)
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf("sm" to R.string.settings_font_sm, "md" to R.string.settings_font_md, "lg" to R.string.settings_font_lg).forEachIndexed { i, (id, res) ->
-                    SegmentedButton(settings.fontSize == id, { vm.setFontSize(id) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(res)) }
-                }
-            }
+            PillSegmented(listOf(Seg("sm", stringResource(R.string.settings_font_sm)), Seg("md", stringResource(R.string.settings_font_md)), Seg("lg", stringResource(R.string.settings_font_lg))), settings.fontSize, { vm.setFontSize(it) })
             TextButton(onClick = { confirmReset = true }) { Icon(Icons.Rounded.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.settings_reset_btn)) }
         }
 
-        Group(stringResource(R.string.reminder_title_setting), Icons.Rounded.Notifications) {
+        Group(stringResource(R.string.reminder_title_setting), Icons.Rounded.Notifications, "reminder", open, toggle) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.reminder_enable), style = MaterialTheme.typography.bodyLarge)
@@ -182,7 +175,7 @@ fun SettingsScreen(vm: MainViewModel, onNavigate: (String) -> Unit) {
             }
         }
 
-        Group(stringResource(R.string.settings_data), Icons.Rounded.Storage) {
+        Group(stringResource(R.string.settings_data), Icons.Rounded.Storage, "data", open, toggle) {
             Text(stringResource(R.string.settings_import_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(onClick = {
@@ -195,13 +188,14 @@ fun SettingsScreen(vm: MainViewModel, onNavigate: (String) -> Unit) {
             }
         }
 
-        Group(stringResource(R.string.settings_about), Icons.Rounded.Info) {
+        Group(stringResource(R.string.settings_about), Icons.Rounded.Info, "about", open, toggle) {
             Text("Expenser · ${stringResource(R.string.settings_version)} ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
             Text(stringResource(R.string.settings_about_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(24.dp))
     }
 
+    if (confirmSignOut) ConfirmDialog(stringResource(R.string.settings_logout_confirm), stringResource(R.string.common_logout), onConfirm = { vm.signOut(context) }, onDismiss = { confirmSignOut = false })
     if (confirmReset) ConfirmDialog(stringResource(R.string.settings_reset_confirm), stringResource(R.string.settings_reset_btn), onConfirm = { vm.resetAppearance() }, onDismiss = { confirmReset = false })
     if (showTime) {
         val (h, m) = settings.reminderTime.split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 6) to (it.getOrNull(1)?.toIntOrNull() ?: 0) }

@@ -1,35 +1,29 @@
 # Expenser — Android (Kotlin + Jetpack Compose, Material 3)
 
-Bản chuyển đổi native của web app React "Expenser" (quản lý chi tiêu cá nhân).
+Bản native của web app React "Expenser". Dùng **cùng Firebase (Auth + Firestore)** với bản web nên dữ liệu đồng bộ giữa web và app.
+
+## Thiết lập Firebase (bắt buộc, làm 1 lần)
+1. Firebase Console → dự án **của bản web** → *Project settings* → *Add app* → Android, package name: `com.expenser.app`.
+2. Lấy SHA-1 của khóa debug: `./gradlew signingReport` (hoặc Android Studio → Gradle → app → Tasks → android → signingReport). Dán SHA-1 vào mục *SHA certificate fingerprints* của app vừa thêm. (Khi phát hành thêm SHA-1 của khóa release / Play App Signing.)
+3. Authentication → Sign-in method → bật **Google**.
+4. Tải **google-services.json** (sau khi đã thêm SHA-1) và đặt vào `app/google-services.json`.
+5. Sync Gradle → Run. Không có file này app sẽ hiện màn "Chưa cấu hình Firebase".
 
 ## Chạy thử
-1. Mở thư mục này bằng **Android Studio (Ladybug 2024.2+)**, chờ Gradle sync (Studio sẽ tự tạo Gradle wrapper 8.9).
-2. Chọn thiết bị/emulator (API 26+) → Run.
+Android Studio (Ladybug 2024.2+) → mở thư mục này → Gradle sync → Run (API 26+).
 
-Stack: Kotlin 2.0, Compose BOM 2024.10, Material 3, Room, DataStore, WorkManager, Navigation Compose, Coil.
+## Giao diện
+- Giống bản web mobile: thanh trên (menu / tìm trang / đổi chế độ sáng-tối), drawer đủ mục, thanh dưới 4 mục (Tổng quan, Giao dịch, Thống kê, Cài đặt), nút FAB theo từng màn, form toàn màn hình, vuốt sửa/xóa, bộ lọc thu gọn, cài đặt dạng accordion.
+- Màu chủ đạo: **Material 3 baseline blue** (#0061A4); có thể đổi màu nhấn hoặc dùng Material You (Android 12+).
+- Icon adaptive Material 3 (108dp, vùng an toàn 66dp, có lớp monochrome cho themed icon) + splash screen.
 
-## Ánh xạ từ bản web
-| Web (React) | Android |
-|---|---|
-| Tổng quan (Dashboard) | `ui/screens/Dashboard.kt` |
-| Giao dịch (danh sách theo ngày, lịch, lọc, vuốt sửa/xóa) | `Transactions.kt`, `TxItems.kt` |
-| Form giao dịch + gợi ý số tiền (gõ `2` → 2.000…2.000.000) | `TransactionForm.kt`, `Common.kt` (`MoneyField`) |
-| Danh mục (emoji, màu, sắp xếp, chặn xóa khi đang dùng) | `Categories.kt` |
-| Ví + chuyển tiền | `Wallets.kt` |
-| Thống kê (Hôm nay/Tuần/Tháng/Năm/Tất cả, biểu đồ tròn, xu hướng) | `Statistics.kt` |
-| Cafe: recap, thống kê, quán, đồ uống | `Cafe.kt` |
-| Cài đặt: ngôn ngữ vi/en, sáng/tối, màu nhấn, Material You, cỡ chữ, nhắc nhở hàng ngày, nhập/xuất CSV | `Settings.kt`, `reminder/` |
-| `DataContext.jsx` (Firestore + batch cập nhật số dư) | `data/Repository.kt` (Room, transaction nguyên tử) |
-| `defaults.js`, `format.js`, `cafe.js` | `util/` |
-| Palette M3 sinh từ seed #4CAF50 (`colors.css`) | `ui/theme/Theme.kt` (dùng đúng bảng màu gốc) |
+## Dữ liệu (tương thích web)
+`users/{uid}/transactions | categories | wallets | cafeShops | cafeDrinks | cafeLogs`. Ghi dữ liệu theo kiểu offline-first (không chờ server), số dư ví cập nhật bằng `FieldValue.increment`.
 
 ## Khác biệt so với bản web
-- **Dữ liệu lưu trên máy (Room)**, không còn Firebase Auth/Firestore → không có đăng nhập Google, không đồng bộ giữa thiết bị. `Repository` là điểm duy nhất truy cập dữ liệu nên có thể thay bằng Firestore sau này.
-- Không có trang Landing, xuất PDF/Excel/PNG, upload ảnh imgbb (ảnh cafe nhập bằng link URL), gợi ý "nhập nhanh từ lần trước".
-- Nhập/xuất **CSV** cùng định dạng cột với web (Ngày, Giờ, Loại, Danh mục, Ví, Số tiền, Ghi chú); Excel/JSON chưa hỗ trợ.
-- Màu nhấn tuỳ chọn dùng thuật toán tông màu HSL xấp xỉ (không phải material-color-utilities); màu mặc định là bảng màu gốc chính xác.
-- Nhắc nhở dùng WorkManager (không cần server push).
-- Xóa giao dịch chuyển khoản hoàn lại số dư cả hai ví (bản web chưa xử lý).
+- Không có Landing, xuất PDF/Excel/PNG, upload ảnh (ảnh cafe nhập bằng link URL).
+- Nhập/xuất CSV cùng cột với web; báo cáo thống kê xuất CSV theo kỳ.
+- Nhắc nhở hàng ngày dùng WorkManager.
 
 ## Lưu ý
-Code được viết mà **chưa biên dịch** (môi trường tạo không có Android SDK). Nếu Gradle báo lỗi nhỏ về import/API, đó là chỗ cần chỉnh khi build lần đầu.
+Code chưa được biên dịch trong môi trường tạo (không có Android SDK). Nếu Gradle báo lỗi nhỏ, gửi log để chỉnh tiếp.

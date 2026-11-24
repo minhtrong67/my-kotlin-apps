@@ -29,24 +29,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
-private fun SummaryCard(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, container: Color, onContainer: Color, modifier: Modifier = Modifier, badge: (@Composable () -> Unit)? = null, valueColor: Color = onContainer) {
-    Surface(modifier, shape = MaterialTheme.shapes.medium, color = container, contentColor = onContainer) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f), modifier = Modifier.size(36.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(20.dp)) }
-                }
-                Spacer(Modifier.weight(1f))
-                badge?.invoke()
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, color = onContainer.copy(alpha = 0.8f))
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor, maxLines = 2)
-        }
-    }
-}
-
-@Composable
 private fun ChangeBadge(current: Long, previous: Long) {
     if (previous == 0L) return
     val pct = (((current - previous).toDouble() / previous) * 100).roundToInt()
@@ -76,7 +58,7 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
         val cur = monthKey(now)
         val last = cur - 1
         var mi = 0L; var me = 0L; var li = 0L; var le = 0L
-        val byCat = mutableMapOf<Long, Long>()
+        val byCat = mutableMapOf<String, Long>()
         transactions.forEach { tx ->
             if (tx.type == TxType.TRANSFER) return@forEach
             val mk = monthKey(tx.date)
@@ -92,21 +74,21 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
     val remaining = monthIncome - monthExpense
     val totalBalance = wallets.sumOf { it.balance }
 
-    if (loading) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }; return }
+    if (loading) { LoadingBox(); return }
 
-    LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SummaryCard(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.dashboard_total_balance), Format.money(totalBalance),
+                    StatTile(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.dashboard_total_balance), Format.money(totalBalance),
                         MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, Modifier.weight(1f))
-                    SummaryCard(Icons.Rounded.Savings, stringResource(R.string.dashboard_remaining), Format.money(remaining),
+                    StatTile(Icons.Rounded.Savings, stringResource(R.string.dashboard_remaining), Format.money(remaining),
                         MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, Modifier.weight(1f),
                         valueColor = if (remaining < 0) errorColor else MaterialTheme.colorScheme.onTertiaryContainer)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SummaryCard(Icons.Rounded.ArrowUpward, stringResource(R.string.dashboard_month_income), Format.money(monthIncome), inc.container, inc.onContainer, Modifier.weight(1f), badge = { ChangeBadge(monthIncome, sums[2]) })
-                    SummaryCard(Icons.Rounded.ArrowDownward, stringResource(R.string.dashboard_month_expense), Format.money(monthExpense), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f), badge = { ChangeBadge(monthExpense, sums[3]) })
+                    StatTile(Icons.Rounded.ArrowUpward, stringResource(R.string.dashboard_month_income), Format.money(monthIncome), inc.container, inc.onContainer, Modifier.weight(1f), badge = { ChangeBadge(monthIncome, sums[2]) })
+                    StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.dashboard_month_expense), Format.money(monthExpense), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f), badge = { ChangeBadge(monthExpense, sums[3]) })
                 }
             }
         }
@@ -155,7 +137,7 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
                     if (transactions.isEmpty()) {
                         EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(R.string.dashboard_no_tx), action = stringResource(R.string.tx_add_title) to onAdd)
                     } else {
-                        transactions.take(6).forEach { tx -> TxRow(tx, catById[tx.categoryId], walletById, onClick = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null) }
+                        transactions.take(6).forEach { tx -> TxRow(tx, catById[tx.categoryId ?: ""], walletById, onClick = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null) }
                         Spacer(Modifier.height(6.dp))
                     }
                 }

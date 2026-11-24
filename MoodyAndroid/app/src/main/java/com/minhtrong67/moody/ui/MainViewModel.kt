@@ -15,6 +15,10 @@ import com.minhtrong67.moody.data.MoodOverride
 import com.minhtrong67.moody.data.local.Settings
 import com.minhtrong67.moody.notify.Notifications
 import com.minhtrong67.moody.notify.ReminderKind
+import com.minhtrong67.moody.notify.ReminderScheduler
+import com.minhtrong67.moody.util.todayISO
+import kotlinx.coroutines.flow.filterNotNull
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +43,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val activitiesState: StateFlow<ActivitiesState?> = repo.activitiesState().stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val moodOverrides: StateFlow<Map<String, MoodOverride>?> = repo.moodOverrides().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    init {
+        // Remember whether today already has a check-in so the daily reminder can skip people who did it.
+        viewModelScope.launch {
+            entries.filterNotNull().collect { list ->
+                val today = todayISO()
+                store.setCheckedInDate(if (list.any { it.date == today }) today else "")
+            }
+        }
+    }
+
     private val _signInFailed = MutableStateFlow(false)
     val signInFailed: StateFlow<Boolean> = _signInFailed.asStateFlow()
     private val _signingIn = MutableStateFlow(false)
@@ -49,12 +63,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setThemeColor(v: String) = viewModelScope.launch { store.setThemeColor(v) }
     fun setFontScale(v: Float) = viewModelScope.launch { store.setFontScale(v) }
     fun setLanguage(v: String) = viewModelScope.launch { store.setLanguage(v) }
+    fun setFontFamily(v: String) = viewModelScope.launch { store.setFontFamily(v) }
     fun setStartPage(v: String) = viewModelScope.launch { store.setStartPage(v) }
     fun setDailyEnabled(v: Boolean) = viewModelScope.launch { store.setDailyEnabled(v) }
     fun setDailyTime(v: String) = viewModelScope.launch { store.setDailyTime(v) }
     fun setWeeklyEnabled(v: Boolean) = viewModelScope.launch { store.setWeeklyEnabled(v) }
     fun setMonthlyEnabled(v: Boolean) = viewModelScope.launch { store.setMonthlyEnabled(v) }
-    fun sendTestNotification() { Notifications.show(getApplication(), ReminderKind.Test) }
+    fun sendTestNotification(language: String): Boolean = Notifications.show(getApplication(), ReminderKind.Test, language)
+    fun scheduleTestAlarm() = ReminderScheduler.scheduleTest(getApplication(), 10)
+    /** Called when returning from system settings (exact-alarm / notification permission may have changed). */
+    fun rescheduleReminders() = viewModelScope.launch { ReminderScheduler.reschedule(getApplication(), store) }
 
     // ---------------- Auth ----------------
     fun continueAsGuest() = viewModelScope.launch { store.setGuest(true) }
@@ -86,7 +104,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun currentActivities(): ActivitiesState =
         activitiesState.value ?: ActivitiesState()
 
-    fun addActivity(emoji: String, label: String) = viewModelScope.launch { repo.saveActivities(ActivitiesLogic.add(currentActivities(), emoji, label)) }
+    /** Returns the new activity's id immediately (so the check-in form can select it right away). */
+    fun addActivity(emoji: String, label: String): String {
+        val id = UUID.randomUUID().toString()
+        viewModelScope.launch { repo.saveActivities(ActivitiesLogic.add(currentActivities(), emoji, label, id)) }
+        return id
+    }
     fun updateActivity(id: String, emoji: String, label: String) = viewModelScope.launch { repo.saveActivities(ActivitiesLogic.update(currentActivities(), id, emoji, label)) }
     fun removeActivity(id: String) = viewModelScope.launch { repo.saveActivities(ActivitiesLogic.remove(currentActivities(), id)) }
     fun reorderActivities(ids: List<String>) = viewModelScope.launch { repo.saveActivities(ActivitiesLogic.reorder(currentActivities(), ids)) }

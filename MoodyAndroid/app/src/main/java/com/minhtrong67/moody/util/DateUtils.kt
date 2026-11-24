@@ -59,3 +59,19 @@ fun monthTitle(date: LocalDate, locale: Locale): String =
 
 fun fullDate(date: LocalDate, locale: Locale): String =
     date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale))
+
+// ---------------- in-app language (no activity recreation) ----------------
+
+/** "auto" follows the device (Vietnamese or English only); otherwise "vi" / "en". */
+fun effectiveLanguage(setting: String, device: Locale = Locale.getDefault()): String = when (setting) {
+    "vi", "en" -> setting
+    else -> if (device.language == "vi") "vi" else "en"
+}
+
+/** Context whose resources use the in-app language — used for notifications and for Compose (see MainActivity). */
+fun Context.withLanguage(setting: String): Context {
+    val lang = effectiveLanguage(setting)
+    val cfg = android.content.res.Configuration(resources.configuration)
+    cfg.setLocale(Locale.forLanguageTag(lang))
+    return createConfigurationContext(cfg)
+}

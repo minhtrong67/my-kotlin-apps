@@ -41,7 +41,7 @@ class MoodyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(applicationContext)
-        // Keep the background reminders in sync with the settings (survives reboots via WorkManager).
+        // Keep the alarms in sync with the settings (BootReceiver restores them after reboot / update).
         appScope.launch {
             container.settingsStore.settings
                 .map { listOf(it.dailyEnabled, it.dailyTime, it.weeklyEnabled, it.monthlyEnabled) }

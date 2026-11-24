@@ -24,7 +24,8 @@ data class Entry(
     val activities: List<String> = emptyList(),
     val note: String = "",
 ) {
-    val instant: Instant get() = parseInstant(time) ?: Instant.EPOCH
+    /** Parsed once at construction (it is used by every sort / group-by). */
+    val instant: Instant = parseInstant(time) ?: Instant.EPOCH
     fun data() = EntryData(date, time, mood, score, activities, note)
 }
 

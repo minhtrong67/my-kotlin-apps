@@ -316,4 +316,22 @@
         <item>Đừng để khoản chi nào “trốn” khỏi sổ của bạn nhé!</item>
         <item>Chạm để thêm giao dịch đầu tiên của hôm nay.</item>
     </string-array>
+    <string name="common_logout">Đăng xuất</string>
+    <string name="common_search">Tìm kiếm</string>
+    <string name="login_google">Đăng nhập với Google</string>
+    <string name="login_same_account">Dùng cùng tài khoản Google với bản web để đồng bộ dữ liệu.</string>
+    <string name="login_signing_in">Đang đăng nhập…</string>
+    <string name="login_subtitle">Quản lý thu chi cá nhân đơn giản, đồng bộ với bản web.</string>
+    <string name="nav_menu">Mở menu</string>
+    <string name="palette_hint">Đi tới trang…</string>
+    <string name="settings_account">Tài khoản</string>
+    <string name="settings_account_desc">Thông tin đăng nhập và đăng xuất</string>
+    <string name="settings_logout_confirm">Bạn có chắc muốn đăng xuất?</string>
+    <string name="settings_no_name">Chưa có tên</string>
+    <string name="setup_title">Chưa cấu hình Firebase</string>
+    <string name="setup_body">Thêm tệp google-services.json (từ cùng dự án Firebase với bản web) vào thư mục app/, bật đăng nhập Google trong Firebase Authentication, thêm SHA-1 của khóa ký rồi build lại. Xem README.md để biết chi tiết.</string>
+    <string name="stats_export">Xuất báo cáo (CSV)</string>
+    <string name="topbar_theme">Chế độ giao diện</string>
+    <string name="tx_date">Ngày giờ</string>
+    <string name="write_error">Không thể lưu thay đổi. Dữ liệu sẽ được thử lại khi có mạng.</string>
 </resources>

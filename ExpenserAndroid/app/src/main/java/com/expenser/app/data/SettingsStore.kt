@@ -13,7 +13,7 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 
 data class AppSettings(
     val themeMode: String = "system", // light | dark | system
-    val accent: String = "", // "" = default green, otherwise #RRGGBB
+    val accent: String = "", // "" = default Material 3 blue, otherwise #RRGGBB
     val dynamicColor: Boolean = false, // Material You wallpaper colours (Android 12+)
     val fontSize: String = "md", // sm | md | lg
     val reminderEnabled: Boolean = false,

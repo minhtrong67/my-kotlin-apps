@@ -32,29 +32,29 @@ val LocalIncomeColors = staticCompositionLocalOf {
 
 private fun c(hex: Long) = Color(0xFF000000 or hex)
 
-// Default scheme: the web app's Material 3 palette generated from seed #4CAF50.
+// Default scheme: Material 3 blue (tonal palette of seed #0061A4 — M3 "baseline blue").
 private val DefaultLight = lightColorScheme(
-    primary = c(0x006E1C), onPrimary = c(0xFFFFFF), primaryContainer = c(0x70FF77), onPrimaryContainer = c(0x005313),
-    secondary = c(0x426650), onSecondary = c(0xFFFFFF), secondaryContainer = c(0xC3ECD0), onSecondaryContainer = c(0x2A4E3A),
-    tertiary = c(0x256958), onTertiary = c(0xFFFFFF), tertiaryContainer = c(0xACF0DA), onTertiaryContainer = c(0x005141),
-    error = c(0xBA1A1A), onError = c(0xFFFFFF), errorContainer = c(0xFFDAD6), onErrorContainer = c(0x93000A),
-    background = c(0xF3FCEC), onBackground = c(0x161E14), surface = c(0xF3FCEC), onSurface = c(0x161E14),
-    surfaceVariant = c(0xDAE6D4), onSurfaceVariant = c(0x3F4A3C), outline = c(0x6F7A6B), outlineVariant = c(0xBECAB8),
-    inverseSurface = c(0x2A3328), inverseOnSurface = c(0xEAF4E4), inversePrimary = c(0x00E546), surfaceTint = c(0x006E1C),
-    surfaceDim = c(0xD4DDCE), surfaceBright = c(0xF3FCEC), surfaceContainerLowest = c(0xFFFFFF), surfaceContainerLow = c(0xEDF6E7),
-    surfaceContainer = c(0xE7F1E1), surfaceContainerHigh = c(0xE2EBDC), surfaceContainerHighest = c(0xDCE5D6),
+    primary = c(0x0061A4), onPrimary = c(0xFFFFFF), primaryContainer = c(0xD1E4FF), onPrimaryContainer = c(0x001D36),
+    secondary = c(0x535F70), onSecondary = c(0xFFFFFF), secondaryContainer = c(0xD7E3F8), onSecondaryContainer = c(0x101C2B),
+    tertiary = c(0x6B5778), onTertiary = c(0xFFFFFF), tertiaryContainer = c(0xF2DAFF), onTertiaryContainer = c(0x251431),
+    error = c(0xBA1A1A), onError = c(0xFFFFFF), errorContainer = c(0xFFDAD6), onErrorContainer = c(0x410002),
+    background = c(0xF8F9FF), onBackground = c(0x191C20), surface = c(0xF8F9FF), onSurface = c(0x191C20),
+    surfaceVariant = c(0xDFE2EB), onSurfaceVariant = c(0x43474E), outline = c(0x73777F), outlineVariant = c(0xC3C7CF),
+    inverseSurface = c(0x2E3135), inverseOnSurface = c(0xEFF0F7), inversePrimary = c(0x9FCAFF), surfaceTint = c(0x0061A4),
+    surfaceDim = c(0xD8DAE0), surfaceBright = c(0xF8F9FF), surfaceContainerLowest = c(0xFFFFFF), surfaceContainerLow = c(0xF2F3FA),
+    surfaceContainer = c(0xECEEF4), surfaceContainerHigh = c(0xE6E8EE), surfaceContainerHighest = c(0xE1E2E8),
 )
 
 private val DefaultDark = darkColorScheme(
-    primary = c(0x00E546), onPrimary = c(0x00390A), primaryContainer = c(0x005313), onPrimaryContainer = c(0x70FF77),
-    secondary = c(0xA8D0B5), onSecondary = c(0x133724), secondaryContainer = c(0x2A4E3A), onSecondaryContainer = c(0xC3ECD0),
-    tertiary = c(0x91D4BE), onTertiary = c(0x00382C), tertiaryContainer = c(0x005141), onTertiaryContainer = c(0xACF0DA),
+    primary = c(0x9FCAFF), onPrimary = c(0x003258), primaryContainer = c(0x00497D), onPrimaryContainer = c(0xD1E4FF),
+    secondary = c(0xBBC7DB), onSecondary = c(0x253140), secondaryContainer = c(0x3B4858), onSecondaryContainer = c(0xD7E3F8),
+    tertiary = c(0xD7BEE4), onTertiary = c(0x3B2948), tertiaryContainer = c(0x523F5F), onTertiaryContainer = c(0xF2DAFF),
     error = c(0xFFB4AB), onError = c(0x690005), errorContainer = c(0x93000A), onErrorContainer = c(0xFFDAD6),
-    background = c(0x0E150C), onBackground = c(0xDCE5D6), surface = c(0x0E150C), onSurface = c(0xDCE5D6),
-    surfaceVariant = c(0x3F4A3C), onSurfaceVariant = c(0xBECAB8), outline = c(0x889484), outlineVariant = c(0x3F4A3C),
-    inverseSurface = c(0xDCE5D6), inverseOnSurface = c(0x2A3328), inversePrimary = c(0x006E1C), surfaceTint = c(0x00E546),
-    surfaceDim = c(0x0E150C), surfaceBright = c(0x333B31), surfaceContainerLowest = c(0x081008), surfaceContainerLow = c(0x161E14),
-    surfaceContainer = c(0x1A2218), surfaceContainerHigh = c(0x242C22), surfaceContainerHighest = c(0x2F372C),
+    background = c(0x101418), onBackground = c(0xE1E2E8), surface = c(0x101418), onSurface = c(0xE1E2E8),
+    surfaceVariant = c(0x43474E), onSurfaceVariant = c(0xC3C7CF), outline = c(0x8D9199), outlineVariant = c(0x43474E),
+    inverseSurface = c(0xE1E2E8), inverseOnSurface = c(0x2E3135), inversePrimary = c(0x0061A4), surfaceTint = c(0x9FCAFF),
+    surfaceDim = c(0x101418), surfaceBright = c(0x36393E), surfaceContainerLowest = c(0x0B0E12), surfaceContainerLow = c(0x191C20),
+    surfaceContainer = c(0x1D2024), surfaceContainerHigh = c(0x272A2F), surfaceContainerHighest = c(0x32353A),
 )
 
 private fun hsl(h: Float, s: Float, l: Float): Color = Color(ColorUtils.HSLToColor(floatArrayOf(((h % 360) + 360) % 360, s.coerceIn(0f, 1f), l.coerceIn(0f, 1f))))
@@ -144,6 +144,24 @@ fun ExpenserTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalIncomeColors provides income,
         LocalDensity provides Density(base.density, base.fontScale * scale),
     ) {
-        MaterialTheme(colorScheme = scheme, shapes = ExpenserShapes, content = content)
+        MaterialTheme(colorScheme = scheme.animated(), shapes = ExpenserShapes, content = content)
     }
+}
+
+/** Cross-fades every colour role when the theme / accent changes. */
+@Composable
+private fun ColorScheme.animated(): ColorScheme {
+    val spec = androidx.compose.animation.core.tween<Color>(350)
+    @Composable fun a(c: Color) = androidx.compose.animation.animateColorAsState(c, spec, label = "scheme").value
+    return copy(
+        primary = a(primary), onPrimary = a(onPrimary), primaryContainer = a(primaryContainer), onPrimaryContainer = a(onPrimaryContainer),
+        secondary = a(secondary), onSecondary = a(onSecondary), secondaryContainer = a(secondaryContainer), onSecondaryContainer = a(onSecondaryContainer),
+        tertiary = a(tertiary), onTertiary = a(onTertiary), tertiaryContainer = a(tertiaryContainer), onTertiaryContainer = a(onTertiaryContainer),
+        error = a(error), errorContainer = a(errorContainer), onErrorContainer = a(onErrorContainer),
+        background = a(background), onBackground = a(onBackground), surface = a(surface), onSurface = a(onSurface),
+        surfaceVariant = a(surfaceVariant), onSurfaceVariant = a(onSurfaceVariant), outline = a(outline), outlineVariant = a(outlineVariant),
+        surfaceContainerLowest = a(surfaceContainerLowest), surfaceContainerLow = a(surfaceContainerLow), surfaceContainer = a(surfaceContainer),
+        surfaceContainerHigh = a(surfaceContainerHigh), surfaceContainerHighest = a(surfaceContainerHighest),
+        inverseSurface = a(inverseSurface), inverseOnSurface = a(inverseOnSurface), inversePrimary = a(inversePrimary),
+    )
 }

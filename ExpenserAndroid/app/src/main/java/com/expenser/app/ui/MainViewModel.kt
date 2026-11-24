@@ -1,6 +1,7 @@
 package com.expenser.app.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,118 +9,160 @@ import com.expenser.app.ExpenserApp
 import com.expenser.app.R
 import com.expenser.app.data.*
 import com.expenser.app.reminder.ReminderScheduler
+import com.expenser.app.util.sortCategories
+import com.expenser.app.util.sortDrinks
+import com.expenser.app.util.sortShops
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class UiMessage(@StringRes val res: Int, val args: List<Any> = emptyList())
 
-class MainViewModel(app: Application) : AndroidViewModel(app) {
+@OptIn(ExperimentalCoroutinesApi::class)
+class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     private val container = app as ExpenserApp
-    val repo = container.repo
+    private val auth = container.auth
+    private val repo = container.repo
     private val store = container.settingsStore
 
-    val settings = store.flow.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
-    val transactions = repo.transactions.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val categories = repo.categories.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val wallets = repo.wallets.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val shops = repo.shops.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val drinks = repo.drinks.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val logs = repo.logs.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val configured = auth.configured
+    val user: StateFlow<UserProfile?> = auth.userFlow.stateIn(viewModelScope, SharingStarted.Eagerly, auth.profile(auth.currentUser))
+    private val uidFlow = user.map { it?.uid }.distinctUntilChanged()
+    private fun uid(): String? = user.value?.uid
 
-    /** False until the first database snapshot has arrived (drives skeleton / loading UI). */
-    val loading = MutableStateFlow(true)
+    val settings = store.flow.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
+
+    private fun <T> source(f: (Repository, String) -> Flow<List<T>>): StateFlow<List<T>?> =
+        uidFlow.flatMapLatest { id -> if (id == null || repo == null) flowOf(null) else f(repo, id) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val rawTx = source { r, id -> r.transactions(id) }
+    private val rawCat = source { r, id -> r.categories(id) }
+    private val rawWal = source { r, id -> r.wallets(id) }
+    private val rawShops = source { r, id -> r.shops(id) }
+    private val rawDrinks = source { r, id -> r.drinks(id) }
+    private val rawLogs = source { r, id -> r.logs(id) }
+
+    val transactions = rawTx.map { it ?: emptyList() }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val categories = rawCat.map { sortCategories(it ?: emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val wallets = rawWal.map { (it ?: emptyList()).sortedBy { w -> w.createdAt } }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val shops = rawShops.map { sortShops(it ?: emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val drinks = rawDrinks.map { sortDrinks(it ?: emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val logs = rawLogs.map { it ?: emptyList() }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** True until the first snapshot of transactions, categories and wallets has arrived. */
+    val loading = combine(rawTx, rawCat, rawWal) { a, b, c -> a == null || b == null || c == null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     private val _messages = MutableSharedFlow<UiMessage>(extraBufferCapacity = 8)
     val messages = _messages.asSharedFlow()
     fun toast(@StringRes res: Int, vararg args: Any) { _messages.tryEmit(UiMessage(res, args.toList())) }
 
+    val signingIn = MutableStateFlow(false)
+    val loginError = MutableStateFlow<String?>(null)
+
     init {
         viewModelScope.launch {
-            val s = store.flow.first()
             val english = app.resources.configuration.locales[0].language == "en"
-            repo.seedIfNeeded(english, s.seeded)
-            combine(repo.transactions, repo.categories, repo.wallets) { _, _, _ -> }.first()
-            loading.value = false
-            if (s.reminderEnabled) ReminderScheduler.schedule(app, s.reminderTime)
+            uidFlow.filterNotNull().collectLatest { id ->
+                repo?.seedIfNeeded(id, english)
+                val s = store.flow.first()
+                if (s.reminderEnabled) ReminderScheduler.schedule(app, s.reminderTime)
+            }
+        }
+        viewModelScope.launch { container.writeErrors.collect { toast(R.string.write_error) } }
+    }
+
+    // ---------- Auth ----------
+    fun signIn(activityContext: Context) {
+        if (signingIn.value) return
+        viewModelScope.launch {
+            signingIn.value = true; loginError.value = null
+            when (val r = auth.signInWithGoogle(activityContext)) {
+                is SignInResult.Failure -> loginError.value = r.message
+                else -> {}
+            }
+            signingIn.value = false
         }
     }
 
-    private fun launchOp(@StringRes error: Int, onDone: () -> Unit = {}, block: suspend () -> Unit) {
-        viewModelScope.launch {
-            try {
-                block()
-                onDone()
-            } catch (e: Exception) {
-                toast(error)
-            }
-        }
+    fun signOut(activityContext: Context) { viewModelScope.launch { auth.signOut(activityContext) } }
+
+    private inline fun withRepo(block: (Repository, String) -> Unit) {
+        val r = repo; val id = uid()
+        if (r != null && id != null) block(r, id)
     }
 
     // ---------- Transactions ----------
-    fun saveTransaction(editing: Tx?, input: TxInput, onDone: () -> Unit) =
-        launchOp(R.string.tx_save_error, onDone = { toast(if (editing == null) R.string.tx_added else R.string.tx_updated); onDone() }) {
-            repo.saveTransaction(editing, input)
-        }
-
-    fun deleteTransaction(tx: Tx) = launchOp(R.string.tx_delete_error, onDone = { toast(R.string.tx_deleted) }) { repo.deleteTransaction(tx) }
-
-    fun transfer(from: Long, to: Long, amount: Long, note: String, date: Long, onDone: () -> Unit) =
-        launchOp(R.string.transfer_error, onDone = { toast(R.string.transfer_success); onDone() }) { repo.transfer(from, to, amount, note, date) }
-
-    // ---------- Categories ----------
-    fun addCategory(name: String, type: String, emoji: String, color: String, onDone: () -> Unit) =
-        launchOp(R.string.cat_save_error, onDone = { toast(R.string.cat_added); onDone() }) { repo.addCategory(name, type, emoji, color) }
-
-    fun updateCategory(c: Category, onDone: () -> Unit) =
-        launchOp(R.string.cat_save_error, onDone = { toast(R.string.cat_updated); onDone() }) { repo.updateCategory(c) }
-
-    fun deleteCategory(c: Category) = viewModelScope.launch {
-        try {
-            val n = repo.deleteCategory(c)
-            if (n > 0) toast(R.string.cat_in_use, n) else toast(R.string.cat_deleted)
-        } catch (e: Exception) { toast(R.string.cat_delete_error) }
+    fun saveTransaction(editing: Tx?, input: TxInput, onDone: () -> Unit) = withRepo { r, id ->
+        r.saveTransaction(id, editing, input)
+        toast(if (editing == null) R.string.tx_added else R.string.tx_updated)
+        onDone()
     }
 
-    fun reorderCategories(ids: List<Long>) = launchOp(R.string.reorder_error) { repo.reorderCategories(ids) }
+    fun deleteTransaction(tx: Tx) = withRepo { r, id -> r.deleteTransaction(id, tx); toast(R.string.tx_deleted) }
+
+    fun transfer(from: String, to: String, amount: Long, note: String, date: Long, onDone: () -> Unit) = withRepo { r, id ->
+        r.transfer(id, from, to, amount, note, date); toast(R.string.transfer_success); onDone()
+    }
+
+    // ---------- Categories ----------
+    fun addCategory(name: String, type: String, emoji: String, color: String, onDone: () -> Unit) = withRepo { r, id ->
+        r.addCategory(id, categories.value.filter { it.type == type }, name, type, emoji, color); toast(R.string.cat_added); onDone()
+    }
+
+    fun updateCategory(c: Category, name: String, emoji: String, color: String, onDone: () -> Unit) = withRepo { r, id ->
+        r.updateCategory(id, c, name, emoji, color); toast(R.string.cat_updated); onDone()
+    }
+
+    fun deleteCategory(c: Category) = withRepo { r, id ->
+        val n = transactions.value.count { it.categoryId == c.id }
+        if (n > 0) toast(R.string.cat_in_use, n) else { r.deleteCategory(id, c.id); toast(R.string.cat_deleted) }
+    }
+
+    fun reorderCategories(ids: List<String>) = withRepo { r, id -> r.reorder(id, "categories", ids) }
 
     // ---------- Wallets ----------
-    fun addWallet(name: String, icon: String, color: String, balance: Long, onDone: () -> Unit) =
-        launchOp(R.string.wallet_save_error, onDone = { toast(R.string.wallet_added); onDone() }) { repo.addWallet(name, icon, color, balance) }
+    fun addWallet(name: String, icon: String, color: String, balance: Long, onDone: () -> Unit) = withRepo { r, id ->
+        r.addWallet(id, name, icon, color, balance); toast(R.string.wallet_added); onDone()
+    }
 
-    fun updateWallet(w: Wallet, onDone: () -> Unit) =
-        launchOp(R.string.wallet_save_error, onDone = { toast(R.string.wallet_updated); onDone() }) { repo.updateWallet(w) }
+    fun updateWallet(w: Wallet, name: String, icon: String, color: String, onDone: () -> Unit) = withRepo { r, id ->
+        r.updateWallet(id, w.id, name, icon, color); toast(R.string.wallet_updated); onDone()
+    }
 
-    fun deleteWallet(w: Wallet) = viewModelScope.launch {
-        if (wallets.value.size <= 1) { toast(R.string.wallet_keep_one); return@launch }
-        try {
-            val n = repo.deleteWallet(w)
-            if (n > 0) toast(R.string.wallet_in_use, n) else toast(R.string.wallet_deleted)
-        } catch (e: Exception) { toast(R.string.wallet_delete_error) }
+    fun deleteWallet(w: Wallet) = withRepo { r, id ->
+        val n = transactions.value.count { it.walletId == w.id || it.fromWalletId == w.id || it.toWalletId == w.id }
+        when {
+            wallets.value.size <= 1 -> toast(R.string.wallet_keep_one)
+            n > 0 -> toast(R.string.wallet_in_use, n)
+            else -> { r.deleteWallet(id, w.id); toast(R.string.wallet_deleted) }
+        }
     }
 
     // ---------- Cafe ----------
-    fun saveShop(editing: CafeShop?, name: String, address: String, mapUrl: String, imageUrl: String, description: String, rating: Int, onDone: () -> Unit) =
-        launchOp(R.string.cafe_shop_save_error, onDone = onDone) { repo.saveShop(editing, name, address, mapUrl, imageUrl, description, rating) }
+    private fun nextOrder(list: List<Int?>) = (list.filterNotNull().maxOrNull() ?: -1) + 1
 
-    fun deleteShop(s: CafeShop) = viewModelScope.launch {
-        try {
-            val n = repo.deleteShop(s)
-            if (n > 0) toast(R.string.cafe_shop_in_use, n)
-        } catch (e: Exception) { toast(R.string.cafe_delete_error) }
+    fun saveShop(editing: CafeShop?, name: String, address: String, mapUrl: String, imageUrl: String, description: String, rating: Int, onDone: () -> Unit) = withRepo { r, id ->
+        r.saveShop(id, editing, nextOrder(shops.value.map { it.order }), name, address, mapUrl, imageUrl, description, rating); onDone()
     }
 
-    fun saveDrink(editing: CafeDrink?, name: String, imageUrl: String, description: String, onDone: () -> Unit) =
-        launchOp(R.string.cafe_drink_save_error, onDone = onDone) { repo.saveDrink(editing, name, imageUrl, description) }
-
-    fun deleteDrink(d: CafeDrink) = viewModelScope.launch {
-        try {
-            val n = repo.deleteDrink(d)
-            if (n > 0) toast(R.string.cafe_drink_in_use, n)
-        } catch (e: Exception) { toast(R.string.cafe_delete_error) }
+    fun deleteShop(s: CafeShop) = withRepo { r, id ->
+        val n = logs.value.count { it.shopId == s.id }
+        if (n > 0) toast(R.string.cafe_shop_in_use, n) else r.deleteShop(id, s.id)
     }
 
-    fun reorderShops(ids: List<Long>) = launchOp(R.string.reorder_error) { repo.reorderShops(ids) }
-    fun reorderDrinks(ids: List<Long>) = launchOp(R.string.reorder_error) { repo.reorderDrinks(ids) }
+    fun saveDrink(editing: CafeDrink?, name: String, imageUrl: String, description: String, onDone: () -> Unit) = withRepo { r, id ->
+        r.saveDrink(id, editing, nextOrder(drinks.value.map { it.order }), name, imageUrl, description); onDone()
+    }
+
+    fun deleteDrink(d: CafeDrink) = withRepo { r, id ->
+        val n = logs.value.count { it.drinkId == d.id }
+        if (n > 0) toast(R.string.cafe_drink_in_use, n) else r.deleteDrink(id, d.id)
+    }
+
+    fun reorderShops(ids: List<String>) = withRepo { r, id -> r.reorder(id, "cafeShops", ids) }
+    fun reorderDrinks(ids: List<String>) = withRepo { r, id -> r.reorder(id, "cafeDrinks", ids) }
 
     // ---------- Settings ----------
     fun setThemeMode(v: String) = viewModelScope.launch { store.setThemeMode(v) }
@@ -130,17 +173,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setReminder(enabled: Boolean, time: String) = viewModelScope.launch {
         store.setReminder(enabled, time)
-        if (enabled) ReminderScheduler.schedule(getApplication(), time) else ReminderScheduler.cancel(getApplication())
+        if (enabled) ReminderScheduler.schedule(app, time) else ReminderScheduler.cancel(app)
     }
 
-    fun sendTestReminder() = ReminderScheduler.show(getApplication())
+    fun sendTestReminder() = ReminderScheduler.show(app)
 
-    // ---------- Import / export ----------
-    fun importCsv(text: String) = viewModelScope.launch {
+    // ---------- Import ----------
+    fun importCsv(text: String) = withRepo { r, id ->
         try {
             val result = CsvIo.parseImport(text)
-            if (result.rows.isEmpty()) { toast(R.string.import_empty); return@launch }
-            val n = repo.importTransactions(result.rows)
+            if (result.rows.isEmpty()) { toast(R.string.import_empty); return@withRepo }
+            val n = r.importTransactions(id, result.rows, categories.value, wallets.value)
             toast(R.string.imported, n)
             if (result.skipped > 0) toast(R.string.import_skipped, result.skipped)
         } catch (e: Exception) { toast(R.string.import_error) }

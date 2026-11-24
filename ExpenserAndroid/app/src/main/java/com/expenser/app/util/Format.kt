@@ -2,7 +2,6 @@ package com.expenser.app.util
 
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
-import java.util.Currency
 import java.util.Date
 import java.util.Locale
 
@@ -13,11 +12,9 @@ object Format {
     val locale: Locale get() = if (lang == "en") Locale.UK else Locale.forLanguageTag("vi-VN")
 
     fun money(amount: Long): String {
-        val nf = NumberFormat.getCurrencyInstance(locale)
-        nf.currency = Currency.getInstance("VND")
-        nf.maximumFractionDigits = 0
-        nf.minimumFractionDigits = 0
-        return nf.format(amount)
+        val n = number(kotlin.math.abs(amount))
+        val sign = if (amount < 0) "-" else ""
+        return if (lang == "en") "$sign₫$n" else "$sign$n ₫"
     }
 
     fun number(n: Long): String = NumberFormat.getInstance(locale).format(n)

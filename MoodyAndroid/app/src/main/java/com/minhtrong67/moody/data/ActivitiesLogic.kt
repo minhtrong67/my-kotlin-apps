@@ -6,8 +6,8 @@ import java.util.UUID
 object ActivitiesLogic {
     private fun isDefault(id: String) = id in MoodConfig.DEFAULT_ACTIVITY_IDS
 
-    fun add(state: ActivitiesState, emoji: String, label: String): ActivitiesState =
-        state.copy(items = state.items + CustomActivity(UUID.randomUUID().toString(), emoji, label))
+    fun add(state: ActivitiesState, emoji: String, label: String, id: String = UUID.randomUUID().toString()): ActivitiesState =
+        state.copy(items = state.items + CustomActivity(id, emoji, label))
 
     fun update(state: ActivitiesState, id: String, emoji: String, label: String): ActivitiesState =
         if (isDefault(id)) {

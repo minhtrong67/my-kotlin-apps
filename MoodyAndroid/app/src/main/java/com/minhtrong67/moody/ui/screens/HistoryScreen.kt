@@ -2,7 +2,16 @@
 
 package com.minhtrong67.moody.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +48,7 @@ import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -82,6 +92,7 @@ import com.minhtrong67.moody.ui.components.MoodBubble
 import com.minhtrong67.moody.ui.components.MoodyCard
 import com.minhtrong67.moody.ui.components.SegmentedTabs
 import com.minhtrong67.moody.ui.components.StaticChip
+import com.minhtrong67.moody.ui.components.SwipeActionRow
 import com.minhtrong67.moody.util.formatTime
 import com.minhtrong67.moody.util.fullDate
 import com.minhtrong67.moody.util.isoToDate
@@ -165,6 +176,7 @@ private fun ListView(entries: List<Entry>, onEdit: (String) -> Unit, onDelete: (
             text = stringResource(R.string.common_irreversible),
             confirmLabel = stringResource(R.string.common_delete),
             danger = true,
+            headerIcon = Icons.Rounded.WarningAmber,
             onConfirm = { onDelete(e.id); pendingDelete = null },
             onDismiss = { pendingDelete = null },
         )
@@ -239,7 +251,7 @@ private fun ListView(entries: List<Entry>, onEdit: (String) -> Unit, onDelete: (
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(filtered, key = { it.id }) { e ->
-                    EntryCard(e, moodByKey[e.mood], activityById, onEdit = { onEdit(e.id) }, onDelete = { pendingDelete = e })
+                    EntryCard(e, moodByKey[e.mood], activityById, onEdit = { onEdit(e.id) }, onDelete = { pendingDelete = e }, modifier = Modifier.animateItem())
                 }
             }
         }
@@ -254,34 +266,12 @@ private fun EntryCard(
     activityById: Map<String, com.minhtrong67.moody.data.ActivityDef>,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
     val locale = LocalLocale.current
-    val editCb by rememberUpdatedState(onEdit)
-    val deleteCb by rememberUpdatedState(onDelete)
-    val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
-        when (v) {
-            SwipeToDismissBoxValue.StartToEnd -> editCb()
-            SwipeToDismissBoxValue.EndToStart -> deleteCb()
-            else -> {}
-        }
-        false
-    })
     val cs = MaterialTheme.colorScheme
-    SwipeToDismissBox(
-        state = state,
-        backgroundContent = {
-            val dir = state.dismissDirection
-            val (bg, icon, align) = when (dir) {
-                SwipeToDismissBoxValue.StartToEnd -> Triple(cs.primaryContainer, Icons.Rounded.Edit, Alignment.CenterStart)
-                SwipeToDismissBoxValue.EndToStart -> Triple(cs.errorContainer, Icons.Rounded.Delete, Alignment.CenterEnd)
-                else -> Triple(Color.Transparent, Icons.Rounded.Edit, Alignment.CenterStart)
-            }
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(28.dp)).background(bg).padding(horizontal = 24.dp), contentAlignment = align) {
-                if (dir != SwipeToDismissBoxValue.Settled) Icon(icon, null, tint = if (dir == SwipeToDismissBoxValue.EndToStart) cs.onErrorContainer else cs.onPrimaryContainer)
-            }
-        },
-    ) {
+    SwipeActionRow(onEdit = onEdit, onDelete = onDelete, modifier = modifier) {
         MoodyCard(Modifier.fillMaxWidth(), onClick = onEdit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 MoodBubble(mood)
@@ -324,9 +314,6 @@ private fun CalendarView(entries: List<Entry>, onEdit: (String) -> Unit, onNewFo
         entries.groupBy { it.date }.mapValues { (_, l) -> l.sortedByDescending { it.instant } }
     }
     val ym = YearMonth.from(cursor)
-    val firstOffset = cursor.withDayOfMonth(1).dayOfWeek.value - 1  // Monday = 0
-    val cells: List<Int?> = List(firstOffset) { null } + (1..ym.lengthOfMonth()).toList()
-    val rows = cells.chunked(7)
     val weekdays = stringArrayResource(R.array.weekdays_short)
     val cs = MaterialTheme.colorScheme
 
@@ -347,7 +334,15 @@ private fun CalendarView(entries: List<Entry>, onEdit: (String) -> Unit, onNewFo
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { cursorText = cursor.minusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, stringResource(R.string.history_prevMonth)) }
-            Text(monthTitle(cursor, locale), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            AnimatedContent(
+                targetState = cursor, modifier = Modifier.weight(1f),
+                transitionSpec = {
+                    val fwd = targetState > initialState
+                    (slideInVertically(tween(240)) { if (fwd) it / 2 else -it / 2 } + fadeIn(tween(200))) togetherWith
+                        (slideOutVertically(tween(180)) { if (fwd) -it / 2 else it / 2 } + fadeOut(tween(120)))
+                },
+                label = "monthTitle",
+            ) { m -> Text(monthTitle(m, locale), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
             IconButton(onClick = { cursorText = cursor.plusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.history_nextMonth)) }
         }
         Text(stringResource(R.string.history_calendarHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
@@ -355,23 +350,36 @@ private fun CalendarView(entries: List<Entry>, onEdit: (String) -> Unit, onNewFo
             weekdays.forEach { Text(it, Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant) }
         }
         Spacer(Modifier.height(4.dp))
-        rows.forEach { week ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (i in 0 until 7) {
-                    val day = week.getOrNull(i)
-                    if (day == null) { Spacer(Modifier.weight(1f)); continue }
-                    val iso = cursor.withDayOfMonth(day).toString()
-                    val m = byDate[iso]?.firstOrNull()?.let { moodByKey[it.mood] }
-                    val isToday = iso == today().toString()
-                    Box(
-                        Modifier.weight(1f).aspectRatio(1f).clip(CircleShape)
-                            .background(m?.color?.copy(alpha = 0.25f) ?: Color.Transparent)
-                            .then(if (isToday) Modifier.background(Color.Transparent) else Modifier)
-                            .clickable { if (byDate.containsKey(iso)) selected = iso else onNewForDate(iso) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (m != null) Text(m.emoji, fontSize = 20.sp)
-                        else Text(day.toString(), style = MaterialTheme.typography.bodyMedium, color = if (isToday) cs.primary else cs.onSurface)
+        AnimatedContent(
+            targetState = cursor,
+            transitionSpec = {
+                val fwd = targetState > initialState
+                (slideInHorizontally(tween(260)) { if (fwd) it / 4 else -it / 4 } + fadeIn(tween(220))) togetherWith
+                    (slideOutHorizontally(tween(200)) { if (fwd) -it / 4 else it / 4 } + fadeOut(tween(120)))
+            },
+            label = "monthGrid",
+        ) { month ->
+            val first = month.withDayOfMonth(1).dayOfWeek.value - 1   // Monday = 0
+            val cells: List<Int?> = List(first) { null } + (1..YearMonth.from(month).lengthOfMonth()).toList()
+            Column {
+                cells.chunked(7).forEach { week ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (i in 0 until 7) {
+                            val day = week.getOrNull(i)
+                            if (day == null) { Spacer(Modifier.weight(1f)); continue }
+                            val iso = month.withDayOfMonth(day).toString()
+                            val m = byDate[iso]?.firstOrNull()?.let { moodByKey[it.mood] }
+                            val isToday = iso == today().toString()
+                            Box(
+                                Modifier.weight(1f).aspectRatio(1f).clip(CircleShape)
+                                    .background(m?.color?.copy(alpha = 0.25f) ?: Color.Transparent)
+                                    .clickable { if (byDate.containsKey(iso)) selected = iso else onNewForDate(iso) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (m != null) Text(m.emoji, fontSize = 20.sp)
+                                else Text(day.toString(), style = MaterialTheme.typography.bodyMedium, color = if (isToday) cs.primary else cs.onSurface)
+                            }
+                        }
                     }
                 }
             }

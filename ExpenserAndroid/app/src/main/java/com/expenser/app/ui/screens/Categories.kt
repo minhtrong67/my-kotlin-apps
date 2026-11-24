@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenser.app.R
 import com.expenser.app.data.Category
@@ -25,61 +25,56 @@ import com.expenser.app.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoriesScreen(vm: MainViewModel, onBack: () -> Unit) {
+fun CategoriesScreen(vm: MainViewModel) {
     val categories by vm.categories.collectAsStateWithLifecycle()
     val transactions by vm.transactions.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var type by rememberSaveable { mutableStateOf(TxType.EXPENSE) }
     var search by rememberSaveable { mutableStateOf("") }
     var editor by remember { mutableStateOf<CategoryEditorState?>(null) }
     var deleteTarget by remember { mutableStateOf<Category?>(null) }
 
-    val type = if (tab == 0) TxType.EXPENSE else TxType.INCOME
     val usage = remember(transactions) { transactions.groupingBy { it.categoryId }.eachCount() }
     val all = categories.filter { it.type == type }
     val list = remember(all, search) { val q = normalizeText(search); if (q.isEmpty()) all else all.filter { normalizeText(it.name).contains(q) } }
 
-    Scaffold(
-        topBar = { BackTopBar(stringResource(R.string.nav_categories), onBack) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = { editor = CategoryEditorState(null, type) }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text(stringResource(R.string.cat_add)) })
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding)) {
-            PrimaryTabRow(selectedTabIndex = tab) {
-                Tab(tab == 0, { tab = 0 }, text = { Text(stringResource(R.string.cat_expense_tab)) })
-                Tab(tab == 1, { tab = 1 }, text = { Text(stringResource(R.string.cat_income_tab)) })
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                PillSegmented(
+                    listOf(
+                        Seg(TxType.EXPENSE, stringResource(R.string.cat_expense_tab), container = MaterialTheme.colorScheme.errorContainer, content = MaterialTheme.colorScheme.onErrorContainer),
+                        Seg(TxType.INCOME, stringResource(R.string.cat_income_tab), container = com.expenser.app.ui.theme.LocalIncomeColors.current.container, content = com.expenser.app.ui.theme.LocalIncomeColors.current.onContainer),
+                    ), type, { type = it },
+                )
             }
-            SearchField(search, { search = it }, stringResource(R.string.cat_search), Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
-            if (list.isEmpty()) {
-                EmptyState(Icons.Rounded.Category, if (search.isBlank()) stringResource(R.string.cat_empty) else stringResource(R.string.cat_no_match, search))
-            } else {
-                LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
-                    itemsIndexed(list, key = { _, c -> c.id }) { index, c ->
-                        ListItem(
-                            leadingContent = { CategoryAvatar(c.emoji, c.color.toColor()) },
-                            headlineContent = { Text(c.name) },
-                            supportingContent = { Text(stringResource(R.string.cat_usage, usage[c.id] ?: 0)) },
-                            trailingContent = {
-                                Row {
-                                    if (search.isBlank()) {
-                                        IconButton(enabled = index > 0, onClick = { vm.reorderCategories(all.map { it.id }.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up)) }
-                                        IconButton(enabled = index < all.lastIndex, onClick = { vm.reorderCategories(all.map { it.id }.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down)) }
-                                    }
-                                    IconButton(onClick = { editor = CategoryEditorState(c, c.type) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.common_edit)) }
-                                    IconButton(onClick = { deleteTarget = c }) { Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete), tint = MaterialTheme.colorScheme.error) }
-                                }
-                            },
-                        )
+            item { SearchField(search, { search = it }, stringResource(R.string.cat_search)) }
+            if (list.isEmpty()) item { EmptyState(Icons.Rounded.Category, if (search.isBlank()) stringResource(R.string.cat_empty) else stringResource(R.string.cat_no_match, search)) }
+            itemsIndexed(list, key = { _, c -> c.id }) { index, c ->
+                SwipeRow(onEdit = { editor = CategoryEditorState(c, c.type) }, onDelete = { deleteTarget = c }, modifier = Modifier.animateItem()) {
+                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                        Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            CategoryAvatar(c.emoji, c.color.toColor())
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(c.name, style = MaterialTheme.typography.titleSmall)
+                                Text(stringResource(R.string.cat_usage, usage[c.id] ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (search.isBlank()) {
+                                IconButton(enabled = index > 0, onClick = { vm.reorderCategories(all.map { it.id }.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up)) }
+                                IconButton(enabled = index < all.lastIndex, onClick = { vm.reorderCategories(all.map { it.id }.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down)) }
+                            }
+                        }
                     }
                 }
             }
         }
+        ScreenFab({ editor = CategoryEditorState(null, type) }, Modifier.align(Alignment.BottomEnd))
     }
 
     editor?.let { st ->
         CategoryEditor(st, categories, onDismiss = { editor = null }, onSave = { name, emoji, color ->
             if (st.editing == null) vm.addCategory(name, st.type, emoji, color) { editor = null }
-            else vm.updateCategory(st.editing.copy(name = name, emoji = emoji, color = color)) { editor = null }
+            else vm.updateCategory(st.editing, name, emoji, color) { editor = null }
         })
     }
     deleteTarget?.let { c ->
@@ -106,20 +101,15 @@ private fun CategoryEditor(state: CategoryEditorState, all: List<Category>, onDi
         else -> null
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(if (editing == null) R.string.cat_add_title else R.string.cat_edit_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.cat_name)) }, singleLine = true, isError = submitted && err != null,
-                    supportingText = { Text(if (submitted && err != null) err else stringResource(R.string.cat_name_hint)) }, modifier = Modifier.fillMaxWidth())
-                Text(stringResource(R.string.cat_emoji), style = MaterialTheme.typography.titleSmall)
-                EmojiPicker(emoji) { emoji = it }
-                Text(stringResource(R.string.common_color), style = MaterialTheme.typography.titleSmall)
-                ColorPicker(color, { color = it }, CATEGORY_COLORS)
-            }
-        },
-        confirmButton = { TextButton(onClick = { submitted = true; if (err == null) onSave(trimmed, emoji, color) }) { Text(stringResource(R.string.common_save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
-    )
+    FormScreen(
+        stringResource(if (editing == null) R.string.cat_add_title else R.string.cat_edit_title), stringResource(R.string.common_save),
+        onClose = onDismiss, onConfirm = { submitted = true; if (err == null) onSave(trimmed, emoji, color) },
+    ) {
+        OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.cat_name)) }, singleLine = true, isError = submitted && err != null,
+            supportingText = { Text(if (submitted && err != null) err else stringResource(R.string.cat_name_hint)) }, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
+        Text(stringResource(R.string.cat_emoji), style = MaterialTheme.typography.titleSmall)
+        EmojiPicker(emoji) { emoji = it }
+        Text(stringResource(R.string.common_color), style = MaterialTheme.typography.titleSmall)
+        ColorPicker(color, { color = it }, CATEGORY_COLORS)
+    }
 }

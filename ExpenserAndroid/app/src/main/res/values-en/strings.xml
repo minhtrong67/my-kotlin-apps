@@ -316,4 +316,22 @@
         <item>Don’t let any expense slip past your ledger!</item>
         <item>Tap to add today’s first transaction.</item>
     </string-array>
+    <string name="common_logout">Sign out</string>
+    <string name="common_search">Search</string>
+    <string name="login_google">Sign in with Google</string>
+    <string name="login_same_account">Use the same Google account as the web app to sync your data.</string>
+    <string name="login_signing_in">Signing in…</string>
+    <string name="login_subtitle">Simple personal finance tracking, in sync with the web app.</string>
+    <string name="nav_menu">Open menu</string>
+    <string name="palette_hint">Go to page…</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_account_desc">Sign-in details and sign out</string>
+    <string name="settings_logout_confirm">Are you sure you want to sign out?</string>
+    <string name="settings_no_name">No name</string>
+    <string name="setup_title">Firebase is not configured</string>
+    <string name="setup_body">Add google-services.json (from the same Firebase project as the web app) to the app/ folder, enable Google sign-in in Firebase Authentication, add your signing key SHA-1, then rebuild. See README.md for details.</string>
+    <string name="stats_export">Export report (CSV)</string>
+    <string name="topbar_theme">Theme mode</string>
+    <string name="tx_date">Date &amp; time</string>
+    <string name="write_error">Couldn\'t save the change. It will retry when you\'re back online.</string>
 </resources>

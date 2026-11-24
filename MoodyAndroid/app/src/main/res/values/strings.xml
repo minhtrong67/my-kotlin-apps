@@ -64,6 +64,9 @@
     <string name="nav_moodsShort">Moods</string>
     <string name="nav_manage">Manage</string>
     <string name="nav_newCheckin">New check-in</string>
+    <string name="nav_openMenu">Open menu</string>
+    <string name="nav_label">Main navigation</string>
+    <string name="nav_tagline">Moody — track your mood every day</string>
     <string name="theme_light">Light theme</string>
     <string name="theme_dark">Dark theme</string>
     <string name="theme_system">Follow system</string>
@@ -186,6 +189,9 @@
     <string name="themeColor_grey">Grey</string>
     <string name="themeColor_blue_grey">Blue Grey</string>
     <string name="settings_language">Language</string>
+    <string name="settings_fontFamily">Font</string>
+    <string name="settings_fontFamilyHint">Applies to the whole app.</string>
+    <string name="settings_fontPreview">How are you feeling today?</string>
     <string name="settings_fontSize">Text size</string>
     <string name="settings_font_0_9">Small</string>
     <string name="settings_font_1">Medium</string>
@@ -227,7 +233,7 @@
     <string name="manageActs_searchPlaceholder">Search activities by name…</string>
     <string name="manageActs_clearSearch">Clear search</string>
     <string name="manageActs_noResults">No matching activities.</string>
-    <string name="settings_exportImportSub">CSV, Excel or JSON — per section or everything</string>
+    <string name="settings_exportImportSub">CSV or JSON — per section or everything</string>
     <string name="settings_all">All data</string>
     <string name="settings_allHint_json">One .json file with your check-in history, activities and moods.</string>
     <string name="settings_allHint_xlsx">One .xlsx file with 3 sheets: check-in history, activities, moods.</string>
@@ -304,4 +310,20 @@
     <string name="settings_signIn">Sign in with Google</string>
     <string name="login_error">Sign-in failed. Please try again.</string>
     <string name="common_reorder">Reorder</string>
+    <string name="settings_exactAlarm">Allow exact alarms</string>
+    <string name="settings_exactAlarmHint">Without this permission, reminders may arrive a few minutes late.</string>
+    <string name="settings_exactAlarmOk">Exact alarms allowed — reminders will arrive on time.</string>
+    <string name="settings_notifBlocked">Notifications are blocked for Moody.</string>
+    <string name="settings_notifOpenSettings">Notification settings</string>
+    <string name="settings_batteryHint">If reminders don’t show up on your phone (Samsung, Xiaomi, Oppo…), set Moody to “Unrestricted” / “Don’t optimize” in battery settings.</string>
+    <string name="settings_batteryBtn">Battery settings</string>
+    <string name="settings_remindTestAlarm">Test in 10 seconds</string>
+    <string name="settings_testScheduled">Test scheduled — you can lock the screen. It will arrive in about 10 seconds.</string>
+    <string name="settings_testSent">Test notification sent.</string>
+    <string name="checkin_discardTitle">Discard this check-in?</string>
+    <string name="checkin_discardText">Your changes have not been saved.</string>
+    <string name="checkin_discard">Discard</string>
+    <string name="checkin_keepEditing">Keep editing</string>
+    <string name="checkin_pickMood">Pick a mood to save.</string>
+    <string name="common_themeCycle">Change theme</string>
 </resources>

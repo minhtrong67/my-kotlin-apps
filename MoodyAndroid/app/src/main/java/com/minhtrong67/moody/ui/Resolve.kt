@@ -65,3 +65,6 @@ fun resolveActivities(state: ActivitiesState): List<ActivityDef> {
     val ordered = state.order.mapNotNull { byId[it] }
     return ordered + merged.filter { it.id !in state.order }
 }
+
+/** The real Activity (LocalContext is replaced by a localized wrapper, which can't launch the account picker). */
+val LocalActivityContext = staticCompositionLocalOf<android.content.Context> { error("Activity context not provided") }

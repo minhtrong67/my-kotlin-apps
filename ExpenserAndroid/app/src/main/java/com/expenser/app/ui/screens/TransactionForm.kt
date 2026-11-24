@@ -4,13 +4,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import com.expenser.app.util.toColor
+import com.expenser.app.ui.theme.LocalIncomeColors
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -24,7 +27,7 @@ import com.expenser.app.util.endOfDay
 import com.expenser.app.util.isCafeCategory
 
 
-data class TxFormRequest(val editing: Tx? = null, val initialType: String = TxType.EXPENSE, val initialCategoryId: Long? = null)
+data class TxFormRequest(val editing: Tx? = null, val initialType: String = TxType.EXPENSE, val initialCategoryId: String? = null)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -44,8 +47,8 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
     var walletId by rememberSaveable { mutableStateOf(editing?.walletId) }
     var date by rememberSaveable { mutableLongStateOf(editing?.date ?: System.currentTimeMillis()) }
     var note by rememberSaveable { mutableStateOf(editing?.note ?: "") }
-    var shopId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var drinkId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var shopId by rememberSaveable { mutableStateOf<String?>(null) }
+    var drinkId by rememberSaveable { mutableStateOf<String?>(null) }
     var imageUrl by rememberSaveable { mutableStateOf("") }
     var cafeLoaded by rememberSaveable { mutableStateOf(false) }
     var submitted by rememberSaveable { mutableStateOf(false) }
@@ -85,106 +88,66 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
         ) { onDismiss() }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = { Text(stringResource(if (editing == null) R.string.tx_add_title else R.string.tx_edit_title)) },
-                        navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, stringResource(R.string.common_close)) } },
-                        actions = {
-                            Button(onClick = ::submit, enabled = !saving, modifier = Modifier.padding(end = 8.dp)) {
-                                Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.common_save))
-                            }
-                        },
-                    )
-                },
-            ) { padding ->
-                Column(
-                    Modifier.padding(padding).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        listOf(TxType.EXPENSE to R.string.tx_expense, TxType.INCOME to R.string.tx_income).forEachIndexed { i, (t, label) ->
-                            SegmentedButton(
-                                selected = type == t, onClick = { if (type != t) { type = t; categoryId = null } },
-                                shape = SegmentedButtonDefaults.itemShape(i, 2),
-                            ) { Text(stringResource(label)) }
-                        }
-                    }
+    var sheet by remember { mutableStateOf("") } // "", "category", "wallet", "shop", "drink"
+    val income = LocalIncomeColors.current.income
+    val expenseColor = MaterialTheme.colorScheme.error
 
-                    MoneyField(amount, { amount = it }, stringResource(R.string.tx_amount), error = if (submitted) errAmount else null)
+    FormScreen(
+        title = stringResource(if (editing == null) R.string.tx_add_title else R.string.tx_edit_title),
+        confirmLabel = stringResource(R.string.common_save),
+        onClose = onDismiss, onConfirm = ::submit, confirmEnabled = !saving,
+    ) {
+        PillSegmented(
+            listOf(
+                Seg(TxType.EXPENSE, stringResource(R.string.tx_expense), container = MaterialTheme.colorScheme.errorContainer, content = MaterialTheme.colorScheme.onErrorContainer),
+                Seg(TxType.INCOME, stringResource(R.string.tx_income), container = LocalIncomeColors.current.container, content = LocalIncomeColors.current.onContainer),
+            ),
+            type, { if (type != it) { type = it; categoryId = null } },
+        )
 
-                    // ----- category -----
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.tx_category), style = MaterialTheme.typography.titleSmall)
-                        if (typeCategories.isEmpty()) {
-                            Text(stringResource(R.string.tx_no_category), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                typeCategories.forEach { c ->
-                                    FilterChip(selected = categoryId == c.id, onClick = { categoryId = c.id }, label = { Text("${c.emoji} ${c.name}") })
-                                }
-                            }
-                        }
-                        if (submitted && errCategory != null && typeCategories.isNotEmpty()) Text(errCategory, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
+        MoneyField(amount, { amount = it }, stringResource(R.string.tx_amount), error = if (submitted) errAmount else null)
 
-                    // ----- wallet -----
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.tx_wallet), style = MaterialTheme.typography.titleSmall)
-                        if (wallets.isEmpty()) Text(stringResource(R.string.tx_no_wallet), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            wallets.forEach { w ->
-                                FilterChip(
-                                    selected = walletId == w.id, onClick = { walletId = w.id }, label = { Text(w.name) },
-                                    leadingIcon = { Icon(walletIcon(w.icon), null, Modifier.size(18.dp)) },
-                                )
-                            }
-                        }
-                    }
+        SelectField(
+            stringResource(R.string.tx_category), selectedCategory?.takeIf { it.type == type }?.name ?: "", { sheet = "category" },
+            leading = { Text(selectedCategory?.takeIf { it.type == type }?.emoji ?: "🏷️", style = MaterialTheme.typography.titleMedium) },
+            error = if (submitted) (errCategory ?: null) else null,
+        )
+        SelectField(
+            stringResource(R.string.tx_wallet), wallets.firstOrNull { it.id == walletId }?.name ?: "", { sheet = "wallet" },
+            leading = { Icon(walletIcon(wallets.firstOrNull { it.id == walletId }?.icon ?: ""), null) },
+            error = if (submitted) errWallet else null,
+        )
+        DateTimeField(date, { date = it }, stringResource(R.string.tx_date), error = errDate)
 
-                    DateTimeField(date, { date = it }, error = errDate)
+        OutlinedTextField(
+            value = note, onValueChange = { note = it.take(220) }, label = { Text(stringResource(R.string.tx_note)) },
+            supportingText = { Text(errNote ?: stringResource(R.string.tx_note_hint)) }, isError = errNote != null,
+            shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
+        )
 
+        if (showCafe) {
+            SectionCard(stringResource(R.string.cafe_form_section)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SelectField(stringResource(R.string.cafe_shop), shops.firstOrNull { it.id == shopId }?.name ?: "", { sheet = "shop" }, error = if (submitted) errShop else null)
+                    SelectField(stringResource(R.string.cafe_drink), drinks.firstOrNull { it.id == drinkId }?.name ?: "", { sheet = "drink" }, error = if (submitted) errDrink else null)
                     OutlinedTextField(
-                        value = note, onValueChange = { note = it.take(220) }, label = { Text(stringResource(R.string.tx_note)) },
-                        supportingText = { Text(errNote ?: stringResource(R.string.tx_note_hint)) }, isError = errNote != null,
-                        modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 4,
+                        value = imageUrl, onValueChange = { imageUrl = it }, label = { Text(stringResource(R.string.cafe_photo)) },
+                        singleLine = true, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth(),
                     )
-
-                    if (showCafe) {
-                        SectionCard(stringResource(R.string.cafe_form_section)) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                CafePicker(stringResource(R.string.cafe_shop), shops.map { it.id to it.name }, shopId, { shopId = it },
-                                    stringResource(R.string.cafe_no_shops), if (submitted) errShop else null)
-                                CafePicker(stringResource(R.string.cafe_drink), drinks.map { it.id to it.name }, drinkId, { drinkId = it },
-                                    stringResource(R.string.cafe_no_drinks), if (submitted) errDrink else null)
-                                OutlinedTextField(
-                                    value = imageUrl, onValueChange = { imageUrl = it }, label = { Text(stringResource(R.string.cafe_photo)) },
-                                    singleLine = true, modifier = Modifier.fillMaxWidth(),
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(24.dp))
                 }
             }
         }
     }
-}
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CafePicker(label: String, options: List<Pair<Long, String>>, selected: Long?, onSelect: (Long?) -> Unit, emptyText: String, error: String?) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = MaterialTheme.typography.titleSmall)
-        if (options.isEmpty()) {
-            Text(emptyText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                options.forEach { (id, name) -> FilterChip(selected = selected == id, onClick = { onSelect(id) }, label = { Text(name) }) }
-            }
+    when (sheet) {
+        "category" -> ChoiceSheet(stringResource(R.string.tx_category), typeCategories, categoryId, { it.id }, { categoryId = it.id }, { sheet = "" }) { c ->
+            Row(verticalAlignment = Alignment.CenterVertically) { CategoryAvatar(c.emoji, c.color.toColor(), 36.dp); Spacer(Modifier.width(12.dp)); Text(c.name, style = MaterialTheme.typography.bodyLarge) }
         }
-        if (error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        "wallet" -> ChoiceSheet(stringResource(R.string.tx_wallet), wallets, walletId, { it.id }, { walletId = it.id }, { sheet = "" }) { w ->
+            Row(verticalAlignment = Alignment.CenterVertically) { IconAvatar(walletIcon(w.icon), w.color.toColor(), 36.dp); Spacer(Modifier.width(12.dp)); Column { Text(w.name, style = MaterialTheme.typography.bodyLarge); Text(Format.money(w.balance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+        }
+        "shop" -> ChoiceSheet(stringResource(R.string.cafe_shop), shops, shopId, { it.id }, { shopId = it.id }, { sheet = "" }) { Text(it.name, style = MaterialTheme.typography.bodyLarge) }
+        "drink" -> ChoiceSheet(stringResource(R.string.cafe_drink), drinks, drinkId, { it.id }, { drinkId = it.id }, { sheet = "" }) { Text(it.name, style = MaterialTheme.typography.bodyLarge) }
     }
 }
+

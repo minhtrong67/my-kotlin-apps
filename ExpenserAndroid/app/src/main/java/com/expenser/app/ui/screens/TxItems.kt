@@ -48,7 +48,7 @@ fun signedMoney(tx: Tx): String = when (tx.type) {
 fun TxRow(
     tx: Tx,
     category: Category?,
-    wallets: Map<Long, Wallet>,
+    wallets: Map<String, Wallet>,
     modifier: Modifier = Modifier,
     showDate: Boolean = true,
     onClick: (() -> Unit)? = null,
@@ -62,7 +62,7 @@ fun TxRow(
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(txTitle(tx, category), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            val walletName = if (tx.type == TxType.TRANSFER) "${wallets[tx.fromWalletId]?.name ?: "?"} → ${wallets[tx.toWalletId]?.name ?: "?"}" else wallets[tx.walletId]?.name
+            val walletName = if (tx.type == TxType.TRANSFER) "${wallets[tx.fromWalletId ?: ""]?.name ?: "?"} → ${wallets[tx.toWalletId ?: ""]?.name ?: "?"}" else wallets[tx.walletId ?: ""]?.name
             val sub = buildString {
                 if (showDate) append(Format.dateShort(tx.date)).append(" · ")
                 append(Format.time(tx.date))
