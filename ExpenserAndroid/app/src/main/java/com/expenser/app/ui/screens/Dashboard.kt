@@ -98,31 +98,24 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
                 if (monthIncome + monthExpense == 0L) {
                     EmptyState(Icons.Rounded.DonutLarge, stringResource(R.string.dashboard_no_month_tx))
                 } else {
-                    val total = (monthIncome + monthExpense).toDouble()
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        DonutChart(listOf(Slice(stringResource(R.string.tx_income), monthIncome, inc.income), Slice(stringResource(R.string.tx_expense), monthExpense, errorColor))) {
-                            Column(Modifier.padding(horizontal = 36.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(stringResource(R.string.dashboard_remaining), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                                Text(Format.compactMoney(remaining), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = if (remaining < 0) errorColor else MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    LegendRow(inc.income, stringResource(R.string.tx_income), Format.money(monthIncome), extra = "${(monthIncome / total * 100).roundToInt()}%")
-                    LegendRow(errorColor, stringResource(R.string.tx_expense), Format.money(monthExpense), extra = "${(monthExpense / total * 100).roundToInt()}%")
+                    DonutWithLegend(
+                        listOf(Slice(stringResource(R.string.tx_income), monthIncome, inc.income), Slice(stringResource(R.string.tx_expense), monthExpense, errorColor)),
+                        centerTitle = stringResource(R.string.dashboard_remaining), centerValue = Format.compactMoney(remaining),
+                    )
                 }
             }
         }
 
         item {
             SectionCard(stringResource(R.string.dashboard_by_category)) {
-                val rows = byCat.entries.sortedByDescending { it.value }.take(6)
+                val rows = byCat.entries.sortedByDescending { it.value }
                 if (rows.isEmpty()) EmptyState(Icons.Rounded.DonutLarge, stringResource(R.string.dashboard_no_expense))
                 else {
-                    val slices = rows.map { (id, v) -> Slice(catById[id]?.name ?: "", v, catById[id]?.color?.toColor() ?: Color(0xFF94A3B8)) }
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { DonutChart(slices, size = 170.dp) }
-                    Spacer(Modifier.height(8.dp))
-                    slices.forEach { LegendRow(it.color, it.label.ifBlank { stringResource(R.string.common_other) }, Format.money(it.value)) }
+                    val other = stringResource(R.string.common_other)
+                    DonutWithLegend(
+                        rows.map { (id, v) -> Slice(catById[id]?.let { "${it.emoji} ${it.name}" } ?: other, v, catById[id]?.color?.toColor() ?: Color(0xFF94A3B8)) },
+                        centerTitle = stringResource(R.string.tx_expense), centerValue = Format.compactMoney(monthExpense),
+                    )
                 }
             }
         }

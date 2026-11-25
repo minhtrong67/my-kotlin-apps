@@ -178,14 +178,80 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
 
     fun sendTestReminder() = ReminderScheduler.show(app)
 
-    // ---------- Import ----------
-    fun importCsv(text: String) = withRepo { r, id ->
+    // ---------- Import / export ----------
+    fun snapshot() = DataSnapshot(transactions.value, categories.value, wallets.value, shops.value, drinks.value)
+
+    fun importEntity(entity: Entity, text: String) = withRepo { r, id ->
         try {
-            val result = CsvIo.parseImport(text)
-            if (result.rows.isEmpty()) { toast(R.string.import_empty); return@withRepo }
-            val n = r.importTransactions(id, result.rows, categories.value, wallets.value)
-            toast(R.string.imported, n)
-            if (result.skipped > 0) toast(R.string.import_skipped, result.skipped)
+            when (entity) {
+                Entity.TRANSACTIONS -> {
+                    val result = DataIo.parseTransactions(text)
+                    if (result.rows.isEmpty()) { toast(R.string.import_empty); return@withRepo }
+                    val n = r.importTransactions(id, result.rows, categories.value, wallets.value)
+                    toast(R.string.imported, n)
+                    if (result.skipped > 0) toast(R.string.import_skipped, result.skipped)
+                }
+                else -> {
+                    val rows = DataIo.parseRows(entity, text)
+                    var added = 0
+                    when (entity) {
+                        Entity.CATEGORIES -> {
+                            val known = categories.value.map { "${it.type}:${it.name.lowercase()}" }.toMutableSet()
+                            val counts = categories.value.groupingBy { it.type }.eachCount().toMutableMap()
+                            rows.forEach { row ->
+                                val name = row["name"].orEmpty().trim().take(40)
+                                val type = if (row["type"]?.lowercase()?.startsWith("inc") == true || row["type"]?.lowercase()?.startsWith("thu") == true) TxType.INCOME else TxType.EXPENSE
+                                if (name.isEmpty() || !known.add("$type:${name.lowercase()}")) return@forEach
+                                val n = counts[type] ?: 0
+                                r.addCategory(id, List(n) { Category(order = it) }, name, type, row["emoji"].orEmpty(), row["color"].orEmpty().ifBlank { "#64748B" })
+                                counts[type] = n + 1; added++
+                            }
+                        }
+                        Entity.WALLETS -> {
+                            val known = wallets.value.map { it.name.lowercase() }.toMutableSet()
+                            rows.forEach { row ->
+                                val name = row["name"].orEmpty().trim().take(40)
+                                if (name.isEmpty() || !known.add(name.lowercase())) return@forEach
+                                r.addWallet(id, name, row["icon"].orEmpty().ifBlank { "account_balance_wallet" }, row["color"].orEmpty().ifBlank { "#64748B" }, row["balance"]?.toLongOrNull() ?: 0L)
+                                added++
+                            }
+                        }
+                        Entity.SHOPS -> {
+                            val known = shops.value.map { it.name.lowercase() }.toMutableSet()
+                            var order = nextOrder(shops.value.map { it.order })
+                            rows.forEach { row ->
+                                val name = row["name"].orEmpty().trim().take(60)
+                                if (name.isEmpty() || !known.add(name.lowercase())) return@forEach
+                                r.saveShop(id, null, order++, name, row["address"].orEmpty(), row["mapurl"].orEmpty(), row["imageurl"].orEmpty(), row["description"].orEmpty(), (row["rating"]?.toIntOrNull() ?: 0).coerceIn(0, 5))
+                                added++
+                            }
+                        }
+                        Entity.DRINKS -> {
+                            val known = drinks.value.map { it.name.lowercase() }.toMutableSet()
+                            var order = nextOrder(drinks.value.map { it.order })
+                            rows.forEach { row ->
+                                val name = row["name"].orEmpty().trim().take(60)
+                                if (name.isEmpty() || !known.add(name.lowercase())) return@forEach
+                                r.saveDrink(id, null, order++, name, row["imageurl"].orEmpty(), row["description"].orEmpty())
+                                added++
+                            }
+                        }
+                        else -> {}
+                    }
+                    if (added == 0) toast(R.string.import_empty) else toast(R.string.imported, added)
+                }
+            }
         } catch (e: Exception) { toast(R.string.import_error) }
+    }
+
+    /** Imports every entity found in an "export all" JSON file (wallets and categories first so transactions can link to them). */
+    fun importAll(text: String) {
+        if (!DataIo.isJson(text)) { toast(R.string.import_error); return }
+        viewModelScope.launch {
+            listOf(Entity.WALLETS, Entity.CATEGORIES, Entity.SHOPS, Entity.DRINKS).forEach { importEntity(it, text) }
+            // Give the local cache a moment so imported wallets / categories are matched, not duplicated.
+            kotlinx.coroutines.delay(800)
+            importEntity(Entity.TRANSACTIONS, text)
+        }
     }
 }

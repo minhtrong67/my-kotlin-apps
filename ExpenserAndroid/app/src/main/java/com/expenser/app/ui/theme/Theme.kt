@@ -144,7 +144,7 @@ fun ExpenserTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalIncomeColors provides income,
         LocalDensity provides Density(base.density, base.fontScale * scale),
     ) {
-        MaterialTheme(colorScheme = scheme.animated(), shapes = ExpenserShapes, content = content)
+        MaterialTheme(colorScheme = scheme, shapes = ExpenserShapes, content = content)
     }
 }
 

@@ -127,7 +127,7 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                         }
                     }
                     items(dayItems, key = { it.id }) { tx ->
-                        SwipeRow(onEdit = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null, onDelete = { deleteTarget = tx }, modifier = Modifier.animateItem()) {
+                        SwipeRow(onEdit = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null, onDelete = { deleteTarget = tx }) {
                             Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp)) {
                                 TxRow(tx, catById[tx.categoryId ?: ""], walletById, showDate = false, onClick = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null)
                             }
@@ -163,37 +163,38 @@ private fun FiltersPanel(
     var pickTo by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SearchField(search, onSearch, stringResource(R.string.filters_search))
-        Text(stringResource(R.string.filters_type), style = MaterialTheme.typography.titleSmall)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("all" to R.string.filters_all_types, TxType.INCOME to R.string.tx_income, TxType.EXPENSE to R.string.tx_expense, TxType.TRANSFER to R.string.tx_transfer).forEach { (id, label) ->
-                FilterChip(type == id, { onType(id) }, { Text(stringResource(label)) })
-            }
-        }
+        OptionSelect(
+            stringResource(R.string.filters_type),
+            listOf("all" to stringResource(R.string.filters_all_types), TxType.INCOME to stringResource(R.string.tx_income), TxType.EXPENSE to stringResource(R.string.tx_expense), TxType.TRANSFER to stringResource(R.string.tx_transfer)),
+            type, onType,
+        )
         if (type == TxType.INCOME || type == TxType.EXPENSE) {
-            Text(stringResource(R.string.tx_category), style = MaterialTheme.typography.titleSmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(categoryId == null, { onCategory(null) }, { Text(stringResource(R.string.filters_all_categories)) })
-                categories.filter { it.type == type }.forEach { c -> FilterChip(categoryId == c.id, { onCategory(c.id) }, { Text("${c.emoji} ${c.name}") }) }
-            }
+            OptionSelect(
+                stringResource(R.string.tx_category),
+                listOf("" to stringResource(R.string.filters_all_categories)) + categories.filter { it.type == type }.map { it.id to "${it.emoji} ${it.name}" },
+                categoryId ?: "", { onCategory(it.ifEmpty { null }) },
+            )
         }
-        Text(stringResource(R.string.tx_wallet), style = MaterialTheme.typography.titleSmall)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(walletId == null, { onWallet(null) }, { Text(stringResource(R.string.filters_all_wallets)) })
-            wallets.forEach { w -> FilterChip(walletId == w.id, { onWallet(w.id) }, { Text(w.name) }) }
-        }
+        OptionSelect(
+            stringResource(R.string.tx_wallet),
+            listOf("" to stringResource(R.string.filters_all_wallets)) + wallets.map { it.id to it.name },
+            walletId ?: "", { onWallet(it.ifEmpty { null }) },
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton({ pickFrom = true }, Modifier.weight(1f)) { Text(from?.let { stringResource(R.string.filters_from) + ": " + Format.dateShort(it) } ?: stringResource(R.string.filters_from)) }
-            OutlinedButton({ pickTo = true }, Modifier.weight(1f)) { Text(to?.let { stringResource(R.string.filters_to) + ": " + Format.dateShort(it) } ?: stringResource(R.string.filters_to)) }
+            DateSelect(stringResource(R.string.filters_from), from, { onRange(it?.let(::startOfDay), to) }, Modifier.weight(1f))
+            DateSelect(stringResource(R.string.filters_to), to, { onRange(from, it?.let(::endOfDay)) }, Modifier.weight(1f))
         }
-        Row { TextButton(onClick = { onRange(null, null) }) { Text(stringResource(R.string.tx_show_all)) }; Spacer(Modifier.weight(1f)); TextButton(onClick = onReset) { Text(stringResource(R.string.filters_reset)) } }
-        Text(stringResource(R.string.tx_sort), style = MaterialTheme.typography.titleSmall)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(newestFirst, { onSort(true) }, { Text(stringResource(R.string.tx_sort_newest)) })
-            FilterChip(!newestFirst, { onSort(false) }, { Text(stringResource(R.string.tx_sort_oldest)) })
+        OptionSelect(
+            stringResource(R.string.tx_sort),
+            listOf("new" to stringResource(R.string.tx_sort_newest), "old" to stringResource(R.string.tx_sort_oldest)),
+            if (newestFirst) "new" else "old", { onSort(it == "new") },
+        )
+        Row {
+            TextButton(onClick = { onRange(null, null) }) { Text(stringResource(R.string.tx_show_all)) }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onReset) { Icon(Icons.Rounded.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.filters_reset)) }
         }
     }
-    if (pickFrom) SimpleDatePicker(from ?: System.currentTimeMillis(), { onRange(startOfDay(it), to) }, { pickFrom = false })
-    if (pickTo) SimpleDatePicker(to ?: System.currentTimeMillis(), { onRange(from, endOfDay(it)) }, { pickTo = false })
 }
 
 /** Month grid with net income / expense per day; tapping a day lists its transactions below. */

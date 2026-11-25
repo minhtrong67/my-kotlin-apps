@@ -1,5 +1,6 @@
 package com.expenser.app.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -16,6 +17,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -63,6 +66,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
+import coil.compose.SubcomposeAsyncImage
+import kotlinx.coroutines.launch
 import com.expenser.app.R
 import com.expenser.app.ui.theme.LocalIncomeColors
 import com.expenser.app.util.EMOJI_GROUPS
@@ -163,15 +177,11 @@ fun ConfirmDialog(text: String, confirmLabel: String = stringResource(R.string.c
     )
 }
 
-/** Web-style floating action button: a rounded-square primary container with a plus. Pops in when the screen opens. */
+/** Web-style floating action button: a rounded-square primary container with a plus. */
 @Composable
 fun ScreenFab(onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector = Icons.Rounded.Add) {
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { shown = true }
-    AnimatedVisibility(shown, modifier = modifier.padding(16.dp), enter = scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-        FloatingActionButton(onClick = onClick, containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, shape = RoundedCornerShape(18.dp)) {
-            Icon(icon, null)
-        }
+    FloatingActionButton(onClick = onClick, modifier = modifier.padding(16.dp), containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, shape = RoundedCornerShape(18.dp)) {
+        Icon(icon, null)
     }
 }
 
@@ -183,8 +193,8 @@ fun PillSegmented(options: List<Seg>, selected: String, onSelect: (String) -> Un
     Row(modifier.fillMaxWidth().height(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
         options.forEach { o ->
             val on = o.id == selected
-            val bg by animateColorAsState(if (on) (o.container ?: MaterialTheme.colorScheme.primary) else Color.Transparent, tween(220), label = "segBg")
-            val fg by animateColorAsState(if (on) (o.content ?: MaterialTheme.colorScheme.onPrimary) else MaterialTheme.colorScheme.onSurfaceVariant, tween(220), label = "segFg")
+            val bg by animateColorAsState(if (on) (o.container ?: MaterialTheme.colorScheme.primary) else Color.Transparent, tween(150), label = "segBg")
+            val fg by animateColorAsState(if (on) (o.content ?: MaterialTheme.colorScheme.onPrimary) else MaterialTheme.colorScheme.onSurfaceVariant, tween(150), label = "segFg")
             Row(
                 Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(bg).clickable { onSelect(o.id) },
                 horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
@@ -214,7 +224,7 @@ fun AccordionCard(
     title: String, icon: ImageVector, expanded: Boolean, onToggle: () -> Unit,
     modifier: Modifier = Modifier, subtitle: String? = null, badge: Int = 0, content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(modifier.fillMaxWidth().animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+    Surface(modifier.fillMaxWidth().animateContentSize(tween(200)), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column {
             Row(Modifier.clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
@@ -226,10 +236,10 @@ fun AccordionCard(
                     if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (badge > 0) { Badge { Text("$badge") }; Spacer(Modifier.width(8.dp)) }
-                val rot by animateFloatAsState(if (expanded) 180f else 0f, tween(250), label = "chev")
+                val rot = if (expanded) 180f else 0f
                 Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.rotate(rot), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            AnimatedVisibility(expanded, enter = expandVertically(tween(250)) + fadeIn(tween(250)), exit = shrinkVertically(tween(200)) + fadeOut(tween(150))) {
+            AnimatedVisibility(expanded, enter = expandVertically(tween(200)), exit = shrinkVertically(tween(160))) {
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
             }
         }
@@ -269,32 +279,61 @@ fun SwipeRow(onEdit: (() -> Unit)?, onDelete: () -> Unit, modifier: Modifier = M
 
 // ---------------------------------------------------------------- full-screen form
 
-/** Multi-field forms open as a full-screen sheet: close button + title on top, Cancel / confirm at the bottom. */
+/**
+ * Forms are drawn by [FormHost] inside the activity (not in a separate dialog window) so system-bar and keyboard insets
+ * are applied correctly and the bottom action bar is never hidden.
+ */
+class FormHostState {
+    internal val entries = mutableStateListOf<Pair<Any, MutableState<@Composable () -> Unit>>>()
+}
+
+val LocalFormHost = compositionLocalOf<FormHostState?> { null }
+
+@Composable
+fun FormHost(state: FormHostState) {
+    state.entries.forEach { (entryId, content) ->
+        key(entryId) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+                Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { content.value() }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormScreen(title: String, confirmLabel: String, onClose: () -> Unit, onConfirm: () -> Unit, confirmEnabled: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
-                TopAppBar(
-                    title = { Text(title) },
-                    navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.common_close)) } },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                )
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    content()
-                    Spacer(Modifier.height(16.dp))
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onClose, Modifier.weight(1f)) { Text(stringResource(R.string.common_cancel)) }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = onConfirm, enabled = confirmEnabled, modifier = Modifier.weight(1.6f).height(48.dp)) {
-                        Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(confirmLabel)
-                    }
+    val host = LocalFormHost.current
+    val body: @Composable () -> Unit = {
+        BackHandler(onBack = onClose)
+        Column(Modifier.fillMaxSize()) {
+            TopAppBar(
+                title = { Text(title) },
+                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.common_close)) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                windowInsets = WindowInsets(0),
+            )
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                content()
+                Spacer(Modifier.height(16.dp))
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onClose, Modifier.weight(1f)) { Text(stringResource(R.string.common_cancel)) }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onConfirm, enabled = confirmEnabled, modifier = Modifier.weight(1.6f).height(48.dp)) {
+                    Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(confirmLabel)
                 }
             }
         }
+    }
+    if (host == null) return
+    val id = remember { Any() }
+    val holder = remember { mutableStateOf(body) }
+    SideEffect { holder.value = body }
+    DisposableEffect(id) {
+        host.entries.add(id to holder)
+        onDispose { host.entries.removeAll { it.first === id } }
     }
 }
 
@@ -342,9 +381,13 @@ fun MoneyField(digits: String, onChange: (String) -> Unit, label: String, modifi
             modifier = Modifier.fillMaxWidth(),
         )
         val list = if (suggestions) Format.amountSuggestions(digits.toLongOrNull() ?: 0).filter { it <= max } else emptyList()
-        AnimatedVisibility(list.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                list.forEach { amount -> SuggestionChip(onClick = { onChange(amount.toString()) }, label = { Text(Format.number(amount)) }) }
+        if (list.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                list.forEach { amount ->
+                    Surface(onClick = { onChange(amount.toString()) }, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                        Text(Format.number(amount), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                    }
+                }
             }
         }
     }
@@ -362,6 +405,14 @@ fun SelectField(label: String, valueText: String, onClick: () -> Unit, modifier:
         )
         Box(Modifier.matchParentSize().padding(bottom = if (error != null) 20.dp else 0.dp).clip(MaterialTheme.shapes.medium).clickable(onClick = onClick))
     }
+}
+
+/** Select field with a list of (id, label) options; id "" means "all / none". */
+@Composable
+fun OptionSelect(label: String, options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    SelectField(label, options.firstOrNull { it.first == selected }?.second ?: "", { open = true }, modifier)
+    if (open) ChoiceSheet(label, options, selected, { it.first }, { onSelect(it.first) }, { open = false }) { Text(it.second, style = MaterialTheme.typography.bodyLarge) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -483,8 +534,10 @@ data class Slice(val label: String, val value: Long, val color: Color)
 @Composable
 fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 200.dp, thickness: Dp = 28.dp, center: @Composable BoxScope.() -> Unit = {}) {
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { progress.animateTo(1f, tween(800)) }
+    // Plays once per screen: the flag survives the item leaving and re-entering the lazy list while scrolling.
+    var played by rememberSaveable { mutableStateOf(false) }
+    val progress = remember { Animatable(if (played) 1f else 0f) }
+    LaunchedEffect(Unit) { if (!played) { progress.animateTo(1f, tween(600)); played = true } }
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = thickness.toPx()
@@ -498,13 +551,35 @@ fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 20
                 val gap = if (visible.size > 1) 3f else 0f
                 var start = -90f
                 visible.forEach { s ->
-                    val sweep = s.value / total * 360f * progress.value
-                    drawArc(s.color, start + gap / 2, (sweep - gap).coerceAtLeast(0.5f), false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
-                    start += sweep
+                    val full = s.value / total * 360f
+                    drawArc(s.color, start + gap / 2, ((full - gap) * progress.value).coerceAtLeast(0.5f), false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
+                    start += full
                 }
             }
         }
         center()
+    }
+}
+
+/** Donut + a complete legend: colour, name, amount and percentage for every slice. */
+@Composable
+fun DonutWithLegend(
+    slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 200.dp, formatValue: (Long) -> String = { Format.money(it) },
+    centerTitle: String? = null, centerValue: String? = null, onSliceClick: ((Int) -> Unit)? = null,
+) {
+    val total = slices.sumOf { it.value }.coerceAtLeast(1L)
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        DonutChart(slices, size = size) {
+            if (centerValue != null) Column(Modifier.padding(horizontal = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (centerTitle != null) Text(centerTitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                Text(centerValue, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        slices.forEachIndexed { i, sl ->
+            val pct = Math.round(sl.value * 100.0 / total).toInt()
+            LegendRow(sl.color, sl.label, formatValue(sl.value), extra = "$pct%", modifier = if (onSliceClick != null) Modifier.clip(RoundedCornerShape(8.dp)).clickable { onSliceClick(i) } else Modifier)
+        }
     }
 }
 
@@ -522,7 +597,7 @@ fun LegendRow(color: Color, name: String, value: String, modifier: Modifier = Mo
 
 @Composable
 fun ProgressRow(name: String, color: Color, valueText: String, pct: Int, modifier: Modifier = Modifier) {
-    val frac by animateFloatAsState((pct / 100f).coerceIn(0f, 1f), tween(600), label = "bar")
+    val frac = (pct / 100f).coerceIn(0f, 1f)
     Column(modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(color)); Spacer(Modifier.width(8.dp))
@@ -597,4 +672,106 @@ fun StatTile(
             if (hint != null) Text(hint, style = MaterialTheme.typography.bodySmall, color = onContainer.copy(alpha = 0.85f))
         }
     }
+}
+
+
+// ---------------------------------------------------------------- images
+
+/** Network image with a spinner while loading and a placeholder icon when the URL is empty, broken or unreachable. */
+@Composable
+fun RemoteImage(url: String?, modifier: Modifier = Modifier, fallbackIcon: ImageVector = Icons.Rounded.Image, contentScale: ContentScale = ContentScale.Crop) {
+    val placeholder: @Composable () -> Unit = {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+            Icon(fallbackIcon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f), modifier = Modifier.fillMaxSize(0.4f))
+        }
+    }
+    if (url.isNullOrBlank()) { Box(modifier) { placeholder() }; return }
+    SubcomposeAsyncImage(
+        model = url, contentDescription = null, modifier = modifier, contentScale = contentScale,
+        loading = { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) } },
+        error = { placeholder() },
+    )
+}
+
+data class LightboxItem(val url: String, val title: String)
+
+/** Full-screen photo viewer: swipe or use the arrows for previous / next, double-tap or pinch to zoom. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ImageLightbox(items: List<LightboxItem>, startIndex: Int, onDismiss: () -> Unit) {
+    if (items.isEmpty()) return
+    val pager = rememberPagerState(initialPage = startIndex.coerceIn(0, items.lastIndex)) { items.size }
+    val scope = rememberCoroutineScope()
+    var zoomed by remember { mutableStateOf(false) }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            HorizontalPager(pager, Modifier.fillMaxSize(), userScrollEnabled = !zoomed, key = { items[it].url + it }) { page ->
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offset by remember { mutableStateOf(Offset.Zero) }
+                LaunchedEffect(pager.currentPage) { if (pager.currentPage != page) { scale = 1f; offset = Offset.Zero } }
+                Box(
+                    Modifier.fillMaxSize().pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(1f, 4f)
+                            offset = if (scale > 1f) offset + pan else Offset.Zero
+                            zoomed = scale > 1f
+                        }
+                    }.pointerInput(Unit) {
+                        detectTapGestures(onDoubleTap = { if (scale > 1f) { scale = 1f; offset = Offset.Zero } else scale = 2.5f; zoomed = scale > 1f }, onTap = { })
+                    }.graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y },
+                    contentAlignment = Alignment.Center,
+                ) { RemoteImage(items[page].url, Modifier.fillMaxSize(), Icons.Rounded.BrokenImage, ContentScale.Fit) }
+            }
+            Row(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.45f)).statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, stringResource(R.string.common_close), tint = Color.White) }
+                Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                    Text(items[pager.currentPage].title, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (items.size > 1) Text("${pager.currentPage + 1} / ${items.size}", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            if (items.size > 1) {
+                if (pager.currentPage > 0) FilledTonalIconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }, modifier = Modifier.align(Alignment.CenterStart).padding(8.dp)) { Icon(Icons.Rounded.ChevronLeft, stringResource(R.string.stats_prev)) }
+                if (pager.currentPage < items.lastIndex) FilledTonalIconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.align(Alignment.CenterEnd).padding(8.dp)) { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.stats_next)) }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- misc helpers
+
+/** Copies [text] to the clipboard; the icon turns into a check mark for two seconds. */
+@Composable
+fun CopyButton(text: String, modifier: Modifier = Modifier, onCopied: () -> Unit = {}) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(2000); copied = false } }
+    FilledTonalIconButton(onClick = { clipboard.setText(AnnotatedString(text)); copied = true; onCopied() }, modifier = modifier) {
+        Icon(if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy, stringResource(R.string.cafe_copy_map))
+    }
+}
+
+/** Horizontal swipe → previous / next (e.g. to move between tabs). Children that scroll or swipe horizontally win first. */
+fun Modifier.swipeSwitch(onPrev: () -> Unit, onNext: () -> Unit): Modifier = composed {
+    val prev by rememberUpdatedState(onPrev)
+    val next by rememberUpdatedState(onNext)
+    val threshold = with(LocalDensity.current) { 72.dp.toPx() }
+    pointerInput(Unit) {
+        var total = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { total = 0f },
+            onDragCancel = { total = 0f },
+            onDragEnd = { if (total > threshold) prev() else if (total < -threshold) next(); total = 0f },
+        ) { _, d -> total += d }
+    }
+}
+
+/** Date picker field with an optional value (filters): tap to pick, trailing clear button when set. */
+@Composable
+fun DateSelect(label: String, millis: Long?, onChange: (Long?) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        SelectField(label, millis?.let { Format.date(it) } ?: "", { open = true }, Modifier.fillMaxWidth(), leading = { Icon(Icons.Rounded.Event, null) }, trailing = Icons.Rounded.CalendarMonth)
+        if (millis != null) IconButton(onClick = { onChange(null) }, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 40.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.common_clear), Modifier.size(18.dp)) }
+    }
+    if (open) SimpleDatePicker(millis ?: System.currentTimeMillis(), { onChange(it) }, { open = false })
 }

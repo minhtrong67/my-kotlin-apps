@@ -108,6 +108,10 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
     val title = DRAWER.firstOrNull { it.route == route }?.label ?: R.string.app_name
     val showFab = route == ROUTE_DASHBOARD || route == ROUTE_TRANSACTIONS || (route == ROUTE_CAFE && cafeId != null)
 
+    val formHost = remember { FormHostState() }
+    val tabIndex = BOTTOM.indexOfFirst { it.route == route }
+    CompositionLocalProvider(LocalFormHost provides formHost) {
+    Box(Modifier.fillMaxSize()) {
     ModalNavigationDrawer(
         drawerState = drawer,
         drawerContent = {
@@ -154,7 +158,7 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
                             else -> Icons.Rounded.BrightnessAuto to "light"
                         }
                         IconButton(onClick = { vm.setThemeMode(next) }) {
-                            AnimatedContent(icon, transitionSpec = { (fadeIn(tween(200)) + scaleIn(initialScale = 0.7f)) togetherWith fadeOut(tween(120)) }, label = "themeIcon") { Icon(it, stringResource(R.string.topbar_theme)) }
+                            Icon(icon, stringResource(R.string.topbar_theme))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -169,13 +173,20 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
             },
             containerColor = MaterialTheme.colorScheme.surface,
         ) { padding ->
-            Box(Modifier.padding(padding).fillMaxSize()) {
+            Box(
+                Modifier.padding(padding).fillMaxSize().then(
+                    if (tabIndex >= 0) Modifier.swipeSwitch(
+                        onPrev = { if (tabIndex > 0) go(BOTTOM[tabIndex - 1].route) },
+                        onNext = { if (tabIndex < BOTTOM.lastIndex) go(BOTTOM[tabIndex + 1].route) },
+                    ) else Modifier,
+                ),
+            ) {
                 NavHost(
                     nav, startDestination = ROUTE_DASHBOARD,
-                    enterTransition = { fadeIn(tween(260, delayMillis = 60)) + scaleIn(tween(260, delayMillis = 60), initialScale = 0.94f) },
-                    exitTransition = { fadeOut(tween(90)) },
-                    popEnterTransition = { fadeIn(tween(260, delayMillis = 60)) + scaleIn(tween(260, delayMillis = 60), initialScale = 0.94f) },
-                    popExitTransition = { fadeOut(tween(90)) },
+                    enterTransition = { fadeIn(tween(140)) },
+                    exitTransition = { fadeOut(tween(80)) },
+                    popEnterTransition = { fadeIn(tween(140)) },
+                    popExitTransition = { fadeOut(tween(80)) },
                 ) {
                     composable(ROUTE_DASHBOARD) { DashboardScreen(vm, onAdd = { form = TxFormRequest() }, onEdit = { form = TxFormRequest(editing = it) }, onViewAll = { go(ROUTE_TRANSACTIONS) }) }
                     composable(ROUTE_TRANSACTIONS) { TransactionsScreen(vm, onEdit = { form = TxFormRequest(editing = it) }) }
@@ -194,8 +205,12 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         }
     }
 
+    FormHost(formHost)
+    }
+
     if (palette) CommandPalette(onDismiss = { palette = false }, onPick = { palette = false; go(it) })
     form?.let { TransactionFormDialog(it, vm, onDismiss = { form = null }) }
+    }
 }
 
 @Composable

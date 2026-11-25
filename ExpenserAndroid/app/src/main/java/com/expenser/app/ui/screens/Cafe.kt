@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.foundation.layout.aspectRatio
 import com.expenser.app.R
 import com.expenser.app.data.*
 import com.expenser.app.ui.MainViewModel
@@ -75,7 +80,7 @@ fun CafeScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().swipeSwitch(onPrev = { if (tab > 0) tab-- }, onNext = { if (tab < 1) tab++ })) {
         PillSegmented(
             listOf(Seg("0", stringResource(R.string.cafe_tab_transactions), Icons.AutoMirrored.Rounded.ReceiptLong), Seg("1", stringResource(R.string.cafe_tab_stats), Icons.Rounded.BarChart)),
             tab.toString(), { tab = it.toInt() }, Modifier.padding(16.dp, 8.dp, 16.dp, 0.dp),
@@ -88,62 +93,116 @@ fun CafeScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     }
 }
 
+@Composable
+private fun SessionBadge(session: Session) {
+    Surface(shape = CircleShape, color = session.color.copy(alpha = 0.15f), contentColor = session.color) {
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Schedule, null, Modifier.size(13.dp)); Spacer(Modifier.width(4.dp))
+            Text(sessionLabel(session), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+private const val CAFE_PAGE = 20
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CafeList(all: List<CafeItem>, shops: List<CafeShop>, drinks: List<CafeDrink>, onEdit: (Tx) -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
-    var session by rememberSaveable { mutableStateOf<Session?>(null) }
-    var shopId by rememberSaveable { mutableStateOf<String?>(null) }
-    var drinkId by rememberSaveable { mutableStateOf<String?>(null) }
+    var session by rememberSaveable { mutableStateOf("all") }
+    var shopId by rememberSaveable { mutableStateOf("all") }
+    var drinkId by rememberSaveable { mutableStateOf("all") }
+    var newest by rememberSaveable { mutableStateOf(true) }
+    var from by rememberSaveable { mutableStateOf<Long?>(null) }
+    var to by rememberSaveable { mutableStateOf<Long?>(null) }
+    var open by rememberSaveable { mutableStateOf(false) }
+    var limit by rememberSaveable { mutableIntStateOf(CAFE_PAGE) }
+    var viewer by remember { mutableStateOf<Pair<List<LightboxItem>, Int>?>(null) }
 
-    val filtered = remember(all, search, session, shopId, drinkId) {
+    val active = listOf(search.isNotBlank(), session != "all", shopId != "all", drinkId != "all", !newest, from != null, to != null).count { it }
+    val filtered = remember(all, search, session, shopId, drinkId, newest, from, to) {
         val q = normalizeText(search)
         all.filter {
-            (session == null || sessionOf(it.tx.date) == session) &&
-                (shopId == null || it.log?.shopId == shopId) && (drinkId == null || it.log?.drinkId == drinkId) &&
-                (q.isEmpty() || normalizeText(it.tx.note).contains(q) || normalizeText(it.shop?.name).contains(q) || normalizeText(it.drink?.name).contains(q))
-        }
+            (session == "all" || sessionOf(it.tx.date).name == session) &&
+                (shopId == "all" || (if (shopId == "none") it.shop == null else it.log?.shopId == shopId)) &&
+                (drinkId == "all" || (if (drinkId == "none") it.drink == null else it.log?.drinkId == drinkId)) &&
+                (from == null || it.tx.date >= from!!) && (to == null || it.tx.date <= to!!) &&
+                (q.isEmpty() || normalizeText("${it.tx.note} ${it.shop?.name} ${it.drink?.name} ${it.shop?.address}").contains(q))
+        }.let { if (newest) it.sortedByDescending { x -> x.tx.date } else it.sortedBy { x -> x.tx.date } }
     }
+    val total = filtered.sumOf { it.tx.amount }
+    val visible = filtered.take(limit)
+    val listState = rememberLazyListState()
+    val nearEnd by remember { derivedStateOf { val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0; last >= listState.layoutInfo.totalItemsCount - 4 } }
+    LaunchedEffect(nearEnd, filtered.size) { if (nearEnd && limit < filtered.size) limit += CAFE_PAGE }
 
-    LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SearchField(search, { search = it }, stringResource(R.string.cafe_filter_search))
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(session == null, { session = null }, { Text(stringResource(R.string.cafe_all_sessions)) })
-                    Session.entries.forEach { s -> FilterChip(session == s, { session = if (session == s) null else s }, { Text(sessionLabel(s)) }) }
+    fun photoOf(it: CafeItem) = it.log?.imageUrl?.takeIf { u -> u.isNotBlank() } ?: it.drink?.imageUrl?.takeIf { u -> u.isNotBlank() } ?: it.shop?.imageUrl?.takeIf { u -> u.isNotBlank() }
+    val none = stringResource(R.string.cafe_unspecified)
+    val reset = { search = ""; session = "all"; shopId = "all"; drinkId = "all"; newest = true; from = null; to = null; limit = CAFE_PAGE }
+
+    LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 12.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item(key = "filters") {
+            AccordionCard(stringResource(R.string.filters_title), Icons.Rounded.Tune, open, { open = !open }, badge = active) {
+                SearchField(search, { search = it; limit = CAFE_PAGE }, stringResource(R.string.cafe_filter_search))
+                OptionSelect(stringResource(R.string.cafe_shop), listOf("all" to stringResource(R.string.cafe_all_shops), "none" to none) + shops.map { it.id to it.name }, shopId, { shopId = it; limit = CAFE_PAGE })
+                OptionSelect(stringResource(R.string.cafe_drink), listOf("all" to stringResource(R.string.cafe_all_drinks), "none" to none) + drinks.map { it.id to it.name }, drinkId, { drinkId = it; limit = CAFE_PAGE })
+                OptionSelect(stringResource(R.string.cafe_session), listOf("all" to stringResource(R.string.cafe_all_sessions)) + Session.entries.map { it.name to stringResource(sessionRes(it)) }, session, { session = it; limit = CAFE_PAGE })
+                OptionSelect(stringResource(R.string.tx_sort), listOf("new" to stringResource(R.string.tx_sort_newest), "old" to stringResource(R.string.tx_sort_oldest)), if (newest) "new" else "old", { newest = it == "new" })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DateSelect(stringResource(R.string.filters_from), from, { from = it?.let(::startOfDay); limit = CAFE_PAGE }, Modifier.weight(1f))
+                    DateSelect(stringResource(R.string.filters_to), to, { to = it?.let(::endOfDay); limit = CAFE_PAGE }, Modifier.weight(1f))
                 }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(shopId == null, { shopId = null }, { Text(stringResource(R.string.cafe_all_shops)) })
-                    shops.forEach { s -> FilterChip(shopId == s.id, { shopId = if (shopId == s.id) null else s.id }, { Text(s.name) }) }
-                }
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(drinkId == null, { drinkId = null }, { Text(stringResource(R.string.cafe_all_drinks)) })
-                    drinks.forEach { d -> FilterChip(drinkId == d.id, { drinkId = if (drinkId == d.id) null else d.id }, { Text(d.name) }) }
-                }
+                TextButton(onClick = reset, enabled = active > 0, modifier = Modifier.align(Alignment.End)) { Icon(Icons.Rounded.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.filters_reset)) }
             }
         }
-        if (filtered.isEmpty()) item { EmptyState(Icons.Rounded.LocalCafe, stringResource(if (all.isEmpty()) R.string.cafe_empty else R.string.tx_no_match)) }
-        items(filtered, key = { it.tx.id }) { item ->
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, onClick = { onEdit(item.tx) }) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val photo = item.log?.imageUrl.orEmpty()
-                    Box(Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)).then(Modifier), contentAlignment = Alignment.Center) {
-                        if (photo.isNotBlank()) AsyncImage(photo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                        else Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxSize()) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.LocalCafe, null, tint = MaterialTheme.colorScheme.onSecondaryContainer) } }
+        if (filtered.isEmpty()) {
+            item { EmptyState(Icons.Rounded.LocalCafe, stringResource(if (all.isEmpty()) R.string.cafe_empty else R.string.tx_no_match), action = if (all.isNotEmpty()) stringResource(R.string.filters_reset) to reset else null) }
+        } else {
+            item(key = "count") { Text("${stringResource(R.string.cafe_moment_count, filtered.size)} · ${Format.money(total)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp)) }
+            items(visible, key = { it.tx.id }) { item ->
+                val photo = photoOf(item)
+                val session0 = sessionOf(item.tx.date)
+                Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, onClick = { onEdit(item.tx) }) {
+                    Column {
+                        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+                            RemoteImage(photo, Modifier.fillMaxSize(), Icons.Rounded.LocalCafe)
+                            if (photo != null) Box(Modifier.fillMaxSize().clickable {
+                                val withPhotos = filtered.mapNotNull { f -> photoOf(f)?.let { u -> f to u } }
+                                viewer = withPhotos.map { (f, u) -> LightboxItem(u, f.drink?.name ?: f.shop?.name ?: "") } to withPhotos.indexOfFirst { it.first.tx.id == item.tx.id }.coerceAtLeast(0)
+                            })
+                        }
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Text(item.drink?.name ?: stringResource(R.string.cafe_unspecified_drink), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.width(12.dp))
+                                Text(Format.money(item.tx.amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Storefront, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(6.dp))
+                                Text(item.shop?.name ?: stringResource(R.string.cafe_unspecified_shop), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Rounded.Schedule, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("${Format.date(item.tx.date)} · ${Format.time(item.tx.date)}" + (item.wallet?.let { " · ${it.name}" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                SessionBadge(session0)
+                            }
+                            if (item.tx.note.isNotBlank()) Text(item.tx.note, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(item.drink?.name ?: stringResource(R.string.cafe_unspecified_drink), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(item.shop?.name ?: stringResource(R.string.cafe_unspecified_shop), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${Format.dateShort(item.tx.date)} · ${Format.time(item.tx.date)} · ${sessionLabel(sessionOf(item.tx.date))}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (item.tx.note.isNotBlank()) Text(item.tx.note, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Text(Format.money(item.tx.amount), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                 }
             }
         }
     }
+    viewer?.let { (list, idx) -> ImageLightbox(list, idx) { viewer = null } }
+}
+
+@Composable
+private fun sessionRes(s: Session) = when (s) {
+    Session.MORNING -> R.string.cafe_session_morning
+    Session.NOON -> R.string.cafe_session_noon
+    Session.AFTERNOON -> R.string.cafe_session_afternoon
+    Session.EVENING -> R.string.cafe_session_evening
+    Session.NIGHT -> R.string.cafe_session_night
 }
 
 private data class AggRow(val key: String, val name: String, val visits: Int, val amount: Long, val color: Color)
@@ -166,14 +225,13 @@ private fun aggregate(items: List<CafeItem>, keyFn: (CafeItem) -> String, labelF
 private fun PieWithBars(rows: List<AggRow>, byAmount: Boolean) {
     val total = rows.sumOf { if (byAmount) it.amount else it.visits.toLong() }
     if (rows.isEmpty() || total == 0L) { EmptyState(Icons.Rounded.DonutLarge, stringResource(R.string.common_no_data)); return }
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        DonutChart(rows.map { Slice(it.name, if (byAmount) it.amount else it.visits.toLong(), it.color) }, size = 180.dp)
-    }
-    Spacer(Modifier.height(8.dp))
-    rows.forEach { r ->
-        val v = if (byAmount) r.amount else r.visits.toLong()
-        ProgressRow(r.name, r.color, if (byAmount) Format.money(r.amount) else stringResource(R.string.cafe_visits, r.visits), (v * 100.0 / total).roundToInt())
-    }
+    val ctx = LocalContext.current
+    DonutWithLegend(
+        rows.map { Slice(it.name, if (byAmount) it.amount else it.visits.toLong(), it.color) },
+        size = 190.dp,
+        formatValue = { v -> if (byAmount) Format.money(v) else ctx.getString(R.string.cafe_visits, v.toInt()) },
+        centerValue = if (byAmount) Format.compactMoney(total) else "$total",
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -251,6 +309,7 @@ fun CafeShopsScreen(vm: MainViewModel) {
     var editor by remember { mutableStateOf<ShopEditorState?>(null) }
     var deleteTarget by remember { mutableStateOf<CafeShop?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
+    var viewer by remember { mutableStateOf<List<LightboxItem>?>(null) }
     val usage = remember(logs) { logs.groupingBy { it.shopId }.eachCount() }
     val list = remember(shops, search) { val q = normalizeText(search); if (q.isEmpty()) shops else shops.filter { normalizeText(it.name).contains(q) || normalizeText(it.address).contains(q) } }
 
@@ -259,28 +318,55 @@ fun CafeShopsScreen(vm: MainViewModel) {
             item { SearchField(search, { search = it }, stringResource(R.string.cafe_shop_search)) }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Storefront, if (search.isBlank()) stringResource(R.string.cafe_shop_empty) else stringResource(R.string.cafe_no_match, search)) }
             itemsIndexed(list, key = { _, s -> s.id }) { index, s ->
-                SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp), modifier = Modifier.animateItem()) {
+                SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp)) {
                     Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                        Column {
-                            if (s.imageUrl.isNotBlank()) AsyncImage(s.imageUrl, null, Modifier.fillMaxWidth().height(150.dp), contentScale = ContentScale.Crop)
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(s.name, style = MaterialTheme.typography.titleMedium)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    repeat(5) { i -> Icon(if (i < s.rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, Modifier.size(18.dp), tint = if (i < s.rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) }
-                                    if (s.rating == 0) Text(stringResource(R.string.cafe_no_rating), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Box(Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).then(if (s.imageUrl.isNotBlank()) Modifier.clickable { viewer = listOf(LightboxItem(s.imageUrl, s.name)) } else Modifier)) {
+                                    RemoteImage(s.imageUrl, Modifier.fillMaxSize(), Icons.Rounded.Storefront)
                                 }
-                                if (s.address.isNotBlank()) Text(s.address, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (s.description.isNotBlank()) Text(s.description, style = MaterialTheme.typography.bodySmall)
-                                Text(stringResource(R.string.cafe_visits, usage[s.id] ?: 0), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (s.mapUrl.isNotBlank()) TextButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(s.mapUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }) {
-                                        Icon(Icons.Rounded.Map, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.cafe_open_map))
+                                Spacer(Modifier.width(14.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.Top) {
+                                        Text(s.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                        IconButton(onClick = { editor = ShopEditorState(s) }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Edit, stringResource(R.string.common_edit), Modifier.size(18.dp)) }
+                                        IconButton(onClick = { deleteTarget = s }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
                                     }
-                                    Spacer(Modifier.weight(1f))
-                                    if (search.isBlank()) {
-                                        IconButton(enabled = index > 0, onClick = { vm.reorderShops(shops.map { it.id }.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up)) }
-                                        IconButton(enabled = index < shops.lastIndex, onClick = { vm.reorderShops(shops.map { it.id }.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down)) }
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        if (s.rating > 0) Row { repeat(5) { i -> Icon(if (i < s.rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, Modifier.size(16.dp), tint = if (i < s.rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) } }
+                                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                                            Row(Modifier.padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Rounded.LocalCafe, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(4.dp))
+                                                Text(stringResource(R.string.cafe_visits, usage[s.id] ?: 0), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
                                     }
+                                }
+                            }
+                            if (s.address.isNotBlank() || s.description.isNotBlank()) {
+                                Spacer(Modifier.height(12.dp))
+                                if (s.address.isNotBlank()) Row(verticalAlignment = Alignment.Top) {
+                                    Icon(Icons.Rounded.LocationOn, null, Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
+                                    Text(s.address, style = MaterialTheme.typography.bodyMedium)
+                                }
+                                if (s.description.isNotBlank()) Text(s.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                            }
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (s.mapUrl.isNotBlank()) {
+                                    val url = normalizeUrl(s.mapUrl)
+                                    Button(
+                                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { vm.toast(R.string.cafe_map_open_error) } },
+                                        Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                                    ) { Icon(Icons.Rounded.Map, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.cafe_open_map), maxLines = 1) }
+                                    CopyButton(url, onCopied = { vm.toast(R.string.cafe_map_copied) })
+                                } else {
+                                    TextButton(onClick = { editor = ShopEditorState(s) }, Modifier.weight(1f)) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.cafe_add_map)) }
+                                }
+                                if (search.isBlank()) {
+                                    IconButton(enabled = index > 0, onClick = { vm.reorderShops(shops.map { it.id }.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up)) }
+                                    IconButton(enabled = index < shops.lastIndex, onClick = { vm.reorderShops(shops.map { it.id }.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down)) }
                                 }
                             }
                         }
@@ -290,6 +376,7 @@ fun CafeShopsScreen(vm: MainViewModel) {
         }
         ScreenFab({ editor = ShopEditorState(null) }, Modifier.align(Alignment.BottomEnd))
     }
+    viewer?.let { ImageLightbox(it, 0) { viewer = null } }
     editor?.let { st -> ShopEditor(st, shops, vm) { editor = null } }
     deleteTarget?.let { s -> ConfirmDialog(stringResource(R.string.cafe_shop_confirm_delete, s.name), onConfirm = { vm.deleteShop(s) }, onDismiss = { deleteTarget = null }) }
 }
@@ -342,6 +429,7 @@ fun CafeDrinksScreen(vm: MainViewModel) {
     var editor by remember { mutableStateOf<DrinkEditorState?>(null) }
     var deleteTarget by remember { mutableStateOf<CafeDrink?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
+    var viewer by remember { mutableStateOf<Pair<List<LightboxItem>, Int>?>(null) }
     val usage = remember(logs) { logs.groupingBy { it.drinkId }.eachCount() }
     val list = remember(drinks, search) { val q = normalizeText(search); if (q.isEmpty()) drinks else drinks.filter { normalizeText(it.name).contains(q) } }
 
@@ -350,12 +438,11 @@ fun CafeDrinksScreen(vm: MainViewModel) {
             item { SearchField(search, { search = it }, stringResource(R.string.cafe_drink_search)) }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Coffee, if (search.isBlank()) stringResource(R.string.cafe_drink_empty) else stringResource(R.string.cafe_no_match, search)) }
             itemsIndexed(list, key = { _, d -> d.id }) { index, d ->
-                SwipeRow(onEdit = { editor = DrinkEditorState(d) }, onDelete = { deleteTarget = d }, modifier = Modifier.animateItem()) {
+                SwipeRow(onEdit = { editor = DrinkEditorState(d) }, onDelete = { deleteTarget = d }) {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-                                if (d.imageUrl.isNotBlank()) AsyncImage(d.imageUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                else Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxSize()) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Coffee, null) } }
+                            Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).then(if (d.imageUrl.isNotBlank()) Modifier.clickable { viewer = list.filter { it.imageUrl.isNotBlank() }.let { withImg -> withImg.map { LightboxItem(it.imageUrl, it.name) } to withImg.indexOfFirst { it.id == d.id } } } else Modifier)) {
+                                RemoteImage(d.imageUrl, Modifier.fillMaxSize(), Icons.Rounded.Coffee)
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
@@ -373,6 +460,7 @@ fun CafeDrinksScreen(vm: MainViewModel) {
         }
         ScreenFab({ editor = DrinkEditorState(null) }, Modifier.align(Alignment.BottomEnd))
     }
+    viewer?.let { (l, i) -> ImageLightbox(l, i) { viewer = null } }
     editor?.let { st -> DrinkEditor(st, drinks, vm) { editor = null } }
     deleteTarget?.let { d -> ConfirmDialog(stringResource(R.string.cafe_drink_confirm_delete, d.name), onConfirm = { vm.deleteDrink(d) }, onDismiss = { deleteTarget = null }) }
 }
@@ -406,3 +494,5 @@ private fun DrinkEditor(state: DrinkEditorState, all: List<CafeDrink>, vm: MainV
         }
     }
 }
+
+private fun normalizeUrl(u: String): String = u.trim().let { if (it.startsWith("http://") || it.startsWith("https://")) it else "https://$it" }

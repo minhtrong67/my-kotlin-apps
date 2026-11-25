@@ -17,6 +17,14 @@ Android Studio (Ladybug 2024.2+) → mở thư mục này → Gradle sync → Ru
 - Màu chủ đạo: **Material 3 baseline blue** (#0061A4); có thể đổi màu nhấn hoặc dùng Material You (Android 12+).
 - Icon adaptive Material 3 (108dp, vùng an toàn 66dp, có lớp monochrome cho themed icon) + splash screen.
 
+## Tính năng mới (1.5)
+- Biểu đồ chỉ dùng biểu đồ tròn, có chú thích đầy đủ (màu, tên, số tiền, %); xuất báo cáo thống kê thành ảnh PNG.
+- Cài đặt gọn: Tài khoản, Ngôn ngữ, Giao diện, Nhắc nhở, Dữ liệu (accordion), Giới thiệu.
+- Dữ liệu: xuất / nhập CSV hoặc JSON cho từng mục (giao dịch, danh mục, ví, quán cafe, đồ uống) và xuất tất cả (JSON, hoặc CSV nén .zip), nhập tất cả từ JSON.
+- Cafe recap giống bản web (bộ lọc có dropdown, thẻ ảnh 16:9, buổi trong ngày), thẻ Quán cafe có mở bản đồ / sao chép liên kết / ảnh lỗi có placeholder.
+- Image lightbox: chạm ảnh để xem phóng to, vuốt hoặc dùng mũi tên để chuyển ảnh trước / sau, nhấn đúp để zoom.
+- Vuốt ngang để chuyển tab (thanh dưới, Cafe recap / Thống kê).
+
 ## Dữ liệu (tương thích web)
 `users/{uid}/transactions | categories | wallets | cafeShops | cafeDrinks | cafeLogs`. Ghi dữ liệu theo kiểu offline-first (không chờ server), số dư ví cập nhật bằng `FieldValue.increment`.
 

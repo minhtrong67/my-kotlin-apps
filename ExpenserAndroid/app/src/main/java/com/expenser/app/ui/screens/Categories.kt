@@ -50,7 +50,7 @@ fun CategoriesScreen(vm: MainViewModel) {
             item { SearchField(search, { search = it }, stringResource(R.string.cat_search)) }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Category, if (search.isBlank()) stringResource(R.string.cat_empty) else stringResource(R.string.cat_no_match, search)) }
             itemsIndexed(list, key = { _, c -> c.id }) { index, c ->
-                SwipeRow(onEdit = { editor = CategoryEditorState(c, c.type) }, onDelete = { deleteTarget = c }, modifier = Modifier.animateItem()) {
+                SwipeRow(onEdit = { editor = CategoryEditorState(c, c.type) }, onDelete = { deleteTarget = c }) {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             CategoryAvatar(c.emoji, c.color.toColor())

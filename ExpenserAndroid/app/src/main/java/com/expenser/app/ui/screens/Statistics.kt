@@ -26,6 +26,7 @@ import com.expenser.app.ui.MainViewModel
 import com.expenser.app.ui.components.*
 import com.expenser.app.ui.theme.LocalIncomeColors
 import com.expenser.app.util.*
+import androidx.compose.ui.graphics.toArgb
 import java.util.Calendar
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -58,29 +59,50 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     val income = filtered.filter { it.type == TxType.INCOME }.sumOf { it.amount }
     val expense = filtered.filter { it.type == TxType.EXPENSE }.sumOf { it.amount }
 
-    val categoryRows = remember(filtered) {
-        val expenses = filtered.filter { it.type == TxType.EXPENSE }
-        val total = expenses.sumOf { it.amount }.coerceAtLeast(1)
-        expenses.groupBy { it.categoryId ?: "" }.map { (id, list) ->
+    fun rowsFor(type: String): List<CatRow> {
+        val list0 = filtered.filter { it.type == type }
+        val total = list0.sumOf { it.amount }.coerceAtLeast(1)
+        return list0.groupBy { it.categoryId ?: "" }.map { (id, list) ->
             val v = list.sumOf { it.amount }
             CatRow(id, catById[id], v, list.size, (v * 100.0 / total).roundToInt())
         }.sortedByDescending { it.value }
     }
-
-    val buckets = remember(filtered, range, period, anchor) { buildBuckets(filtered, range, period) }
+    val categoryRows = remember(filtered, catById) { rowsFor(TxType.EXPENSE) }
+    val incomeRows = remember(filtered, catById) { rowsFor(TxType.INCOME) }
+    var sheetType by remember { mutableStateOf(TxType.EXPENSE) }
     val inc = LocalIncomeColors.current
     val errorColor = MaterialTheme.colorScheme.error
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
-    val headers = listOf(R.string.export_col_date, R.string.export_col_time, R.string.export_col_type, R.string.export_col_category, R.string.export_col_wallet, R.string.export_col_amount, R.string.export_col_note).map { stringResource(it) }
-    val typeLabels = mapOf(TxType.INCOME to stringResource(R.string.export_type_income), TxType.EXPENSE to stringResource(R.string.export_type_expense))
-    val exporter = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+    val appName = stringResource(R.string.app_name)
+    val colors = MaterialTheme.colorScheme
+    val other = stringResource(R.string.common_other)
+    val incLabel = stringResource(R.string.tx_income); val expLabel = stringResource(R.string.tx_expense)
+    val totalLabels = listOf(stringResource(R.string.stats_total_income), stringResource(R.string.stats_total_expense), stringResource(R.string.stats_difference))
+    val catSection = stringResource(R.string.stats_pie)
+    val incSection = stringResource(R.string.stats_pie_income)
+    val ieSection = stringResource(R.string.dashboard_income_expense)
+    val exporter = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("image/png")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             try {
-                val csv = com.expenser.app.data.CsvIo.build(headers, filtered, { catById[it ?: ""]?.name ?: "" }, { walletById[it ?: ""]?.name ?: "" }, { typeLabels[it] ?: it })
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ctx.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray(Charsets.UTF_8)) } }
+                fun slices(rows: List<CatRow>, tot: Long) = rows.map { ImgSlice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, (it.category?.color?.toColor() ?: Color(0xFF94A3B8)).toArgb(), Format.money(it.value), "${it.pct}%") }
+                val sections = mutableListOf(
+                    ImgSection(ieSection, ctx.getString(R.string.dashboard_remaining), Format.compactMoney(income - expense), listOf(
+                        ImgSlice(incLabel, income, inc.income.toArgb(), Format.money(income), "${if (income + expense == 0L) 0 else Math.round(income * 100.0 / (income + expense))}%"),
+                        ImgSlice(expLabel, expense, colors.error.toArgb(), Format.money(expense), "${if (income + expense == 0L) 0 else Math.round(expense * 100.0 / (income + expense))}%"),
+                    )),
+                )
+                if (categoryRows.isNotEmpty()) sections.add(ImgSection(catSection, expLabel, Format.compactMoney(expense), slices(categoryRows, expense)))
+                if (incomeRows.isNotEmpty()) sections.add(ImgSection(incSection, incLabel, Format.compactMoney(income), slices(incomeRows, income)))
+                val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    ReportImage.render(appName, label, listOf(
+                        ImgSummary(totalLabels[0], Format.money(income), inc.income.toArgb()), ImgSummary(totalLabels[1], Format.money(expense), colors.error.toArgb()),
+                        ImgSummary(totalLabels[2], Format.money(income - expense), colors.primary.toArgb()),
+                    ), sections, colors.primary.toArgb(), colors.onSurface.toArgb(), colors.onSurfaceVariant.toArgb(), colors.surface.toArgb(), colors.surfaceContainerHighest.toArgb())
+                }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ctx.contentResolver.openOutputStream(uri)?.use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
                 vm.toast(R.string.settings_exported)
             } catch (e: Exception) { vm.toast(R.string.settings_export_error) }
         }
@@ -109,7 +131,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
         }
 
         item {
-            OutlinedButton(onClick = { if (filtered.isEmpty()) vm.toast(R.string.settings_export_empty) else exporter.launch("expenser-report-${Format.date(period.start).replace('/', '-')}.csv") }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+            OutlinedButton(onClick = { if (filtered.isEmpty()) vm.toast(R.string.settings_export_empty) else exporter.launch("expenser-report-${Format.date(period.start).replace('/', '-')}.png") }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
                 Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.stats_export))
             }
         }
@@ -118,41 +140,33 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
             item { SectionCard(null) { EmptyState(Icons.Rounded.BarChart, stringResource(R.string.stats_no_data)) } }
         } else {
             item {
-                SectionCard(stringResource(R.string.stats_trend)) {
-                    TrendBars(buckets)
-                    Spacer(Modifier.height(8.dp))
-                    LegendRow(inc.income, stringResource(R.string.tx_income), Format.money(income))
-                    LegendRow(errorColor, stringResource(R.string.tx_expense), Format.money(expense))
+                SectionCard(stringResource(R.string.dashboard_income_expense)) {
+                    DonutWithLegend(
+                        listOf(Slice(incLabel, income, inc.income), Slice(expLabel, expense, errorColor)),
+                        centerTitle = stringResource(R.string.dashboard_remaining), centerValue = Format.compactMoney(income - expense),
+                    )
                 }
             }
             item {
                 SectionCard(stringResource(R.string.stats_pie), action = { Text(stringResource(R.string.stats_pie_subtitle, Format.compactMoney(expense), categoryRows.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }) {
                     if (categoryRows.isEmpty()) EmptyState(Icons.Rounded.DonutLarge, stringResource(R.string.stats_no_expense))
                     else {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            DonutChart(categoryRows.map { Slice(it.category?.name ?: "", it.value, it.category?.color?.toColor() ?: Color(0xFF94A3B8)) }, size = 200.dp) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(Format.compactMoney(expense), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                    Text(stringResource(R.string.tx_expense), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.stats_highest, categoryRows.first().category?.name ?: stringResource(R.string.common_other), categoryRows.first().pct), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        DonutWithLegend(
+                            categoryRows.map { Slice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, it.category?.color?.toColor() ?: Color(0xFF94A3B8)) },
+                            centerTitle = expLabel, centerValue = Format.compactMoney(expense),
+                            onSliceClick = { sheetType = TxType.EXPENSE; sheetCategory = categoryRows[it] },
+                        )
+                        Text(stringResource(R.string.stats_highest, categoryRows.first().category?.name ?: other, categoryRows.first().pct), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
-            if (categoryRows.isNotEmpty()) {
-                item {
-                    SectionCard(stringResource(R.string.stats_category_pct)) {
-                        categoryRows.forEach { row ->
-                            ProgressRow(
-                                name = (row.category?.let { "${it.emoji} ${it.name}" } ?: stringResource(R.string.common_other)),
-                                color = row.category?.color?.toColor() ?: Color(0xFF94A3B8), valueText = Format.money(row.value), pct = row.pct,
-                                modifier = Modifier.clickable { sheetCategory = row },
-                            )
-                        }
-                    }
+            if (incomeRows.isNotEmpty()) item {
+                SectionCard(stringResource(R.string.stats_pie_income)) {
+                    DonutWithLegend(
+                        incomeRows.map { Slice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, it.category?.color?.toColor() ?: Color(0xFF94A3B8)) },
+                        centerTitle = incLabel, centerValue = Format.compactMoney(income),
+                        onSliceClick = { sheetType = TxType.INCOME; sheetCategory = incomeRows[it] },
+                    )
                 }
             }
         }
@@ -160,7 +174,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
 
     sheetCategory?.let { row ->
         ModalBottomSheet(onDismissRequest = { sheetCategory = null }) {
-            val list = filtered.filter { it.type == TxType.EXPENSE && (it.categoryId ?: "") == row.id }
+            val list = filtered.filter { it.type == sheetType && (it.categoryId ?: "") == row.id }
             Column(Modifier.padding(bottom = 24.dp)) {
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     CategoryAvatar(row.category?.emoji ?: "🏷️", row.category?.color?.toColor() ?: Color(0xFF94A3B8))
@@ -170,7 +184,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                         Text(stringResource(R.string.stats_cat_summary, row.count, row.pct), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(Modifier.weight(1f))
-                    Text(Format.money(row.value), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = errorColor)
+                    Text(Format.money(row.value), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = if (sheetType == TxType.INCOME) inc.income else errorColor)
                 }
                 HorizontalDivider()
                 if (list.isEmpty()) EmptyState(Icons.Rounded.Inbox, stringResource(R.string.stats_cat_empty))
@@ -182,29 +196,3 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     }
 }
 
-/** Buckets for the trend chart: hours (today), days (week / month), months (year / all). */
-private fun buildBuckets(list: List<Tx>, range: Range, period: Period): List<Bucket> {
-    fun sum(items: List<Tx>, type: String) = items.filter { it.type == type }.sumOf { it.amount }
-    fun bucket(label: String, items: List<Tx>) = Bucket(label, sum(items, TxType.INCOME), sum(items, TxType.EXPENSE))
-    return when (range) {
-        Range.TODAY -> (0 until 24 step 3).map { h ->
-            bucket("${h}h", list.filter { val x = it.date.field(Calendar.HOUR_OF_DAY); x >= h && x < h + 3 })
-        }
-        Range.WEEK, Range.MONTH -> {
-            val byDay = list.groupBy { dayKey(it.date) }
-            val days = if (range == Range.WEEK) 7 else Calendar.getInstance().apply { timeInMillis = period.start }.getActualMaximum(Calendar.DAY_OF_MONTH)
-            (0 until days).map { i ->
-                val d = Calendar.getInstance().apply { timeInMillis = period.start; add(Calendar.DAY_OF_MONTH, i) }.timeInMillis
-                bucket("${d.field(Calendar.DAY_OF_MONTH)}", byDay[startOfDay(d)].orEmpty())
-            }
-        }
-        Range.YEAR -> {
-            val byMonth = list.groupBy { it.date.field(Calendar.MONTH) }
-            (0 until 12).map { m -> bucket("${m + 1}", byMonth[m].orEmpty()) }
-        }
-        Range.ALL -> {
-            val byMonth = list.groupBy { monthKey(it.date) }.toSortedMap()
-            byMonth.entries.toList().takeLast(12).map { (k, items) -> bucket("${k % 12 + 1}/${(k / 12) % 100}", items) }
-        }
-    }
-}
