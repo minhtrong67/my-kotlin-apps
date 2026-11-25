@@ -9,6 +9,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -37,6 +38,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,6 +47,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -300,39 +303,57 @@ fun EmptyText(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Small static chip used for activities inside cards. */
+/** Static activity chip for cards: fills its grid cell (see [Grid3]) with emoji + label centred. */
 @Composable
 fun StaticChip(emoji: String, label: String, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     Row(
-        modifier = modifier.clip(CircleShape).background(cs.surfaceContainer).padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier = modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(17.dp)).background(cs.surfaceContainer).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.Center,
     ) {
         Text(emoji, fontSize = 13.sp)
+        Spacer(Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-/** Mood picker bubble: springs up when selected, gets a ring + tinted fill. All motion runs in graphicsLayer (no per-frame recomposition). */
+/** `grid-cols-3`: equal-width cells, last row padded so items never stretch. */
+@Composable
+fun <T> Grid3(items: List<T>, modifier: Modifier = Modifier, spacing: Dp = 8.dp, cell: @Composable (T) -> Unit) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing)) {
+        items.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing)) {
+                row.forEach { Box(Modifier.weight(1f)) { cell(it) } }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * Mood picker bubble: springs up when selected, gets a ring + tinted fill. Motion runs in graphicsLayer (no per-frame
+ * recomposition) and the slot is bigger than the bubble so the scaled ring is never clipped.
+ */
 @Composable
 fun MoodPickBubble(mood: MoodDef, selected: Boolean, onClick: () -> Unit) {
     val haptic = LocalHapticFeedback.current
-    val scale = animateFloatAsState(if (selected) 1.12f else 1f, spring(dampingRatio = 0.5f, stiffness = 420f), label = "moodScale")
+    val scale = animateFloatAsState(if (selected) 1.1f else 1f, spring(dampingRatio = 0.5f, stiffness = 420f), label = "moodScale")
     val bg by animateColorAsState(if (selected) mood.color.copy(alpha = 0.38f) else MaterialTheme.colorScheme.surfaceContainerHigh, tween(200), label = "moodBg")
     val ring by animateColorAsState(if (selected) MaterialTheme.colorScheme.outline else Color.Transparent, tween(200), label = "moodRing")
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(62.dp).clip(RoundedCornerShape(16.dp)).clickable {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick()
-        },
+        modifier = Modifier.width(64.dp).clickable(
+            interactionSource = remember { MutableInteractionSource() }, indication = null,
+        ) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() },
     ) {
-        Box(
-            Modifier.size(56.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-                .clip(CircleShape).background(bg).border(2.dp, ring, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) { Text(mood.emoji, fontSize = 26.sp) }
-        Spacer(Modifier.height(6.dp))
+        Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {          // 64dp slot, 54dp bubble => room to grow
+            Box(
+                Modifier.size(54.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+                    .clip(CircleShape).background(bg).border(2.dp, ring, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { Text(mood.emoji, fontSize = 26.sp) }
+        }
         Text(
             mood.label, style = MaterialTheme.typography.labelMedium,
             color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -341,11 +362,28 @@ fun MoodPickBubble(mood: MoodDef, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Material 3 Expressive-style wavy progress: wave for the filled part, flat track + end dot for the rest. */
+/** One clock for every wavy bar on screen (cheaper than one infinite animation per bar). Returns a 0..1 phase. */
 @Composable
-fun WavyProgress(progress: Float, color: Color, modifier: Modifier = Modifier) {
+fun rememberWavePhase(): androidx.compose.runtime.State<Float> {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "wave")
+    return t.animateFloat(
+        0f, 1f,
+        androidx.compose.animation.core.infiniteRepeatable(tween(1800, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "wavePhase",
+    )
+}
+
+/**
+ * Material 3 Expressive-style wavy progress: the filled part is a wave that travels while the bar fills in
+ * (staggered by [index]); the remaining track is flat with an end dot.
+ */
+@Composable
+fun WavyProgress(progress: Float, color: Color, phase: androidx.compose.runtime.State<Float>, modifier: Modifier = Modifier, index: Int = 0) {
     val anim = remember { Animatable(0f) }
-    LaunchedEffect(progress) { anim.animateTo(progress.coerceIn(0f, 1f), tween(650, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(progress) {
+        delay(index * 80L)
+        anim.animateTo(progress.coerceIn(0f, 1f), tween(750, easing = FastOutSlowInEasing))
+    }
     val track = color.copy(alpha = 0.28f)
     Canvas(modifier.fillMaxWidth().height(14.dp)) {
         val stroke = 4.dp.toPx()
@@ -354,13 +392,14 @@ fun WavyProgress(progress: Float, color: Color, modifier: Modifier = Modifier) {
         val cy = size.height / 2f
         val endX = ((size.width - stroke) * anim.value) + stroke / 2f
         if (anim.value > 0.001f) {
+            val shift = phase.value * 2.0 * PI
             val path = Path().apply {
-                moveTo(stroke / 2f, cy)
                 var x = stroke / 2f
+                moveTo(x, cy + amp * sin(2.0 * PI * (x / wl) - shift).toFloat())
                 val step = 2.dp.toPx()
                 while (x < endX) {
                     x = min(x + step, endX)
-                    lineTo(x, cy + amp * sin(2.0 * PI * (x / wl)).toFloat())
+                    lineTo(x, cy + amp * sin(2.0 * PI * (x / wl) - shift).toFloat())
                 }
             }
             drawPath(path, color, style = Stroke(stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
@@ -417,7 +456,7 @@ fun PalettePreview(p: PaletteDef, dark: Boolean, size: Dp = 40.dp, modifier: Mod
 fun SwipeActionRow(onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val editCb by androidx.compose.runtime.rememberUpdatedState(onEdit)
     val deleteCb by androidx.compose.runtime.rememberUpdatedState(onDelete)
-    val state = androidx.compose.material3.rememberSwipeToDismissBoxState(confirmValueChange = { v ->
+    val state = androidx.compose.material3.rememberSwipeToDismissBoxState(positionalThreshold = { it * 0.45f }, confirmValueChange = { v ->
         when (v) {
             androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> editCb()
             androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> deleteCb()
@@ -442,4 +481,44 @@ fun SwipeActionRow(onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier 
             }
         },
     ) { content() }
+}
+
+/** Compact "value ▾" button with a dropdown menu, for rows like Font / Language / Start page. */
+@Composable
+fun ValueMenu(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    val cs = MaterialTheme.colorScheme
+    Box(modifier) {
+        Surface(onClick = { open = true }, shape = CircleShape, color = cs.secondaryContainer, contentColor = cs.onSecondaryContainer) {
+            Row(Modifier.padding(start = 14.dp, end = 8.dp).height(36.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(options.firstOrNull { it.first == selected }?.second ?: "", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 150.dp))
+                Icon(androidx.compose.material.icons.Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
+            }
+        }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { (k, v) ->
+                DropdownMenuItem(
+                    text = { Text(v, fontWeight = if (k == selected) androidx.compose.ui.text.font.FontWeight.Bold else null) },
+                    leadingIcon = if (k == selected) ({ Icon(Icons.Rounded.Check, null) }) else null,
+                    onClick = { onSelect(k); open = false },
+                )
+            }
+        }
+    }
+}
+
+/** Swatch for the "Dynamic (Material You)" option: four colors from the current wallpaper scheme. */
+@Composable
+fun DynamicPreview(dark: Boolean, size: Dp = 40.dp, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val colors = remember(dark) {
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            val cs = if (dark) androidx.compose.material3.dynamicDarkColorScheme(ctx) else androidx.compose.material3.dynamicLightColorScheme(ctx)
+            listOf(cs.primary, cs.secondary, cs.tertiary, cs.primaryContainer)
+        } else listOf(Color.Gray, Color.LightGray, Color.DarkGray, Color.Gray)
+    }
+    Canvas(modifier.size(size).clip(CircleShape)) {
+        val s = Size(this.size.width, this.size.height)
+        colors.forEachIndexed { i, c -> drawArc(c, -90f + 90f * i, 90f, true, Offset.Zero, s) }
+    }
 }

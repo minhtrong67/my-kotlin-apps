@@ -80,7 +80,7 @@ private fun RowScope.SlotThumb(
             Crossfade(bmp, animationSpec = tween(300), label = "thumb") { b ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (b != null) {
-                        Image(b, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        Image(b, stringResource(SLOT_NAMES[slot - 1]), Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         Box(
                             Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape)
                                 .background(Color.Black.copy(alpha = 0.55f)).clickable { onClear(dark, slot) },

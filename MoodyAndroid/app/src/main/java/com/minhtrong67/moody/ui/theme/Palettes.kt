@@ -6,6 +6,8 @@ class PaletteDef(val id: String, val seed: Long, val light: LongArray, val dark:
 
 object Palettes {
     const val DEFAULT_ID = "teal"
+    /** Not a fixed palette: Material You colors from the wallpaper (Android 12+). */
+    const val DYNAMIC_ID = "dynamic"
     val all: List<PaletteDef> = listOf(
         PaletteDef(
             id = "red",

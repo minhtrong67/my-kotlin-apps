@@ -2,6 +2,7 @@
 
 package com.minhtrong67.moody.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -28,6 +29,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
@@ -109,6 +112,7 @@ import com.minhtrong67.moody.ui.screens.TodayScreen
 import com.minhtrong67.moody.util.effectiveLanguage
 import kotlinx.coroutines.launch
 
+private const val R_TABS = "tabs"
 private const val R_TODAY = "today"
 private const val R_HISTORY = "history"
 private const val R_STATS = "stats"
@@ -124,12 +128,6 @@ private val TABS = listOf(
     Tab(R_STATS, R.string.nav_stats, Icons.Outlined.BarChart, Icons.Rounded.BarChart),
     Tab(R_SETTINGS, R.string.nav_settings, Icons.Outlined.Settings, Icons.Rounded.Settings),
 )
-
-private fun NavHostController.goTab(route: String) = navigate(route) {
-    popUpTo(graph.startDestinationId) { saveState = true }
-    launchSingleTop = true
-    restoreState = true
-}
 
 private fun NavHostController.goManage(route: String) = navigate(route) { launchSingleTop = true }
 
@@ -186,12 +184,25 @@ private fun MainShell(
     val moodOverrides by vm.moodOverrides.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
+    // The four tabs live in ONE pager (swipe left/right to switch); Manage pages are regular destinations on top.
+    val startPage = remember {
+        when (settings.startPage) { "history" -> 1; "stats" -> 2; "settings" -> 3; else -> 0 }
+    }
+    val pager = rememberPagerState(initialPage = startPage) { TABS.size }
     val nav = rememberNavController()
     val backEntry by nav.currentBackStackEntryAsState()
-    val route = backEntry?.destination?.route ?: R_TODAY
+    val route = backEntry?.destination?.route ?: R_TABS
+    val onTabs = route == R_TABS
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    LaunchedEffect(route) { scrollBehavior.state.contentOffset = 0f }   // new page starts un-scrolled
+    val page = pager.currentPage
+    LaunchedEffect(route, page) { scrollBehavior.state.contentOffset = 0f }   // a new page starts un-scrolled
+
+    fun goPage(i: Int) {
+        if (onTabs) scope.launch { pager.animateScrollToPage(i) }
+        else { nav.popBackStack(R_TABS, false); scope.launch { pager.scrollToPage(i) } }
+    }
+    BackHandler(enabled = onTabs && page != startPage && drawer.isClosed) { goPage(startPage) }
 
     // ---- check-in is a full-screen overlay (no Scaffold padding jumps, one smooth slide) ----
     var checkInKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -199,44 +210,33 @@ private fun MainShell(
     if (checkInKey != null) keyHolder[0] = checkInKey
     fun openCheckIn(id: String? = null, date: String? = null) { checkInKey = "${id.orEmpty()}\n${date.orEmpty()}" }
 
-    val startRoute = remember {
-        when (settings.startPage) {
-            "history" -> R_HISTORY; "stats" -> R_STATS; "settings" -> R_SETTINGS
-            "activities" -> R_ACTIVITIES; "moods" -> R_MOODS
-            else -> R_TODAY
-        }
-    }
     var startHandled by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (!startHandled) {
             startHandled = true
-            if (settings.startPage == "checkin" && pendingRoute == null) openCheckIn()
+            when (settings.startPage) {
+                "checkin" -> if (pendingRoute == null) openCheckIn()
+                "activities" -> nav.goManage(R_ACTIVITIES)
+                "moods" -> nav.goManage(R_MOODS)
+            }
         }
     }
     LaunchedEffect(pendingRoute) {   // taps on a reminder notification
         when (pendingRoute) {
             "checkin" -> openCheckIn()
-            "stats" -> nav.goTab(R_STATS)
-            "today" -> nav.goTab(R_TODAY)
+            "stats" -> goPage(2)
+            "today" -> goPage(0)
         }
         if (pendingRoute != null) onRouteConsumed()
     }
 
-    val isTab = TABS.any { it.route == route }
-    val title = when (route) {
-        R_HISTORY -> R.string.nav_history
-        R_STATS -> R.string.nav_stats
-        R_SETTINGS -> R.string.nav_settings
-        R_ACTIVITIES -> R.string.nav_activities
-        R_MOODS -> R.string.nav_moods
-        else -> R.string.nav_today
-    }
+    val title = if (onTabs) TABS[page].label else if (route == R_ACTIVITIES) R.string.nav_activities else R.string.nav_moods
     val lang = effectiveLanguage(settings.language)
 
     Box(Modifier.fillMaxSize()) {
         ModalNavigationDrawer(
             drawerState = drawer,
-            gesturesEnabled = drawer.isOpen,   // opened by the menu button only (edge swipes clash with swipe-to-edit rows)
+            gesturesEnabled = drawer.isOpen,   // opened by the menu button only (edge swipes clash with the pager / swipe rows)
             drawerContent = {
                 ModalDrawerSheet(
                     drawerContainerColor = cs.surfaceContainerLow,
@@ -244,10 +244,11 @@ private fun MainShell(
                     modifier = Modifier.fillMaxWidth(0.82f),
                 ) {
                     DrawerBody(
-                        route = route, user = user,
+                        selectedKey = if (onTabs) TABS[page].route else route, user = user,
                         onNavigate = { r ->
                             scope.launch { drawer.close() }
-                            if (TABS.any { it.route == r }) nav.goTab(r) else nav.goManage(r)
+                            val i = TABS.indexOfFirst { it.route == r }
+                            if (i >= 0) goPage(i) else nav.goManage(r)
                         },
                         onLogout = { scope.launch { drawer.close() }; vm.logout() },
                     )
@@ -268,11 +269,11 @@ private fun MainShell(
                 },
                 bottomBar = {
                     NavigationBar(containerColor = cs.surfaceContainer) {
-                        TABS.forEach { t ->
-                            val sel = route == t.route
+                        TABS.forEachIndexed { i, t ->
+                            val sel = onTabs && page == i
                             NavigationBarItem(
                                 selected = sel,
-                                onClick = { if (!sel) nav.goTab(t.route) },
+                                onClick = { if (!sel) goPage(i) },
                                 icon = { Icon(if (sel) t.activeIcon else t.icon, null) },
                                 label = { Text(stringResource(t.label), fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium) },
                             )
@@ -281,7 +282,7 @@ private fun MainShell(
                 },
                 floatingActionButton = {
                     AnimatedVisibility(
-                        visible = route == R_TODAY || route == R_HISTORY,
+                        visible = onTabs && (page == 0 || page == 1),
                         enter = scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium)) + fadeIn(),
                         exit = scaleOut(tween(120)) + fadeOut(tween(120)),
                     ) {
@@ -295,7 +296,7 @@ private fun MainShell(
             ) { inner ->
                 NavHost(
                     navController = nav,
-                    startDestination = startRoute,
+                    startDestination = R_TABS,
                     modifier = Modifier.fillMaxSize().padding(inner),
                     // Material "fade through": outgoing page fades quickly, incoming fades + settles from 96%.
                     enterTransition = { fadeIn(tween(230, delayMillis = 70)) + scaleIn(tween(230, delayMillis = 70, easing = FastOutSlowInEasing), initialScale = 0.96f) },
@@ -303,30 +304,32 @@ private fun MainShell(
                     popEnterTransition = { fadeIn(tween(230, delayMillis = 70)) + scaleIn(tween(230, delayMillis = 70, easing = FastOutSlowInEasing), initialScale = 0.96f) },
                     popExitTransition = { fadeOut(tween(70)) },
                 ) {
-                    composable(R_TODAY) {
-                        TodayScreen(
-                            entries = entries, user = user,
-                            onCheckIn = { id -> openCheckIn(id) },
-                            onViewAll = { nav.goTab(R_HISTORY) },
-                            onAvatar = { nav.goTab(R_SETTINGS) },
-                        )
-                    }
-                    composable(R_HISTORY) {
-                        val deleted = stringResource(R.string.history_deleted)
-                        HistoryScreen(
-                            entries = entries,
-                            onEdit = { id -> openCheckIn(id) },
-                            onNewForDate = { date -> openCheckIn(date = date) },
-                            onDelete = { id -> vm.deleteEntry(id); toaster.show(deleted) },
-                        )
-                    }
-                    composable(R_STATS) { StatsScreen(entries) }
-                    composable(R_SETTINGS) {
-                        SettingsScreen(
-                            vm = vm, settings = settings, user = user, entries = entries,
-                            onOpenActivities = { nav.goManage(R_ACTIVITIES) },
-                            onOpenMoods = { nav.goManage(R_MOODS) },
-                        )
+                    composable(R_TABS) {
+                        HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it }) { p ->
+                            when (p) {
+                                0 -> TodayScreen(
+                                    entries = entries, user = user,
+                                    onCheckIn = { id -> openCheckIn(id) },
+                                    onViewAll = { goPage(1) },
+                                    onAvatar = { goPage(3) },
+                                )
+                                1 -> {
+                                    val deleted = stringResource(R.string.history_deleted)
+                                    HistoryScreen(
+                                        entries = entries,
+                                        onEdit = { id -> openCheckIn(id) },
+                                        onNewForDate = { date -> openCheckIn(date = date) },
+                                        onDelete = { id -> vm.deleteEntry(id); toaster.show(deleted) },
+                                    )
+                                }
+                                2 -> StatsScreen(entries)
+                                else -> SettingsScreen(
+                                    vm = vm, settings = settings, user = user, entries = entries,
+                                    onOpenActivities = { nav.goManage(R_ACTIVITIES) },
+                                    onOpenMoods = { nav.goManage(R_MOODS) },
+                                )
+                            }
+                        }
                     }
                     composable(R_ACTIVITIES) {
                         ManageActivitiesScreen(
@@ -421,18 +424,18 @@ private fun MoodyTopBar(
 }
 
 @Composable
-private fun DrawerBody(route: String, user: AppUser?, onNavigate: (String) -> Unit, onLogout: () -> Unit) {
+private fun DrawerBody(selectedKey: String, user: AppUser?, onNavigate: (String) -> Unit, onLogout: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         Row(Modifier.height(64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Image(painterResource(R.mipmap.ic_logo), null, Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)))
             Text("Moody", style = MaterialTheme.typography.headlineSmall, color = cs.primary)
         }
-        TABS.forEach { t -> DrawerItem(t.activeIcon, stringResource(t.label), route == t.route) { onNavigate(t.route) } }
+        TABS.forEach { t -> DrawerItem(t.activeIcon, stringResource(t.label), selectedKey == t.route) { onNavigate(t.route) } }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = cs.outlineVariant)
         Text(stringResource(R.string.nav_manage), style = MaterialTheme.typography.titleSmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-        DrawerItem(Icons.Rounded.Checklist, stringResource(R.string.nav_activities), route == R_ACTIVITIES) { onNavigate(R_ACTIVITIES) }
-        DrawerItem(Icons.Rounded.EmojiEmotions, stringResource(R.string.nav_moods), route == R_MOODS) { onNavigate(R_MOODS) }
+        DrawerItem(Icons.Rounded.Checklist, stringResource(R.string.nav_activities), selectedKey == R_ACTIVITIES) { onNavigate(R_ACTIVITIES) }
+        DrawerItem(Icons.Rounded.EmojiEmotions, stringResource(R.string.nav_moods), selectedKey == R_MOODS) { onNavigate(R_MOODS) }
         Spacer(Modifier.weight(1f))
         if (user != null) {
             Row(

@@ -6,6 +6,12 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val appVersionName = "1.0.0"
+val appVersionCode = 1
+
+// APK file name: Moody-v1.0.0-release.apk / Moody-v1.0.0-debug.apk
+base { archivesName.set("Moody-v$appVersionName") }
+
 // Firebase (Google sign-in + Firestore sync) is optional: the plugin is applied only when
 // app/google-services.json exists. Without it the app still builds and runs in guest mode.
 if (file("google-services.json").exists()) {
@@ -20,8 +26,11 @@ android {
         applicationId = "com.minhtrong67.moody"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+
+        // Keep only the languages the app ships (drops every other translation bundled by Material / Firebase / Play services).
+        resourceConfigurations += listOf("en", "vi")
     }
 
     buildTypes {

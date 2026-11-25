@@ -80,6 +80,7 @@ import com.minhtrong67.moody.ui.components.MoodyCard
 import com.minhtrong67.moody.ui.components.SegmentedTabs
 import com.minhtrong67.moody.ui.components.ScrollToTopButton
 import com.minhtrong67.moody.ui.components.WavyProgress
+import com.minhtrong67.moody.ui.components.rememberWavePhase
 import com.minhtrong67.moody.ui.theme.LocalIsDark
 import com.minhtrong67.moody.util.Period
 import com.minhtrong67.moody.util.Slice
@@ -251,7 +252,7 @@ private fun Tile(icon: ImageVector, emoji: String?, label: String, value: String
 private fun ChartSection(title: String, pieSlices: List<Slice>, legend: List<Slice>) {
     Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
     MoodyCard(Modifier.fillMaxWidth()) {
-        PieChart(pieSlices, Modifier.fillMaxWidth().height(260.dp))
+        PieChart(pieSlices, Modifier.fillMaxWidth().height(232.dp))
     }
     Spacer(Modifier.height(12.dp))
     Legend(legend)
@@ -270,7 +271,7 @@ private fun PieChart(slices: List<Slice>, modifier: Modifier = Modifier) {
         progress.animateTo(1f, androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing))
     }
     Canvas(modifier) {
-        val radius = size.minDimension * 0.30f
+        val radius = size.minDimension * 0.33f
         val center = Offset(size.width / 2f, size.height / 2f)
         val topLeft = Offset(center.x - radius, center.y - radius)
         val arcSize = Size(radius * 2, radius * 2)
@@ -306,6 +307,7 @@ private fun Legend(items: List<Slice>) {
     val pcts = roundedPercents(items.map { it.count })
     val total = items.sumOf { it.count }.coerceAtLeast(1)
     val cs = MaterialTheme.colorScheme
+    val phase = rememberWavePhase()
     MoodyCard(Modifier.fillMaxWidth()) {
         items.forEachIndexed { i, it ->
             Column(Modifier.padding(vertical = 6.dp)) {
@@ -317,7 +319,7 @@ private fun Legend(items: List<Slice>) {
                     Text("${pcts[i]}%", style = MaterialTheme.typography.labelLarge, modifier = Modifier.size(width = 44.dp, height = 20.dp), textAlign = TextAlign.End)
                 }
                 Spacer(Modifier.height(6.dp))
-                WavyProgress(progress = it.count.toFloat() / total, color = it.color)
+                WavyProgress(progress = it.count.toFloat() / total, color = it.color, phase = phase, index = i)
             }
         }
     }

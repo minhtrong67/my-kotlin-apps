@@ -4,7 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -37,8 +38,13 @@ fun CategoriesScreen(vm: MainViewModel) {
     val all = categories.filter { it.type == type }
     val list = remember(all, search) { val q = normalizeText(search); if (q.isEmpty()) all else all.filter { normalizeText(it.name).contains(q) } }
 
+    val listState = rememberLazyListState()
+    val reorder = rememberReorder(list.map { it.id }, listState) { ids -> vm.reorderCategories(ids) }
+    val byId = list.associateBy { it.id }
+    val shown = reorder.display(list.map { it.id }).mapNotNull { byId[it] }
+
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 PillSegmented(
                     listOf(
@@ -49,8 +55,8 @@ fun CategoriesScreen(vm: MainViewModel) {
             }
             item { SearchField(search, { search = it }, stringResource(R.string.cat_search)) }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Category, if (search.isBlank()) stringResource(R.string.cat_empty) else stringResource(R.string.cat_no_match, search)) }
-            itemsIndexed(list, key = { _, c -> c.id }) { index, c ->
-                SwipeRow(onEdit = { editor = CategoryEditorState(c, c.type) }, onDelete = { deleteTarget = c }) {
+            items(shown, key = { it.id }) { c ->
+                SwipeRow(onEdit = { editor = CategoryEditorState(c, c.type) }, onDelete = { deleteTarget = c }, modifier = reorderable(reorder, c.id)) {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             CategoryAvatar(c.emoji, c.color.toColor())
@@ -59,10 +65,7 @@ fun CategoriesScreen(vm: MainViewModel) {
                                 Text(c.name, style = MaterialTheme.typography.titleSmall)
                                 Text(stringResource(R.string.cat_usage, usage[c.id] ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            if (search.isBlank()) {
-                                IconButton(enabled = index > 0, onClick = { vm.reorderCategories(all.map { it.id }.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up)) }
-                                IconButton(enabled = index < all.lastIndex, onClick = { vm.reorderCategories(all.map { it.id }.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down)) }
-                            }
+                            if (search.isBlank()) DragHandle(reorder, c.id)
                         }
                     }
                 }

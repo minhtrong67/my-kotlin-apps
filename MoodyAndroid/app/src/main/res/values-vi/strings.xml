@@ -113,7 +113,7 @@
     <string name="history_list">Danh sách</string>
     <string name="history_calendar">Lịch</string>
     <string name="history_search">Tìm kiếm</string>
-    <string name="history_searchPlaceholder">Tìm theo ghi chú hoặc hoạt động…</string>
+    <string name="history_searchPlaceholder">Tìm ghi chú, hoạt động…</string>
     <string name="history_filters">Bộ lọc &amp; sắp xếp</string>
     <string name="history_period">Khoảng thời gian</string>
     <string name="history_period_all">Tất cả</string>
@@ -309,6 +309,11 @@
     <string name="settings_signIn">Đăng nhập với Google</string>
     <string name="login_error">Đăng nhập thất bại. Vui lòng thử lại.</string>
     <string name="common_reorder">Sắp xếp</string>
+    <string name="settings_themeDynamic">Tự động (Material You)</string>
+    <string name="settings_themeDynamicHint">Màu thay đổi theo hình nền của bạn (Android 12+).</string>
+    <string name="settings_troubleshoot">Không nhận được thông báo?</string>
+    <string name="settings_general">Chung</string>
+    <string name="login_googleContinue">Tiếp tục với Google</string>
     <string name="settings_exactAlarm">Cho phép báo thức chính xác</string>
     <string name="settings_exactAlarmHint">Không có quyền này, nhắc nhở có thể đến trễ vài phút.</string>
     <string name="settings_exactAlarmOk">Đã cho phép báo thức chính xác — nhắc nhở sẽ đến đúng giờ.</string>

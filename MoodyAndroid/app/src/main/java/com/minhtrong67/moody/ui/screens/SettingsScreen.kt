@@ -21,7 +21,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +49,8 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.DesktopWindows
@@ -79,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.minhtrong67.moody.BuildConfig
 import com.minhtrong67.moody.R
 import com.minhtrong67.moody.data.ActivityDef
 import com.minhtrong67.moody.data.AppUser
@@ -96,7 +101,9 @@ import com.minhtrong67.moody.ui.LocalToaster
 import com.minhtrong67.moody.ui.MainViewModel
 import com.minhtrong67.moody.ui.components.ActionButton
 import com.minhtrong67.moody.ui.components.DropdownField
+import com.minhtrong67.moody.ui.components.DynamicPreview
 import com.minhtrong67.moody.ui.components.GroupTitle
+import com.minhtrong67.moody.ui.components.ValueMenu
 import com.minhtrong67.moody.ui.components.MoodyCard
 import com.minhtrong67.moody.ui.components.PalettePreview
 import com.minhtrong67.moody.ui.components.ScrollToTopButton
@@ -137,6 +144,7 @@ fun SettingsScreen(
     var dataOpen by rememberSaveable { mutableStateOf(false) }
     var format by rememberSaveable { mutableStateOf("csv") }
     var showTime by remember { mutableStateOf(false) }
+    var helpOpen by rememberSaveable { mutableStateOf(false) }
 
     // ---------------- reminders: permission state (refreshed whenever we come back from system settings) ----------------
     var notifOk by remember { mutableStateOf(Notifications.canPost(ctx)) }
@@ -278,278 +286,310 @@ fun SettingsScreen(
     val scroll = rememberScrollState()
     val showTop by remember { derivedStateOf { scroll.value > 500 } }
     val anyReminder = settings.dailyEnabled || settings.weeklyEnabled || settings.monthlyEnabled
+    val needsAttention = anyReminder && (!notifOk || (Build.VERSION.SDK_INT >= 31 && !exactOk))
+    val dynamicOk = Build.VERSION.SDK_INT >= 31
 
     Box(modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp))
 
-            // Account
-            StaggerIn(0) {
-                MoodyCard(Modifier.fillMaxWidth()) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        if (user != null) UserAvatar(user, 48.dp) else Icon(Icons.Rounded.AccountCircle, null, Modifier.size(48.dp), tint = cs.primary)
-                        Column(Modifier.weight(1f)) {
-                            if (user != null) {
-                                Text(user.displayName ?: "", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(user.email ?: "", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            } else {
-                                Text(stringResource(R.string.settings_account), style = MaterialTheme.typography.titleMedium)
-                                Text(stringResource(R.string.settings_guestMode), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                            }
-                        }
-                        TextButton(onClick = { vm.logout() }) {
-                            Icon(Icons.AutoMirrored.Rounded.Logout, null, Modifier.size(18.dp), tint = cs.error)
-                            Spacer(Modifier.size(6.dp))
-                            Text(stringResource(R.string.common_logout), color = cs.error)
+            // ---------- Account ----------
+            MoodyCard(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (user != null) UserAvatar(user, 48.dp) else Icon(Icons.Rounded.AccountCircle, null, Modifier.size(48.dp), tint = cs.primary)
+                    Column(Modifier.weight(1f)) {
+                        if (user != null) {
+                            Text(user.displayName ?: "", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(user.email ?: "", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        } else {
+                            Text(stringResource(R.string.settings_account), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.settings_guestMode), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                         }
                     }
-                    if (user == null && vm.firebaseReady) {
-                        Spacer(Modifier.height(12.dp))
-                        ActionButton(stringResource(R.string.settings_signIn), Icons.Rounded.AccountCircle, { vm.signInWithGoogle(activityCtx) }, modifier = Modifier.fillMaxWidth())
+                    TextButton(onClick = { vm.logout() }) {
+                        Icon(Icons.AutoMirrored.Rounded.Logout, null, Modifier.size(18.dp), tint = cs.error)
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.common_logout), color = cs.error)
                     }
+                }
+                if (user == null && vm.firebaseReady) {
+                    Spacer(Modifier.height(12.dp))
+                    ActionButton(stringResource(R.string.settings_signIn), Icons.Rounded.AccountCircle, { vm.signInWithGoogle(activityCtx) }, modifier = Modifier.fillMaxWidth())
                 }
             }
 
-            Column {
-                GroupTitle(stringResource(R.string.settings_appearance))
-                SegmentedTabs(
-                    listOf("light" to stringResource(R.string.theme_lightShort), "dark" to stringResource(R.string.theme_darkShort), "system" to stringResource(R.string.theme_systemShort)),
-                    settings.themeMode, { vm.setThemeMode(it) },
-                    icons = mapOf("light" to Icons.Rounded.LightMode, "dark" to Icons.Rounded.DarkMode, "system" to Icons.Rounded.DesktopWindows),
-                )
-            }
-
-            Column {
-                GroupTitle(stringResource(R.string.settings_themeColor))
-                MoodyCard(Modifier.fillMaxWidth().animateContentSize(), onClick = { colorsOpen = !colorsOpen }, contentPadding = 12.dp) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        val current = Palettes.byId(settings.themeColor)
-                        PalettePreview(current, dark, 44.dp)
-                        Column(Modifier.weight(1f)) {
-                            Text(colorName(ctx, current.id), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(if (colorsOpen) R.string.settings_themeColorCollapse else R.string.settings_themeColorExpand), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                        }
+            // ---------- Appearance ----------
+            Section(stringResource(R.string.settings_appearance)) {
+                Column(Modifier.padding(16.dp)) {
+                    SegmentedTabs(
+                        listOf("light" to stringResource(R.string.theme_lightShort), "dark" to stringResource(R.string.theme_darkShort), "system" to stringResource(R.string.theme_systemShort)),
+                        settings.themeMode, { vm.setThemeMode(it) },
+                        icons = mapOf("light" to Icons.Rounded.LightMode, "dark" to Icons.Rounded.DarkMode, "system" to Icons.Rounded.DesktopWindows),
+                    )
+                }
+                Divider()
+                SettingItem(
+                    title = stringResource(R.string.settings_themeColor),
+                    subtitle = if (settings.themeColor == Palettes.DYNAMIC_ID) stringResource(R.string.settings_themeDynamic) else colorName(ctx, settings.themeColor),
+                    leading = {
+                        if (settings.themeColor == Palettes.DYNAMIC_ID && dynamicOk) DynamicPreview(dark, 36.dp)
+                        else PalettePreview(Palettes.byId(settings.themeColor), dark, 36.dp)
+                    },
+                    onClick = { colorsOpen = !colorsOpen },
+                    trailing = {
                         val rot by animateFloatAsState(if (colorsOpen) 180f else 0f, label = "chev")
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(rot), tint = cs.onSurfaceVariant)
-                    }
-                    AnimatedVisibility(colorsOpen) {
-                        Column {
-                            Spacer(Modifier.height(16.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Palettes.all.forEach { p ->
-                                    val sel = p.id == settings.themeColor
-                                    Box(
-                                        Modifier.size(48.dp).clip(CircleShape)
-                                            .then(if (sel) Modifier.border(3.dp, cs.onSurface, CircleShape) else Modifier)
-                                            .clickable { vm.setThemeColor(p.id) }.padding(4.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        PalettePreview(p, dark, 40.dp)
-                                        if (sel) Icon(Icons.Rounded.Check, null, tint = Color.White)
-                                    }
-                                }
+                    },
+                )
+                AnimatedVisibility(colorsOpen) {
+                    Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (dynamicOk) Swatch(selected = settings.themeColor == Palettes.DYNAMIC_ID, onClick = { vm.setThemeColor(Palettes.DYNAMIC_ID) }) { DynamicPreview(dark, 40.dp) }
+                            Palettes.all.forEach { p ->
+                                Swatch(selected = p.id == settings.themeColor, onClick = { vm.setThemeColor(p.id) }) { PalettePreview(p, dark, 40.dp) }
                             }
-                            Spacer(Modifier.height(12.dp))
-                            Text(stringResource(R.string.settings_themeColorHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                         }
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            stringResource(if (dynamicOk) R.string.settings_themeDynamicHint else R.string.settings_themeColorHint),
+                            style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                        )
                     }
                 }
-            }
-
-            Column {
-                GroupTitle(stringResource(R.string.settings_language))
-                SegmentedTabs(
-                    listOf("auto" to stringResource(R.string.settings_langAuto), "vi" to "Tiếng Việt", "en" to "English"),
-                    settings.language, { vm.setLanguage(it) },
+                Divider()
+                SettingItem(
+                    title = stringResource(R.string.settings_fontFamily),
+                    leading = { Icon(Icons.Rounded.TextFields, null, tint = cs.primary) },
+                    trailing = { ValueMenu(Fonts.ids.map { it to fontLabel(it) }, settings.fontFamily, { vm.setFontFamily(it) }) },
                 )
-                if (settings.language == "auto") {
-                    Text(stringResource(R.string.settings_langAutoHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 8.dp))
+                Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
+                    Text(stringResource(R.string.settings_fontSize), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+                    SegmentedTabs(
+                        listOf("0.9" to stringResource(R.string.settings_font_0_9), "1.0" to stringResource(R.string.settings_font_1), "1.15" to stringResource(R.string.settings_font_1_15)),
+                        settings.fontScale.toString(), { vm.setFontScale(it.toFloat()) },
+                    )
                 }
-            }
-
-            Column {
-                GroupTitle(stringResource(R.string.settings_fontFamily))
-                DropdownField(
-                    stringResource(R.string.settings_fontFamily),
-                    Fonts.ids.map { it to fontLabel(it) },
-                    settings.fontFamily, { vm.setFontFamily(it) }, Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(12.dp))
-                MoodyCard(Modifier.fillMaxWidth(), containerColor = cs.surfaceContainerHigh, contentPadding = 16.dp) {
-                    Text(stringResource(R.string.settings_fontPreview), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.settings_fontFamilyHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                }
-            }
-
-            Column {
-                GroupTitle(stringResource(R.string.settings_fontSize))
-                val tf = Icons.Rounded.TextFields
-                SegmentedTabs(
-                    listOf("0.9" to stringResource(R.string.settings_font_0_9), "1.0" to stringResource(R.string.settings_font_1), "1.15" to stringResource(R.string.settings_font_1_15)),
-                    settings.fontScale.toString(), { vm.setFontScale(it.toFloat()) },
-                    icons = mapOf("0.9" to tf, "1.0" to tf, "1.15" to tf),
+                Divider()
+                SettingItem(
+                    title = stringResource(R.string.settings_language),
+                    leading = { Icon(Icons.Rounded.Language, null, tint = cs.primary) },
+                    trailing = {
+                        ValueMenu(
+                            listOf("auto" to stringResource(R.string.settings_langAuto), "vi" to "Tiếng Việt", "en" to "English"),
+                            settings.language, { vm.setLanguage(it) },
+                        )
+                    },
                 )
             }
 
-            Column {
-                GroupTitle(stringResource(R.string.settings_startPage))
-                Text(stringResource(R.string.settings_startPageText), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
-                DropdownField(
-                    stringResource(R.string.settings_startPage),
-                    START_PAGES.map { it to stringResource(startPageLabel(it)) },
-                    settings.startPage, { vm.setStartPage(it) }, Modifier.fillMaxWidth(),
+            // ---------- General ----------
+            Section(stringResource(R.string.settings_general)) {
+                SettingItem(
+                    title = stringResource(R.string.settings_startPage),
+                    subtitle = stringResource(R.string.settings_startPageText),
+                    leading = { Icon(Icons.Rounded.Home, null, tint = cs.primary) },
+                    trailing = { ValueMenu(START_PAGES.map { it to stringResource(startPageLabel(it)) }, settings.startPage, { vm.setStartPage(it) }) },
                 )
+                Divider()
+                SettingItem(title = stringResource(R.string.nav_activities), leading = { Icon(Icons.Rounded.Checklist, null, tint = cs.primary) }, onClick = onOpenActivities,
+                    trailing = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = cs.onSurfaceVariant) })
+                Divider()
+                SettingItem(title = stringResource(R.string.nav_moods), leading = { Icon(Icons.Rounded.EmojiEmotions, null, tint = cs.primary) }, onClick = onOpenMoods,
+                    trailing = { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = cs.onSurfaceVariant) })
             }
 
-            Column {
-                GroupTitle(stringResource(R.string.nav_manage))
-                MoodyCard(Modifier.fillMaxWidth(), contentPadding = 4.dp) {
-                    NavRow(Icons.Rounded.Checklist, stringResource(R.string.nav_activities), onOpenActivities)
-                    HorizontalDivider(Modifier.padding(horizontal = 12.dp))
-                    NavRow(Icons.Rounded.EmojiEmotions, stringResource(R.string.nav_moods), onOpenMoods)
+            // ---------- Reminders ----------
+            Section(stringResource(R.string.settings_reminders)) {
+                SwitchItem(stringResource(R.string.settings_remindDaily), settings.dailyEnabled,
+                    subtitle = if (settings.dailyEnabled) settings.dailyTime else null,
+                    onSubtitleClick = { showTime = true }) { on ->
+                    if (on) withNotifPermission { vm.setDailyEnabled(true) } else vm.setDailyEnabled(false)
                 }
-            }
-
-            // Reminders
-            Column {
-                GroupTitle(stringResource(R.string.settings_reminders))
-                Text(stringResource(R.string.settings_remindersHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
-                MoodyCard(Modifier.fillMaxWidth().animateContentSize(), contentPadding = 8.dp) {
-                    SwitchRow(stringResource(R.string.settings_remindDaily), settings.dailyEnabled) { on ->
-                        if (on) withNotifPermission { vm.setDailyEnabled(true) } else vm.setDailyEnabled(false)
-                    }
-                    if (settings.dailyEnabled) {
-                        TextButton(onClick = { showTime = true }, modifier = Modifier.padding(start = 8.dp)) {
-                            Text(stringResource(R.string.settings_remindTime) + ": " + settings.dailyTime)
-                        }
-                    }
-                    SwitchRow(stringResource(R.string.settings_remindWeekly), settings.weeklyEnabled) { on ->
-                        if (on) withNotifPermission { vm.setWeeklyEnabled(true) } else vm.setWeeklyEnabled(false)
-                    }
-                    SwitchRow(stringResource(R.string.settings_remindMonthly), settings.monthlyEnabled) { on ->
-                        if (on) withNotifPermission { vm.setMonthlyEnabled(true) } else vm.setMonthlyEnabled(false)
-                    }
+                Divider()
+                SwitchItem(stringResource(R.string.settings_remindWeekly), settings.weeklyEnabled) { on ->
+                    if (on) withNotifPermission { vm.setWeeklyEnabled(true) } else vm.setWeeklyEnabled(false)
                 }
-                if (anyReminder) {
-                    Spacer(Modifier.height(12.dp))
-                    MoodyCard(Modifier.fillMaxWidth(), containerColor = cs.surfaceContainerHigh, contentPadding = 14.dp) {
+                Divider()
+                SwitchItem(stringResource(R.string.settings_remindMonthly), settings.monthlyEnabled) { on ->
+                    if (on) withNotifPermission { vm.setMonthlyEnabled(true) } else vm.setMonthlyEnabled(false)
+                }
+                Divider()
+                SettingItem(
+                    title = stringResource(R.string.settings_troubleshoot),
+                    subtitle = if (needsAttention) stringResource(if (!notifOk) R.string.settings_notifBlocked else R.string.settings_exactAlarmHint) else null,
+                    subtitleColor = if (needsAttention) cs.error else null,
+                    leading = { Icon(Icons.Rounded.Notifications, null, tint = if (needsAttention) cs.error else cs.primary) },
+                    onClick = { helpOpen = !helpOpen },
+                    trailing = {
+                        val rot by animateFloatAsState(if (helpOpen || needsAttention) 180f else 0f, label = "chevHelp")
+                        Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(rot), tint = cs.onSurfaceVariant)
+                    },
+                )
+                AnimatedVisibility(helpOpen || needsAttention) {
+                    Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (!notifOk) {
-                            Text(stringResource(R.string.settings_notifBlocked), style = MaterialTheme.typography.bodyMedium, color = cs.error)
-                            Spacer(Modifier.height(8.dp))
                             ActionButton(
                                 stringResource(R.string.settings_notifOpenSettings), Icons.Rounded.Notifications,
-                                {
-                                    launchSystem(Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(AndroidSettings.EXTRA_APP_PACKAGE, ctx.packageName))
-                                },
+                                { launchSystem(Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(AndroidSettings.EXTRA_APP_PACKAGE, ctx.packageName)) },
                                 tonal = true, modifier = Modifier.fillMaxWidth(),
                             )
-                            Spacer(Modifier.height(12.dp))
                         }
                         if (Build.VERSION.SDK_INT >= 31) {
                             if (exactOk) {
                                 Text(stringResource(R.string.settings_exactAlarmOk), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                             } else {
                                 Text(stringResource(R.string.settings_exactAlarmHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                                Spacer(Modifier.height(8.dp))
                                 ActionButton(
                                     stringResource(R.string.settings_exactAlarm), Icons.Rounded.Check,
-                                    {
-                                        launchSystem(Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}")))
-                                    },
+                                    { launchSystem(Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))) },
                                     tonal = true, modifier = Modifier.fillMaxWidth(),
                                 )
                             }
-                            Spacer(Modifier.height(12.dp))
                         }
                         Text(stringResource(R.string.settings_batteryHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                        Spacer(Modifier.height(8.dp))
                         ActionButton(
                             stringResource(R.string.settings_batteryBtn), Icons.Rounded.Notifications,
                             { launchSystem(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) },
                             tonal = true, modifier = Modifier.fillMaxWidth(),
                         )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ActionButton(
+                                stringResource(R.string.settings_remindTest), Icons.Rounded.Notifications,
+                                { withNotifPermission { toaster.show(ctx.getString(if (vm.sendTestNotification(settings.language)) R.string.settings_testSent else R.string.settings_notifDenied)) } },
+                                tonal = true, modifier = Modifier.weight(1f),
+                            )
+                            ActionButton(
+                                stringResource(R.string.settings_remindTestAlarm), Icons.Rounded.Notifications,
+                                { withNotifPermission { vm.scheduleTestAlarm(); toaster.show(ctx.getString(R.string.settings_testScheduled)) } },
+                                tonal = true, modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ActionButton(
-                        stringResource(R.string.settings_remindTest), Icons.Rounded.Notifications,
-                        {
-                            withNotifPermission {
-                                toaster.show(ctx.getString(if (vm.sendTestNotification(settings.language)) R.string.settings_testSent else R.string.settings_notifDenied))
-                            }
-                        },
-                        tonal = true, modifier = Modifier.weight(1f),
-                    )
-                    ActionButton(
-                        stringResource(R.string.settings_remindTestAlarm), Icons.Rounded.Notifications,
-                        { withNotifPermission { vm.scheduleTestAlarm(); toaster.show(ctx.getString(R.string.settings_testScheduled)) } },
-                        tonal = true, modifier = Modifier.weight(1f),
-                    )
                 }
             }
 
-            // Data
-            Column {
-                GroupTitle(stringResource(R.string.settings_data))
-                MoodyCard(Modifier.fillMaxWidth().animateContentSize(), onClick = { dataOpen = !dataOpen }, contentPadding = 12.dp) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        IconDisc(Icons.Rounded.FileDownload)
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.settings_exportImport), style = MaterialTheme.typography.titleSmall)
-                            Text(stringResource(R.string.settings_exportImportSub), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+            // ---------- Data ----------
+            Section(stringResource(R.string.settings_data)) {
+                SettingItem(
+                    title = stringResource(R.string.settings_exportImport),
+                    subtitle = stringResource(R.string.settings_exportImportSub),
+                    leading = { Icon(Icons.Rounded.FileDownload, null, tint = cs.primary) },
+                    onClick = { dataOpen = !dataOpen },
+                    trailing = {
                         val rot by animateFloatAsState(if (dataOpen) 180f else 0f, label = "chev2")
                         Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(rot), tint = cs.onSurfaceVariant)
-                    }
-                    AnimatedVisibility(dataOpen) {
-                        Column {
-                            Spacer(Modifier.height(14.dp))
-                            Text(stringResource(R.string.settings_dataHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                            Spacer(Modifier.height(12.dp))
-                            SegmentedTabs(listOf("csv" to "CSV", "json" to "JSON"), format, { format = it })
-                            Spacer(Modifier.height(8.dp))
-                            Dataset.entries.forEach { ds ->
-                                DataRow(
-                                    stringResource(when (ds) {
-                                        Dataset.Entries -> R.string.settings_dataset_entries
-                                        Dataset.Activities -> R.string.settings_dataset_activities
-                                        Dataset.Moods -> R.string.settings_dataset_moods
-                                    }),
-                                    onExport = { exportDataset(ds) }, onImport = { pickImport(ds.key) },
-                                )
-                                HorizontalDivider()
-                            }
+                    },
+                )
+                AnimatedVisibility(dataOpen) {
+                    Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
+                        Text(stringResource(R.string.settings_dataHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                        Spacer(Modifier.height(12.dp))
+                        SegmentedTabs(listOf("csv" to "CSV", "json" to "JSON"), format, { format = it })
+                        Spacer(Modifier.height(8.dp))
+                        Dataset.entries.forEach { ds ->
                             DataRow(
-                                stringResource(R.string.settings_all), onExport = { exportAll() }, onImport = { pickImport("all") },
-                                exportLabel = stringResource(R.string.settings_exportAll), importLabel = stringResource(R.string.settings_importAll),
+                                stringResource(when (ds) {
+                                    Dataset.Entries -> R.string.settings_dataset_entries
+                                    Dataset.Activities -> R.string.settings_dataset_activities
+                                    Dataset.Moods -> R.string.settings_dataset_moods
+                                }),
+                                onExport = { exportDataset(ds) }, onImport = { pickImport(ds.key) },
                             )
-                            Text(
-                                stringResource(if (format == "json") R.string.settings_allHint_json else R.string.settings_allHint_csv),
-                                style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
-                            )
+                            HorizontalDivider()
                         }
+                        DataRow(
+                            stringResource(R.string.settings_all), onExport = { exportAll() }, onImport = { pickImport("all") },
+                            exportLabel = stringResource(R.string.settings_exportAll), importLabel = stringResource(R.string.settings_importAll),
+                        )
+                        Text(
+                            stringResource(if (format == "json") R.string.settings_allHint_json else R.string.settings_allHint_csv),
+                            style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
+                        )
                     }
                 }
             }
 
-            Column {
-                GroupTitle(stringResource(R.string.settings_about))
-                MoodyCard(Modifier.fillMaxWidth(), contentPadding = 14.dp) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        IconDisc(Icons.Rounded.Favorite)
-                        Column(Modifier.weight(1f)) {
-                            Text("Moody", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(4.dp))
-                            CreditLine()
-                            Text("v1.0.0", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-                        }
+            // ---------- About ----------
+            Section(stringResource(R.string.settings_about)) {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    IconDisc(Icons.Rounded.Favorite)
+                    Column(Modifier.weight(1f)) {
+                        Text("Moody", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        CreditLine()
+                        Text("v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
                     }
                 }
             }
             Spacer(Modifier.height(24.dp))
         }
         ScrollToTopButton(showTop, { scope.launch { scroll.animateScrollTo(0) } }, Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
+}
+
+/** Titled group: one card whose rows are separated by hairlines (consistent M3 list style). */
+@Composable
+private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column {
+        GroupTitle(title)
+        MoodyCard(Modifier.fillMaxWidth().animateContentSize(), contentPadding = 0.dp, content = content)
+    }
+}
+
+@Composable
+private fun Divider() = HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+
+@Composable
+private fun SettingItem(
+    title: String,
+    subtitle: String? = null,
+    subtitleColor: Color? = null,
+    leading: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 12.dp).heightIn(min = 40.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        if (leading != null) Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { leading() }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (trailing != null) trailing()
+    }
+}
+
+@Composable
+private fun SwitchItem(title: String, checked: Boolean, subtitle: String? = null, onSubtitleClick: (() -> Unit)? = null, onChange: (Boolean) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) {
+                Text(
+                    subtitle, style = MaterialTheme.typography.labelLarge, color = cs.primary,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).then(if (onSubtitleClick != null) Modifier.clickable(onClick = onSubtitleClick) else Modifier).padding(vertical = 2.dp),
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun Swatch(selected: Boolean, onClick: () -> Unit, preview: @Composable () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        Modifier.size(52.dp).clip(CircleShape).then(if (selected) Modifier.border(3.dp, cs.primary, CircleShape) else Modifier)
+            .clickable(onClick = onClick).padding(5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        preview()
+        if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -615,26 +655,6 @@ private fun NameChip(text: String, icon: ImageVector?) {
     ) {
         if (icon != null) Icon(icon, null, Modifier.size(14.dp), tint = cs.primary)
         Text(text, style = MaterialTheme.typography.labelLarge, color = cs.primary)
-    }
-}
-
-@Composable
-private fun NavRow(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 

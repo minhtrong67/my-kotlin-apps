@@ -109,7 +109,7 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
             if (view == TxView.CALENDAR) {
                 item(key = "calendar") { CalendarView(transactions, catById, walletById, onEdit) }
             } else if (loading) {
-                item { Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                item { ListSkeleton(rows = 7) }
             } else if (filtered.isEmpty()) {
                 item { EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(if (transactions.isEmpty()) R.string.dashboard_no_tx else R.string.tx_no_match)) }
             } else {
@@ -127,7 +127,7 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                         }
                     }
                     items(dayItems, key = { it.id }) { tx ->
-                        SwipeRow(onEdit = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null, onDelete = { deleteTarget = tx }) {
+                        SwipeRow(onEdit = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null, onDelete = { deleteTarget = tx }, modifier = Modifier.animateItem()) {
                             Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp)) {
                                 TxRow(tx, catById[tx.categoryId ?: ""], walletById, showDate = false, onClick = if (tx.type != TxType.TRANSFER) ({ onEdit(tx) }) else null)
                             }

@@ -88,6 +88,7 @@ import com.minhtrong67.moody.ui.components.ActionButton
 import com.minhtrong67.moody.ui.components.ConfirmDialog
 import com.minhtrong67.moody.ui.components.DropdownField
 import com.minhtrong67.moody.ui.components.EmptyText
+import com.minhtrong67.moody.ui.components.Grid3
 import com.minhtrong67.moody.ui.components.MoodBubble
 import com.minhtrong67.moody.ui.components.MoodyCard
 import com.minhtrong67.moody.ui.components.SegmentedTabs
@@ -185,7 +186,7 @@ private fun ListView(entries: List<Entry>, onEdit: (String) -> Unit, onDelete: (
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = search, onValueChange = { search = it },
-            placeholder = { Text(stringResource(R.string.history_searchPlaceholder)) },
+            placeholder = { Text(stringResource(R.string.history_searchPlaceholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = { if (search.isNotEmpty()) IconButton(onClick = { search = "" }) { Icon(Icons.Rounded.Close, null) } },
             singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
@@ -250,7 +251,7 @@ private fun ListView(entries: List<Entry>, onEdit: (String) -> Unit, onDelete: (
                 contentPadding = PaddingValues(bottom = 96.dp, top = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(filtered, key = { it.id }) { e ->
+                items(filtered, key = { it.id }, contentType = { "entry" }) { e ->
                     EntryCard(e, moodByKey[e.mood], activityById, onEdit = { onEdit(e.id) }, onDelete = { pendingDelete = e }, modifier = Modifier.animateItem())
                 }
             }
@@ -293,9 +294,7 @@ private fun EntryCard(
             val acts = e.activities.mapNotNull { activityById[it] }
             if (acts.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    acts.forEach { StaticChip(it.emoji, it.label) }
-                }
+                Grid3(acts, spacing = 6.dp) { StaticChip(it.emoji, it.label) }
             }
         }
     }
@@ -414,9 +413,7 @@ private fun EntryDetail(e: Entry, onEdit: () -> Unit) {
         Text(stringResource(R.string.history_activities), style = MaterialTheme.typography.labelMedium, color = cs.primary)
         val acts = e.activities.mapNotNull { id -> activities.firstOrNull { it.id == id } }
         if (acts.isEmpty()) Text(stringResource(R.string.history_noActivities), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-        else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            acts.forEach { StaticChip(it.emoji, it.label) }
-        }
+        else Grid3(acts, spacing = 6.dp) { StaticChip(it.emoji, it.label) }
     }
 }
 

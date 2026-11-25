@@ -14,6 +14,7 @@
     <string name="common_other">Khác</string>
     <string name="common_save">Lưu</string>
     <string name="move_up">Lên</string>
+    <string name="drag_to_reorder">Kéo để sắp xếp</string>
     <string name="move_down">Xuống</string>
     <string name="reorder_error">Không thể lưu thứ tự. Vui lòng thử lại.</string>
     <string name="nav_dashboard">Tổng quan</string>

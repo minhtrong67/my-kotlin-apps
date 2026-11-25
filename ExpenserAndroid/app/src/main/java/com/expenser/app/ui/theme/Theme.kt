@@ -27,7 +27,7 @@ import com.expenser.app.data.AppSettings
 data class IncomeColors(val income: Color, val onIncome: Color, val container: Color, val onContainer: Color)
 
 val LocalIncomeColors = staticCompositionLocalOf {
-    IncomeColors(Color(0xFF006D38), Color.White, Color(0xFF8DF9AC), Color(0xFF00210D))
+    IncomeColors(Color(0xFF0B7A3B), Color.White, Color(0xFF8DF9AC), Color(0xFF00210D))
 }
 
 private fun c(hex: Long) = Color(0xFF000000 or hex)
@@ -37,7 +37,7 @@ private val DefaultLight = lightColorScheme(
     primary = c(0x0061A4), onPrimary = c(0xFFFFFF), primaryContainer = c(0xD1E4FF), onPrimaryContainer = c(0x001D36),
     secondary = c(0x535F70), onSecondary = c(0xFFFFFF), secondaryContainer = c(0xD7E3F8), onSecondaryContainer = c(0x101C2B),
     tertiary = c(0x6B5778), onTertiary = c(0xFFFFFF), tertiaryContainer = c(0xF2DAFF), onTertiaryContainer = c(0x251431),
-    error = c(0xBA1A1A), onError = c(0xFFFFFF), errorContainer = c(0xFFDAD6), onErrorContainer = c(0x410002),
+    error = c(0xC62828), onError = c(0xFFFFFF), errorContainer = c(0xFFDAD6), onErrorContainer = c(0x410002),
     background = c(0xF8F9FF), onBackground = c(0x191C20), surface = c(0xF8F9FF), onSurface = c(0x191C20),
     surfaceVariant = c(0xDFE2EB), onSurfaceVariant = c(0x43474E), outline = c(0x73777F), outlineVariant = c(0xC3C7CF),
     inverseSurface = c(0x2E3135), inverseOnSurface = c(0xEFF0F7), inversePrimary = c(0x9FCAFF), surfaceTint = c(0x0061A4),
@@ -49,7 +49,7 @@ private val DefaultDark = darkColorScheme(
     primary = c(0x9FCAFF), onPrimary = c(0x003258), primaryContainer = c(0x00497D), onPrimaryContainer = c(0xD1E4FF),
     secondary = c(0xBBC7DB), onSecondary = c(0x253140), secondaryContainer = c(0x3B4858), onSecondaryContainer = c(0xD7E3F8),
     tertiary = c(0xD7BEE4), onTertiary = c(0x3B2948), tertiaryContainer = c(0x523F5F), onTertiaryContainer = c(0xF2DAFF),
-    error = c(0xFFB4AB), onError = c(0x690005), errorContainer = c(0x93000A), onErrorContainer = c(0xFFDAD6),
+    error = c(0xFF5449), onError = c(0x410002), errorContainer = c(0x93000A), onErrorContainer = c(0xFFDAD6),
     background = c(0x101418), onBackground = c(0xE1E2E8), surface = c(0x101418), onSurface = c(0xE1E2E8),
     surfaceVariant = c(0x43474E), onSurfaceVariant = c(0xC3C7CF), outline = c(0x8D9199), outlineVariant = c(0x43474E),
     inverseSurface = c(0xE1E2E8), inverseOnSurface = c(0x2E3135), inversePrimary = c(0x0061A4), surfaceTint = c(0x9FCAFF),
@@ -135,8 +135,8 @@ fun ExpenserTheme(settings: AppSettings, content: @Composable () -> Unit) {
         dark -> DefaultDark
         else -> DefaultLight
     }
-    val income = if (dark) IncomeColors(c(0x71DC92), c(0x00391A), c(0x005229), c(0x8DF9AC))
-    else IncomeColors(c(0x006D38), Color.White, c(0x8DF9AC), c(0x00210D))
+    val income = if (dark) IncomeColors(c(0x2EBD5F), c(0x00210D), c(0x005229), c(0x8DF9AC))
+    else IncomeColors(c(0x0B7A3B), Color.White, c(0x8DF9AC), c(0x00210D))
 
     val scale = when (settings.fontSize) { "sm" -> 0.92f; "lg" -> 1.1f; else -> 1f }
     val base = LocalDensity.current

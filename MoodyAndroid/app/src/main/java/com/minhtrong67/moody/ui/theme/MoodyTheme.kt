@@ -5,6 +5,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import android.os.Build
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -64,7 +68,15 @@ fun MoodyTheme(
     val dark = resolveDark(themeMode)
     // Remembered so a recomposition of the root never rebuilds the scheme / typography (they are static
     // composition locals: a new instance would force the whole UI tree to recompose).
-    val colors = remember(dark, themeColor) { Palettes.byId(themeColor).let { scheme(if (dark) it.dark else it.light) } }
+    val ctx = LocalContext.current
+    val colors = remember(dark, themeColor) {
+        if (themeColor == Palettes.DYNAMIC_ID && Build.VERSION.SDK_INT >= 31) {
+            // Material You: colors extracted from the wallpaper by the system
+            if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+        } else {
+            Palettes.byId(themeColor).let { scheme(if (dark) it.dark else it.light) }
+        }
+    }
     val typography = remember(fontFamily) { typographyFor(fontFamily) }
     val d = LocalDensity.current
     val density = remember(d.density, d.fontScale, fontScale) { Density(d.density, d.fontScale * fontScale) }

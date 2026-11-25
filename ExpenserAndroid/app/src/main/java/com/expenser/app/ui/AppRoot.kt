@@ -2,7 +2,12 @@ package com.expenser.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.navigation.NavBackStackEntry
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.size.Size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -65,6 +70,25 @@ private val DRAWER = listOf(
 )
 private val BOTTOM = listOf(ROUTE_DASHBOARD, ROUTE_TRANSACTIONS, ROUTE_STATS, ROUTE_SETTINGS).map { r -> DRAWER.first { it.route == r } }
 
+private fun tabIndexOf(e: NavBackStackEntry): Int = BOTTOM.indexOfFirst { it.route == e.destination.route }
+
+/** Bottom tabs slide sideways in the direction of travel (matches the swipe); other screens fade + gently scale in. */
+private fun enterFor(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition {
+    val a = tabIndexOf(from); val b = tabIndexOf(to)
+    return if (a >= 0 && b >= 0 && a != b) {
+        val dir = if (b > a) 1 else -1
+        slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { it / 3 * dir } + fadeIn(tween(240))
+    } else fadeIn(tween(240)) + scaleIn(tween(260, easing = FastOutSlowInEasing), initialScale = 0.96f)
+}
+
+private fun exitFor(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition {
+    val a = tabIndexOf(from); val b = tabIndexOf(to)
+    return if (a >= 0 && b >= 0 && a != b) {
+        val dir = if (b > a) 1 else -1
+        slideOutHorizontally(tween(240, easing = FastOutSlowInEasing)) { -it / 3 * dir } + fadeOut(tween(140))
+    } else fadeOut(tween(140))
+}
+
 @Composable
 fun AppRoot(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled: () -> Unit) {
     val configured = vm.configured
@@ -92,6 +116,15 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
     val settings by vm.settings.collectAsStateWithLifecycle()
     val user by vm.user.collectAsStateWithLifecycle()
     val cafeId = cafeCategoryId(categories)
+    val shops by vm.shops.collectAsStateWithLifecycle()
+    val drinks by vm.drinks.collectAsStateWithLifecycle()
+    // Warm the image cache in the background so photos are already there when a cafe screen opens.
+    LaunchedEffect(shops, drinks) {
+        val loader = context.imageLoader
+        (shops.map { it.imageUrl } + drinks.map { it.imageUrl }).filter { it.isNotBlank() }.distinct().forEach { u ->
+            loader.enqueue(ImageRequest.Builder(context).data(u).size(Size(48, 48)).build())
+        }
+    }
 
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(context.getString(it.res, *it.args.toTypedArray())) } }
     LaunchedEffect(launchAdd) {
@@ -183,10 +216,10 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
             ) {
                 NavHost(
                     nav, startDestination = ROUTE_DASHBOARD,
-                    enterTransition = { fadeIn(tween(140)) },
-                    exitTransition = { fadeOut(tween(80)) },
-                    popEnterTransition = { fadeIn(tween(140)) },
-                    popExitTransition = { fadeOut(tween(80)) },
+                    enterTransition = { enterFor(initialState, targetState) },
+                    exitTransition = { exitFor(initialState, targetState) },
+                    popEnterTransition = { enterFor(initialState, targetState) },
+                    popExitTransition = { exitFor(initialState, targetState) },
                 ) {
                     composable(ROUTE_DASHBOARD) { DashboardScreen(vm, onAdd = { form = TxFormRequest() }, onEdit = { form = TxFormRequest(editing = it) }, onViewAll = { go(ROUTE_TRANSACTIONS) }) }
                     composable(ROUTE_TRANSACTIONS) { TransactionsScreen(vm, onEdit = { form = TxFormRequest(editing = it) }) }
@@ -198,8 +231,12 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
                     composable(ROUTE_CAFE_SHOPS) { CafeShopsScreen(vm) }
                     composable(ROUTE_CAFE_DRINKS) { CafeDrinksScreen(vm) }
                 }
-                if (showFab) key(route) {
-                    ScreenFab(onClick = { form = TxFormRequest(initialCategoryId = if (route == ROUTE_CAFE) cafeId else null) }, modifier = Modifier.align(Alignment.BottomEnd))
+                AnimatedVisibility(
+                    showFab, modifier = Modifier.align(Alignment.BottomEnd),
+                    enter = scaleIn(tween(220, delayMillis = 120), initialScale = 0.6f) + fadeIn(tween(200, delayMillis = 120)),
+                    exit = scaleOut(tween(140), targetScale = 0.6f) + fadeOut(tween(100)),
+                ) {
+                    ScreenFab(onClick = { form = TxFormRequest(initialCategoryId = if (route == ROUTE_CAFE) cafeId else null) })
                 }
             }
         }

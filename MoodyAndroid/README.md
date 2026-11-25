@@ -42,6 +42,13 @@ App chạy được ngay ở **chế độ khách** (dữ liệu lưu trên máy
 - Landing page marketing và nút "Cài đặt ứng dụng" (PWA) — không còn ý nghĩa trong app native.
 - Xuất/nhập **.xlsx** (CSV/JSON/ZIP đã đủ để trao đổi dữ liệu với web). Có thể thêm bằng thư viện `fastexcel`.
 
+## Ghi chú bản mới
+
+- Màu chủ đạo mặc định **Teal**; thêm tuỳ chọn **Tự động (Material You)** (Android 12+) trong Cài đặt → Màu chủ đạo.
+- Vuốt ngang để chuyển giữa 4 tab (Hôm nay / Lịch sử / Thống kê / Cài đặt). Trong danh sách Lịch sử, vuốt trên một thẻ là sửa/xoá (cần vuốt xa), vuốt ở vùng trống để đổi tab.
+- File APK được đặt tên `Moody-v1.0.0-release.apk` / `Moody-v1.0.0-debug.apk` (đổi `appVersionName` trong `app/build.gradle.kts`).
+- Icon: adaptive icon (nền teal + mặt cười), có cả icon đơn sắc cho "Themed icons" của Android 13+.
+
 ## Nhắc nhở hoạt động thế nào
 
 - Dùng `AlarmManager` (không dùng WorkManager vì WorkManager có thể bị trễ hàng giờ khi máy ở chế độ Doze).

@@ -7,3 +7,10 @@
 .DS_Store
 *.apk
 *.aab
+
+# secrets
+.env
+/keystore/
+*.jks
+*.keystore
+/app/google-services.json

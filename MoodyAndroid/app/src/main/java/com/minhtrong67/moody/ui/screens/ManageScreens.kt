@@ -173,7 +173,7 @@ fun ManageActivitiesScreen(
         Text(stringResource(R.string.manageActs_intro), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
         OutlinedTextField(
             value = search, onValueChange = { search = it },
-            placeholder = { Text(stringResource(R.string.manageActs_searchPlaceholder)) },
+            placeholder = { Text(stringResource(R.string.manageActs_searchPlaceholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             trailingIcon = { if (search.isNotEmpty()) IconButton(onClick = { search = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.manageActs_clearSearch)) } },
             singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),

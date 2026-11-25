@@ -114,7 +114,7 @@
     <string name="history_list">List</string>
     <string name="history_calendar">Calendar</string>
     <string name="history_search">Search</string>
-    <string name="history_searchPlaceholder">Search notes or activities…</string>
+    <string name="history_searchPlaceholder">Search notes, activities…</string>
     <string name="history_filters">Filters &amp; sorting</string>
     <string name="history_period">Time range</string>
     <string name="history_period_all">All time</string>
@@ -310,6 +310,11 @@
     <string name="settings_signIn">Sign in with Google</string>
     <string name="login_error">Sign-in failed. Please try again.</string>
     <string name="common_reorder">Reorder</string>
+    <string name="settings_themeDynamic">Dynamic (Material You)</string>
+    <string name="settings_themeDynamicHint">Colors follow your wallpaper (Android 12+).</string>
+    <string name="settings_troubleshoot">Not receiving notifications?</string>
+    <string name="settings_general">General</string>
+    <string name="login_googleContinue">Continue with Google</string>
     <string name="settings_exactAlarm">Allow exact alarms</string>
     <string name="settings_exactAlarmHint">Without this permission, reminders may arrive a few minutes late.</string>
     <string name="settings_exactAlarmOk">Exact alarms allowed — reminders will arrive on time.</string>

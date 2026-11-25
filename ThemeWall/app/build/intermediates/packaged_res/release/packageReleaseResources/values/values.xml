@@ -2,7 +2,7 @@
 <resources>
     <color name="ic_bg">#4355B9</color>
     <string name="about">About</string>
-    <string name="about_text">Version 1.2 · Pick one image for light mode and one for dark mode. The app keeps a small background service to detect theme changes. Disable battery optimization for it if your device kills it.</string>
+    <string name="about_text">Version 1.3 · Pick one image for light mode and one for dark mode. The app keeps a small background service to detect theme changes. Disable battery optimization for it if your device kills it.</string>
     <string name="app_name">ThemeWall</string>
     <string name="appearance">Appearance</string>
     <string name="apply_now">Apply</string>
@@ -10,6 +10,8 @@
     <string name="auto_switch">Auto switch wallpaper</string>
     <string name="auto_switch_desc">Changes wallpaper whenever system light/dark mode changes</string>
     <string name="behavior">Behavior</string>
+    <string name="cd_preview_dark">Dark wallpaper preview</string>
+    <string name="cd_preview_light">Light wallpaper preview</string>
     <string name="change">Change</string>
     <string name="choose">Choose</string>
     <string name="close">Close</string>
@@ -18,8 +20,11 @@
     <string name="dark_wallpaper">Dark</string>
     <string name="dim_desc">Darkens the dark-mode wallpaper so icons and text stand out</string>
     <string name="dim_label">Dim dark wallpaper · %1$d%%</string>
+    <string name="dismiss">Dismiss</string>
     <string name="dynamic_color">Dynamic color</string>
     <string name="dynamic_color_desc">Material You colors from your system wallpaper (Android 12+)</string>
+    <string name="killed_text">Set Battery to Unrestricted and remove ThemeWall from Sleeping apps so wallpapers keep switching.</string>
+    <string name="killed_title">Background service was stopped</string>
     <string name="lang_en">English</string>
     <string name="lang_system">System</string>
     <string name="lang_vi">Tiếng Việt</string>
@@ -41,6 +46,9 @@
     <string name="schedule_desc">Use a different image for morning, afternoon, evening and night</string>
     <string name="schedule_note">Empty slots use the main image from Home. Auto switch must be on.</string>
     <string name="schedule_title">Time-of-day wallpapers</string>
+    <string name="service_active">Service active</string>
+    <string name="service_active_at">Service active · last applied %1$s</string>
+    <string name="service_stopped">Service stopped</string>
     <string name="slot_afternoon">Afternoon</string>
     <string name="slot_evening">Evening</string>
     <string name="slot_morning">Morning</string>

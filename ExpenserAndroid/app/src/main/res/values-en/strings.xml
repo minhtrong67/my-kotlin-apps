@@ -14,6 +14,7 @@
     <string name="common_other">Other</string>
     <string name="common_save">Save</string>
     <string name="move_up">Move up</string>
+    <string name="drag_to_reorder">Drag to reorder</string>
     <string name="move_down">Move down</string>
     <string name="reorder_error">Could not save the order. Please try again.</string>
     <string name="nav_dashboard">Overview</string>

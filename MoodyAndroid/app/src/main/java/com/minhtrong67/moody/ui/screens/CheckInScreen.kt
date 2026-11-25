@@ -69,6 +69,7 @@ import com.minhtrong67.moody.ui.LocalLocale
 import com.minhtrong67.moody.ui.LocalMoods
 import com.minhtrong67.moody.ui.components.ActionButton
 import com.minhtrong67.moody.ui.components.ConfirmDialog
+import com.minhtrong67.moody.ui.components.Grid3
 import com.minhtrong67.moody.ui.components.MoodPickBubble
 import com.minhtrong67.moody.ui.components.TimePickerDialog
 import com.minhtrong67.moody.util.todayISO
@@ -266,12 +267,14 @@ fun CheckInScreen(
                     Text(stringResource(R.string.checkin_manage))
                 }
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                activities.forEach { a ->
+            // grid-cols-3: the last cell is the "Add new" chip (null)
+            Grid3(activities + listOf<com.minhtrong67.moody.data.ActivityDef?>(null)) { a ->
+                if (a == null) {
+                    AddChip(stringResource(R.string.checkin_addNew)) { showAdd = true }
+                } else {
                     val active = a.id in selected
                     ActivityChip(a.emoji, a.label, active) { selected = if (active) selected - a.id else selected + a.id }
                 }
-                AddChip(stringResource(R.string.checkin_addNew)) { showAdd = true }
             }
             Spacer(Modifier.height(28.dp))
 
@@ -293,10 +296,10 @@ private fun ActivityChip(emoji: String, label: String, selected: Boolean, onClic
     val cs = MaterialTheme.colorScheme
     val bg by animateColorAsState(if (selected) cs.secondaryContainer else cs.surface, tween(180), label = "chipBg")
     val border by animateColorAsState(if (selected) cs.secondaryContainer else cs.outline, tween(180), label = "chipBorder")
-    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = bg, border = BorderStroke(1.dp, border), modifier = Modifier.height(40.dp)) {
-        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = bg, border = BorderStroke(1.dp, border), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+        Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             if (selected) Icon(Icons.Rounded.Check, null, Modifier.size(18.dp), tint = cs.onSecondaryContainer) else Text(emoji, fontSize = 15.sp)
-            Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) cs.onSecondaryContainer else cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) cs.onSecondaryContainer else cs.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         }
     }
 }
@@ -304,8 +307,8 @@ private fun ActivityChip(emoji: String, label: String, selected: Boolean, onClic
 @Composable
 private fun AddChip(label: String, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
-    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = cs.surface, border = BorderStroke(1.dp, cs.outline), modifier = Modifier.height(40.dp)) {
-        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = cs.surface, border = BorderStroke(1.dp, cs.outline), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+        Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
             Icon(Icons.Rounded.Add, null, Modifier.size(18.dp), tint = cs.primary)
             Text(label, style = MaterialTheme.typography.labelLarge, color = cs.onSurface)
         }

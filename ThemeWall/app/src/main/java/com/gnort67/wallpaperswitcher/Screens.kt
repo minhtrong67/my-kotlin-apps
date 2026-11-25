@@ -10,6 +10,11 @@ import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.text.format.DateFormat
+import java.util.Date
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
@@ -102,8 +107,7 @@ fun AppRoot(p: Prefs) {
     fun applyNow(dark: Boolean) {
         scope.launch {
             val ok = withContext(Dispatchers.IO) { WallpaperApplier.apply(ctx, dark) }
-            if (ok) p.lastApplied = WallpaperApplier.stateKey(ctx, dark)
-            say(if (ok) R.string.msg_applied else R.string.msg_failed)
+            if (ok) p.markApplied(WallpaperApplier.stateKey(ctx, dark)) else say(R.string.msg_failed)
         }
     }
 
@@ -126,7 +130,11 @@ fun AppRoot(p: Prefs) {
         if (on) {
             if (Build.VERSION.SDK_INT >= 33) notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
             ThemeWatcherService.start(ctx)
-        } else ThemeWatcherService.stop(ctx)
+        } else {
+            ThemeWatcherService.stop(ctx)
+            p.serviceMarker = false
+            p.updateKilledHint(false)
+        }
     }
 
     val tabs = listOf(
@@ -147,11 +155,12 @@ fun AppRoot(p: Prefs) {
                 job,
                 onFinish = { ok ->
                     crop = null
-                    if (ok) { version++; refresh(); say(R.string.msg_imported) } else say(R.string.msg_failed)
+                    if (ok) { version++; refresh() } else say(R.string.msg_failed)
                 },
                 onCancel = { crop = null }
             )
         } else {
+            BackHandler(enabled = pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0) } }
             Scaffold(
                 topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) },
                 snackbarHost = { SnackbarHost(snack) },
@@ -178,7 +187,11 @@ fun AppRoot(p: Prefs) {
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         when (page) {
-                            0 -> HomeScreen(p, version, { setAuto(it) }, { applyNow(it) }, { pick(it, 0) }, { p.updateTarget(it); refresh() })
+                            0 -> HomeScreen(
+                                p, version, { setAuto(it) }, { applyNow(it) }, { pick(it, 0) }, { clear(it, 0) },
+                                { p.updateTarget(it); refresh() },
+                                { p.updateKilledHint(false); openAppInfo(ctx) }, { p.updateKilledHint(false) }
+                            )
                             1 -> ScheduleScreen(p, version, { p.updateSchedule(it); refresh() }, { d, s -> pick(d, s) }, { d, s -> clear(d, s) })
                             else -> SettingsScreen(p) { p.updateDim(it); refresh() }
                         }
@@ -192,28 +205,48 @@ fun AppRoot(p: Prefs) {
 // ───────────── Home ─────────────
 @Composable
 private fun HomeScreen(
-    p: Prefs, version: Int, onAuto: (Boolean) -> Unit,
-    onApply: (Boolean) -> Unit, onPick: (Boolean) -> Unit, onTarget: (Int) -> Unit
+    p: Prefs, version: Int, onAuto: (Boolean) -> Unit, onApply: (Boolean) -> Unit,
+    onPick: (Boolean) -> Unit, onClear: (Boolean) -> Unit, onTarget: (Int) -> Unit,
+    onFix: () -> Unit, onDismissHint: () -> Unit
 ) {
+    val ctx = LocalContext.current
     val sysDark = isSystemInDarkTheme()
+    val desc = stringResource(R.string.auto_switch_desc)
+    val mode = stringResource(R.string.status_now,
+        stringResource(if (sysDark) R.string.mode_dark else R.string.mode_light))
+    val time = remember(p.lastAppliedAt) { DateFormat.getTimeFormat(ctx).format(Date(p.lastAppliedAt)) }
+    val status = when {
+        !p.autoSwitch -> null
+        !ThemeWatcherService.running -> stringResource(R.string.service_stopped)
+        p.lastAppliedAt > 0L -> stringResource(R.string.service_active_at, time)
+        else -> stringResource(R.string.service_active)
+    }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             leadingContent = { Icon(if (sysDark) Icons.Rounded.DarkMode else Icons.Rounded.LightMode, null) },
             headlineContent = { Text(stringResource(R.string.auto_switch), style = MaterialTheme.typography.titleMedium) },
-            supportingContent = {
-                Text(
-                    stringResource(R.string.auto_switch_desc) + "\n" +
-                        stringResource(R.string.status_now,
-                            stringResource(if (sysDark) R.string.mode_dark else R.string.mode_light))
-                )
-            },
+            supportingContent = { Text(listOfNotNull(desc, mode, status).joinToString("\n")) },
             trailingContent = { Switch(p.autoSwitch, onAuto) }
         )
     }
+    if (p.autoSwitch && p.killedHint) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.killed_title), style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer)
+                Text(stringResource(R.string.killed_text), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer)
+                Row {
+                    TextButton(onFix) { Text(stringResource(R.string.open_app_info)) }
+                    TextButton(onDismissHint) { Text(stringResource(R.string.dismiss)) }
+                }
+            }
+        }
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        WallpaperCard(Modifier.weight(1f), false, !sysDark, version, 0f, onPick, onApply)
-        WallpaperCard(Modifier.weight(1f), true, sysDark, version, p.dim, onPick, onApply)
+        WallpaperCard(Modifier.weight(1f), false, !sysDark, version, 0f, onPick, onApply, onClear)
+        WallpaperCard(Modifier.weight(1f), true, sysDark, version, p.dim, onPick, onApply, onClear)
     }
     Text(stringResource(R.string.apply_to), style = MaterialTheme.typography.titleSmall)
     Segmented(
@@ -225,7 +258,7 @@ private fun HomeScreen(
 @Composable
 private fun WallpaperCard(
     modifier: Modifier, dark: Boolean, active: Boolean, version: Int, dim: Float,
-    onPick: (Boolean) -> Unit, onApply: (Boolean) -> Unit
+    onPick: (Boolean) -> Unit, onApply: (Boolean) -> Unit, onClear: (Boolean) -> Unit
 ) {
     val ctx = LocalContext.current
     val file = remember(dark) { WallpaperApplier.file(ctx, dark, 0) }
@@ -250,8 +283,16 @@ private fun WallpaperCard(
             ) {
                 Crossfade(bmp, animationSpec = tween(300), label = "preview") { b ->
                     if (b != null) Box(Modifier.fillMaxSize()) {
-                        Image(b, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        Image(
+                            b, stringResource(if (dark) R.string.cd_preview_dark else R.string.cd_preview_light),
+                            Modifier.fillMaxSize(), contentScale = ContentScale.Crop
+                        )
                         if (dim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dim)))
+                        Box(
+                            Modifier.align(Alignment.TopEnd).padding(8.dp).size(28.dp).clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.55f)).clickable { onClear(dark) },
+                            contentAlignment = Alignment.Center
+                        ) { Icon(Icons.Rounded.Close, stringResource(R.string.close), Modifier.size(16.dp), tint = Color.White) }
                     } else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -358,4 +399,10 @@ internal fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> 
             ) { Text(label, maxLines = 1) }
         }
     }
+}
+
+internal fun openAppInfo(ctx: android.content.Context) {
+    ctx.startActivity(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))
+    )
 }

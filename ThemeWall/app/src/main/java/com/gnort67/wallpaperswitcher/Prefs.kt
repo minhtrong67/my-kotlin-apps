@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.os.LocaleListCompat
@@ -20,6 +21,21 @@ class Prefs private constructor(ctx: Context) {
     var startOnBoot by mutableStateOf(sp.getBoolean("boot", true)); private set
     var scheduleEnabled by mutableStateOf(sp.getBoolean("schedule", false)); private set
     var dim by mutableFloatStateOf(sp.getFloat("dim", 0f)); private set          // 0..0.6, dark wallpaper only
+
+    var lastAppliedAt by mutableLongStateOf(sp.getLong("at", 0L)); private set
+    var killedHint by mutableStateOf(sp.getBoolean("killed", false)); private set
+
+    /** Set while the watcher service is alive; still set at next launch = it was killed. */
+    var serviceMarker: Boolean
+        get() = sp.getBoolean("marker", false)
+        set(v) { sp.edit().putBoolean("marker", v).apply() }
+
+    fun markApplied(key: Int) {
+        lastApplied = key
+        lastAppliedAt = System.currentTimeMillis()
+        sp.edit().putLong("at", lastAppliedAt).apply()
+    }
+    fun updateKilledHint(v: Boolean) { killedHint = v; sp.edit().putBoolean("killed", v).apply() }
 
     /** Key of the state (mode + slot) whose wallpaper was applied last; -1 = unknown. */
     var lastApplied: Int

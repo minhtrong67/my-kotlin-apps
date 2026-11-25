@@ -15,6 +15,8 @@ string apply_to
 string auto_switch
 string auto_switch_desc
 string behavior
+string cd_preview_dark
+string cd_preview_light
 string change
 string choose
 string close
@@ -23,8 +25,11 @@ string crop_title
 string dark_wallpaper
 string dim_desc
 string dim_label
+string dismiss
 string dynamic_color
 string dynamic_color_desc
+string killed_text
+string killed_title
 string lang_en
 string lang_system
 string lang_vi
@@ -46,6 +51,9 @@ string save
 string schedule_desc
 string schedule_note
 string schedule_title
+string service_active
+string service_active_at
+string service_stopped
 string slot_afternoon
 string slot_evening
 string slot_morning

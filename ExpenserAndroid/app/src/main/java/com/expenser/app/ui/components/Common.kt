@@ -5,6 +5,15 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -68,6 +77,22 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.zIndex
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.request.ImageRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -75,7 +100,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
-import coil.compose.SubcomposeAsyncImage
 import kotlinx.coroutines.launch
 import com.expenser.app.R
 import com.expenser.app.ui.theme.LocalIncomeColors
@@ -131,8 +155,57 @@ fun EmptyState(icon: ImageVector, text: String, modifier: Modifier = Modifier, a
 }
 
 @Composable
-fun LoadingBox(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+fun LoadingBox(modifier: Modifier = Modifier) = DashboardSkeleton(modifier)
+
+// ---------------------------------------------------------------- skeleton loading
+
+/** Animated shimmer sweep used as the background of skeleton placeholders. */
+fun Modifier.shimmer(): Modifier = composed {
+    val base = MaterialTheme.colorScheme.surfaceContainerHigh
+    val hi = MaterialTheme.colorScheme.surfaceContainerHighest
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val x = transition.animateFloat(-0.6f, 1.6f, infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart), label = "shimmerX")
+    drawBehind {
+        val w = size.width.coerceAtLeast(1f)
+        drawRect(Brush.horizontalGradient(listOf(base, hi, base), startX = x.value * w, endX = x.value * w + w * 0.6f))
+    }
+}
+
+@Composable
+fun SkeletonBox(modifier: Modifier = Modifier, shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(12.dp)) {
+    Box(modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh).shimmer())
+}
+
+@Composable
+fun SkeletonRow(modifier: Modifier = Modifier, leadingSize: Dp = 44.dp) {
+    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        SkeletonBox(Modifier.size(leadingSize), CircleShape)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SkeletonBox(Modifier.fillMaxWidth(0.55f).height(14.dp))
+            SkeletonBox(Modifier.fillMaxWidth(0.3f).height(10.dp))
+        }
+        SkeletonBox(Modifier.width(64.dp).height(14.dp))
+    }
+}
+
+@Composable
+fun ListSkeleton(modifier: Modifier = Modifier, rows: Int = 6) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) { repeat(rows) { SkeletonRow() } }
+}
+
+@Composable
+fun DashboardSkeleton(modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxSize().padding(16.dp, 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        repeat(2) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SkeletonBox(Modifier.weight(1f).height(112.dp), RoundedCornerShape(22.dp))
+                SkeletonBox(Modifier.weight(1f).height(112.dp), RoundedCornerShape(22.dp))
+            }
+        }
+        SkeletonBox(Modifier.fillMaxWidth().height(260.dp), RoundedCornerShape(24.dp))
+        ListSkeleton(rows = 3)
+    }
 }
 
 @Composable
@@ -283,18 +356,32 @@ fun SwipeRow(onEdit: (() -> Unit)?, onDelete: () -> Unit, modifier: Modifier = M
  * Forms are drawn by [FormHost] inside the activity (not in a separate dialog window) so system-bar and keyboard insets
  * are applied correctly and the bottom action bar is never hidden.
  */
+class FormEntry internal constructor(val id: Any, val content: MutableState<@Composable () -> Unit>) {
+    /** Starts hidden and flips to visible right away, which plays the enter animation; flipping back plays the exit. */
+    val visible = MutableTransitionState(false).apply { targetState = true }
+}
+
 class FormHostState {
-    internal val entries = mutableStateListOf<Pair<Any, MutableState<@Composable () -> Unit>>>()
+    internal val entries = mutableStateListOf<FormEntry>()
 }
 
 val LocalFormHost = compositionLocalOf<FormHostState?> { null }
 
 @Composable
 fun FormHost(state: FormHostState) {
-    state.entries.forEach { (entryId, content) ->
-        key(entryId) {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-                Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { content.value() }
+    state.entries.toList().forEach { entry ->
+        key(entry.id) {
+            AnimatedVisibility(
+                visibleState = entry.visible, modifier = Modifier.fillMaxSize(),
+                enter = slideInVertically(tween(320, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(220)),
+                exit = slideOutVertically(tween(240, easing = FastOutSlowInEasing)) { it / 5 } + fadeOut(tween(180)),
+            ) {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+                    Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { entry.content.value() }
+                }
+            }
+            LaunchedEffect(entry.visible.currentState, entry.visible.targetState) {
+                if (!entry.visible.targetState && !entry.visible.currentState) state.entries.remove(entry)
             }
         }
     }
@@ -332,8 +419,9 @@ fun FormScreen(title: String, confirmLabel: String, onClose: () -> Unit, onConfi
     val holder = remember { mutableStateOf(body) }
     SideEffect { holder.value = body }
     DisposableEffect(id) {
-        host.entries.add(id to holder)
-        onDispose { host.entries.removeAll { it.first === id } }
+        val entry = FormEntry(id, holder)
+        host.entries.add(entry)
+        onDispose { entry.visible.targetState = false }
     }
 }
 
@@ -372,7 +460,8 @@ fun MoneyField(digits: String, onChange: (String) -> Unit, label: String, modifi
             value = digits,
             onValueChange = { v -> onChange(v.filter { it.isDigit() }.take(12).trimStart('0')) },
             label = { Text("$label *") },
-            suffix = { Text("₫") },
+            suffix = { Text("₫", style = MaterialTheme.typography.titleLarge) },
+            textStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
             singleLine = true, isError = error != null,
             supportingText = error?.let { { Text(it) } },
             visualTransformation = ThousandsTransformation(),
@@ -395,12 +484,13 @@ fun MoneyField(digits: String, onChange: (String) -> Unit, label: String, modifi
 
 /** Read-only outlined field that opens a picker when tapped (category, wallet, date...). */
 @Composable
-fun SelectField(label: String, valueText: String, onClick: () -> Unit, modifier: Modifier = Modifier, leading: (@Composable () -> Unit)? = null, trailing: ImageVector = Icons.Rounded.KeyboardArrowDown, error: String? = null) {
+fun SelectField(label: String, valueText: String, onClick: () -> Unit, modifier: Modifier = Modifier, leading: (@Composable () -> Unit)? = null, trailing: ImageVector = Icons.Rounded.KeyboardArrowDown, error: String? = null, textStyle: androidx.compose.ui.text.TextStyle = androidx.compose.ui.text.TextStyle.Default) {
     Box(modifier) {
         OutlinedTextField(
             value = valueText, onValueChange = {}, readOnly = true, label = { Text(label) },
             leadingIcon = leading, trailingIcon = { Icon(trailing, null) },
             isError = error != null, supportingText = error?.let { { Text(it) } },
+            singleLine = true, textStyle = LocalTextStyle.current.merge(textStyle),
             shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth(),
         )
         Box(Modifier.matchParentSize().padding(bottom = if (error != null) 20.dp else 0.dp).clip(MaterialTheme.shapes.medium).clickable(onClick = onClick))
@@ -532,8 +622,11 @@ fun EmojiPicker(selected: String, onSelect: (String) -> Unit) {
 data class Slice(val label: String, val value: Long, val color: Color)
 
 @Composable
-fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 200.dp, thickness: Dp = 28.dp, center: @Composable BoxScope.() -> Unit = {}) {
+fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 220.dp, thickness: Dp = 38.dp, showLabels: Boolean = true, center: @Composable BoxScope.() -> Unit = {}) {
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val outsideColor = MaterialTheme.colorScheme.onSurface
+    val measurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp)
     // Plays once per screen: the flag survives the item leaving and re-entering the lazy list while scrolling.
     var played by rememberSaveable { mutableStateOf(false) }
     val progress = remember { Animatable(if (played) 1f else 0f) }
@@ -541,19 +634,42 @@ fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 20
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = thickness.toPx()
-            val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
-            val topLeft = Offset(stroke / 2, stroke / 2)
             val total = slices.sumOf { it.value }.toFloat()
+            val visible = slices.filter { it.value > 0 }
+            // Room around the ring for the percentage of slices too thin to hold a label.
+            val pad = if (showLabels && total > 0f && visible.any { it.value * 100f / total < 7f }) 22.dp.toPx() else 0f
+            val arcSize = Size(this.size.width - stroke - 2 * pad, this.size.height - stroke - 2 * pad)
+            val topLeft = Offset(stroke / 2 + pad, stroke / 2 + pad)
             if (total <= 0f) {
                 drawArc(track, 0f, 360f, false, topLeft, arcSize, style = Stroke(stroke))
             } else {
-                val visible = slices.filter { it.value > 0 }
                 val gap = if (visible.size > 1) 3f else 0f
                 var start = -90f
                 visible.forEach { s ->
                     val full = s.value / total * 360f
                     drawArc(s.color, start + gap / 2, ((full - gap) * progress.value).coerceAtLeast(0.5f), false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
                     start += full
+                }
+                if (showLabels && progress.value > 0.6f) {
+                    val alpha = ((progress.value - 0.6f) / 0.4f).coerceIn(0f, 1f)
+                    val cx = this.size.width / 2; val cy = this.size.height / 2
+                    val r = arcSize.width / 2
+                    var a0 = -90f
+                    visible.forEach { s ->
+                        val full = s.value / total * 360f
+                        val pct = s.value * 100f / total
+                        val mid = Math.toRadians((a0 + full / 2).toDouble())
+                        a0 += full
+                        if (pct < 1f) return@forEach
+                        val text = "${Math.round(pct)}%"
+                        val layout = measurer.measure(text, labelStyle)
+                        val inside = pct >= 7f
+                        val rr = if (inside) r else r + stroke / 2 + 11.dp.toPx()
+                        val px = cx + (kotlin.math.cos(mid) * rr).toFloat()
+                        val py = cy + (kotlin.math.sin(mid) * rr).toFloat()
+                        val color = if (!inside) outsideColor else if (s.color.luminance() > 0.5f) Color(0xFF1B1B1F) else Color.White
+                        drawText(layout, color = color, topLeft = Offset(px - layout.size.width / 2f, py - layout.size.height / 2f), alpha = alpha)
+                    }
                 }
             }
         }
@@ -564,7 +680,7 @@ fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 20
 /** Donut + a complete legend: colour, name, amount and percentage for every slice. */
 @Composable
 fun DonutWithLegend(
-    slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 200.dp, formatValue: (Long) -> String = { Format.money(it) },
+    slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 220.dp, formatValue: (Long) -> String = { Format.money(it) },
     centerTitle: String? = null, centerValue: String? = null, onSliceClick: ((Int) -> Unit)? = null,
 ) {
     val total = slices.sumOf { it.value }.coerceAtLeast(1L)
@@ -677,7 +793,7 @@ fun StatTile(
 
 // ---------------------------------------------------------------- images
 
-/** Network image with a spinner while loading and a placeholder icon when the URL is empty, broken or unreachable. */
+/** Network image: shimmer skeleton while loading, cross-fade in, placeholder icon when the URL is empty, broken or unreachable. */
 @Composable
 fun RemoteImage(url: String?, modifier: Modifier = Modifier, fallbackIcon: ImageVector = Icons.Rounded.Image, contentScale: ContentScale = ContentScale.Crop) {
     val placeholder: @Composable () -> Unit = {
@@ -686,11 +802,20 @@ fun RemoteImage(url: String?, modifier: Modifier = Modifier, fallbackIcon: Image
         }
     }
     if (url.isNullOrBlank()) { Box(modifier) { placeholder() }; return }
-    SubcomposeAsyncImage(
-        model = url, contentDescription = null, modifier = modifier, contentScale = contentScale,
-        loading = { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) } },
-        error = { placeholder() },
-    )
+    var loaded by remember(url) { mutableStateOf(false) }
+    var failed by remember(url) { mutableStateOf(false) }
+    val context = LocalContext.current
+    val request = remember(url) { ImageRequest.Builder(context).data(url).crossfade(180).build() }
+    Box(modifier) {
+        if (failed) placeholder()
+        else {
+            if (!loaded) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh).shimmer())
+            AsyncImage(
+                model = request, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = contentScale,
+                onState = { st -> when (st) { is AsyncImagePainter.State.Success -> loaded = true; is AsyncImagePainter.State.Error -> failed = true; else -> {} } },
+            )
+        }
+    }
 }
 
 data class LightboxItem(val url: String, val title: String)
@@ -737,6 +862,109 @@ fun ImageLightbox(items: List<LightboxItem>, startIndex: Int, onDismiss: () -> U
     }
 }
 
+// ---------------------------------------------------------------- drag & drop reordering
+
+/**
+ * Drag-to-reorder state for a LazyColumn whose items are keyed by id (String). The order is kept locally while dragging and
+ * while the write is in flight, then [onCommit] receives the final id order once, when the finger lifts.
+ */
+class ReorderState internal constructor(private val lazy: LazyListState, private val scope: CoroutineScope, source: List<String>) {
+    var ids by mutableStateOf(source)
+    var draggingKey by mutableStateOf<String?>(null)
+        private set
+    var dragOffset by mutableFloatStateOf(0f)
+        private set
+    var pending by mutableStateOf<List<String>?>(null)
+    internal var onCommit: (List<String>) -> Unit = {}
+    private var expectedOffset: Int? = null
+
+    /** Ids in display order: the local order while dragging / waiting for the write, otherwise the source order. */
+    fun display(source: List<String>): List<String> {
+        val local = if (draggingKey != null) ids else pending
+        if (local == null) return source
+        val set = source.toSet()
+        val kept = local.filter { it in set }
+        return kept + source.filter { it !in kept }
+    }
+
+    private var startIds: List<String> = emptyList()
+
+    fun start(key: String) { startIds = ids; draggingKey = key; dragOffset = 0f; expectedOffset = null }
+
+    fun drag(delta: Float) {
+        val key = draggingKey ?: return
+        dragOffset += delta
+        val infos = lazy.layoutInfo.visibleItemsInfo
+        val cur = infos.firstOrNull { (it.key as? String) == key } ?: return
+        expectedOffset?.let { if (cur.offset == it) expectedOffset = null else return }
+        val center = cur.offset + cur.size / 2f + dragOffset
+        val target = infos.firstOrNull { (it.key as? String).let { k -> k != null && k != key && k in ids } && center >= it.offset && center <= it.offset + it.size }
+        if (target != null) {
+            val from = ids.indexOf(key); val to = ids.indexOf(target.key as String)
+            if (from >= 0 && to >= 0) {
+                val newOffset = if (target.offset > cur.offset) cur.offset + target.size else target.offset
+                ids = ids.toMutableList().apply { add(to, removeAt(from)) }
+                dragOffset += (cur.offset - newOffset)
+                expectedOffset = newOffset
+            }
+            return
+        }
+        // Auto-scroll when the dragged card nears the top / bottom edge.
+        val top = cur.offset + dragOffset
+        val bottom = top + cur.size
+        val edge = 72f
+        val dy = when {
+            top < lazy.layoutInfo.viewportStartOffset + edge -> -18f
+            bottom > lazy.layoutInfo.viewportEndOffset - edge -> 18f
+            else -> 0f
+        }
+        if (dy != 0f) scope.launch { dragOffset += lazy.scrollBy(dy) }
+    }
+
+    fun end() {
+        val had = draggingKey != null
+        val finalIds = ids
+        draggingKey = null; dragOffset = 0f; expectedOffset = null
+        if (had && finalIds != startIds) { pending = finalIds; onCommit(finalIds) }
+    }
+}
+
+@Composable
+fun rememberReorder(source: List<String>, lazy: LazyListState, onCommit: (List<String>) -> Unit): ReorderState {
+    val scope = rememberCoroutineScope()
+    val st = remember(lazy) { ReorderState(lazy, scope, source) }
+    st.onCommit = onCommit
+    LaunchedEffect(source) {
+        if (st.draggingKey == null) {
+            if (st.pending == source) st.pending = null
+            if (st.pending == null) st.ids = source
+        }
+    }
+    LaunchedEffect(st.pending) { if (st.pending != null) { delay(2500); st.pending = null } }
+    return st
+}
+
+/** Item modifier: the dragged card floats above the others and follows the finger; the rest animate into their new slots. */
+@OptIn(ExperimentalFoundationApi::class)
+fun LazyItemScope.reorderable(state: ReorderState, key: String): Modifier =
+    if (state.draggingKey == key) Modifier.zIndex(1f).graphicsLayer { translationY = state.dragOffset; scaleX = 1.03f; scaleY = 1.03f; alpha = 0.96f }
+    else Modifier.animateItem()
+
+/** Grip icon: press and drag it to move the card. */
+@Composable
+fun DragHandle(state: ReorderState, key: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier.size(40.dp).pointerInput(key) {
+            detectDragGestures(
+                onDragStart = { state.start(key) },
+                onDragEnd = { state.end() },
+                onDragCancel = { state.end() },
+            ) { change, amount -> change.consume(); state.drag(amount.y) }
+        },
+        contentAlignment = Alignment.Center,
+    ) { Icon(Icons.Rounded.DragHandle, stringResource(R.string.drag_to_reorder), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+}
+
 // ---------------------------------------------------------------- misc helpers
 
 /** Copies [text] to the clipboard; the icon turns into a check mark for two seconds. */
@@ -765,13 +993,17 @@ fun Modifier.swipeSwitch(onPrev: () -> Unit, onNext: () -> Unit): Modifier = com
     }
 }
 
-/** Date picker field with an optional value (filters): tap to pick, trailing clear button when set. */
+/** Date picker field with an optional value (filters): compact, one line; the trailing icon becomes a clear button when set. */
 @Composable
 fun DateSelect(label: String, millis: Long?, onChange: (Long?) -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        SelectField(label, millis?.let { Format.date(it) } ?: "", { open = true }, Modifier.fillMaxWidth(), leading = { Icon(Icons.Rounded.Event, null) }, trailing = Icons.Rounded.CalendarMonth)
-        if (millis != null) IconButton(onClick = { onChange(null) }, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 40.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.common_clear), Modifier.size(18.dp)) }
+        SelectField(
+            label, millis?.let { Format.date(it) } ?: "", { open = true }, Modifier.fillMaxWidth(),
+            trailing = if (millis != null) Icons.Rounded.Close else Icons.Rounded.CalendarMonth,
+            textStyle = MaterialTheme.typography.bodyMedium,
+        )
+        if (millis != null) Box(Modifier.align(Alignment.CenterEnd).size(56.dp).clip(CircleShape).clickable { onChange(null) })
     }
     if (open) SimpleDatePicker(millis ?: System.currentTimeMillis(), { onChange(it) }, { open = false })
 }

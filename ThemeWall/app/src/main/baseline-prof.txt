@@ -1,0 +1,2 @@
+HSPLcom/gnort67/wallpaperswitcher/**;->**(**)**
+Lcom/gnort67/wallpaperswitcher/**;

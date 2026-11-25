@@ -34,7 +34,7 @@
     <string name="start_on_boot">Chạy khi khởi động máy</string>
     <string name="start_on_boot_desc">Tiếp tục tự động đổi hình nền sau khi khởi động lại</string>
     <string name="about">Giới thiệu</string>
-    <string name="about_text">Phiên bản 1.2 · Chọn một ảnh cho giao diện sáng và một ảnh cho giao diện tối. Ứng dụng giữ một dịch vụ nền nhỏ để phát hiện việc đổi giao diện. Hãy tắt tối ưu pin cho ứng dụng nếu máy tự tắt dịch vụ.</string>
+    <string name="about_text">Phiên bản 1.3 · Chọn một ảnh cho giao diện sáng và một ảnh cho giao diện tối. Ứng dụng giữ một dịch vụ nền nhỏ để phát hiện việc đổi giao diện. Hãy tắt tối ưu pin cho ứng dụng nếu máy tự tắt dịch vụ.</string>
     <string name="notif_channel">Theo dõi giao diện</string>
     <string name="notif_title">Đang tự động đổi hình nền</string>
     <string name="notif_text">Đang theo dõi chế độ sáng/tối</string>
@@ -56,4 +56,12 @@
     <string name="tip_title">Giữ app chạy nền (Samsung)</string>
     <string name="tip_text">Mở thông tin ứng dụng → Pin → Không hạn chế. Đồng thời gỡ app khỏi danh sách Ứng dụng ngủ trong Cài đặt → Pin → Giới hạn sử dụng nền.</string>
     <string name="open_app_info">Mở thông tin ứng dụng</string>
+    <string name="service_active">Dịch vụ đang chạy</string>
+    <string name="service_active_at">Dịch vụ đang chạy · áp dụng lúc %1$s</string>
+    <string name="service_stopped">Dịch vụ đang dừng</string>
+    <string name="killed_title">Dịch vụ nền đã bị dừng</string>
+    <string name="killed_text">Đặt Pin ở chế độ Không hạn chế và gỡ ThemeWall khỏi Ứng dụng ngủ để hình nền tiếp tục tự đổi.</string>
+    <string name="dismiss">Bỏ qua</string>
+    <string name="cd_preview_light">Xem trước hình nền sáng</string>
+    <string name="cd_preview_dark">Xem trước hình nền tối</string>
 </resources>

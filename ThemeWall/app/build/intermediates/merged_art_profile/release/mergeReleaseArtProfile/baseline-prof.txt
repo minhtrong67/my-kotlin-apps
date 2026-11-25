@@ -3083,3 +3083,5 @@ HSPLandroidx/compose/runtime/saveable/SaveableStateHolderKt**->**(**)**
 HSPLandroidx/compose/runtime/saveable/SaveableStateRegistryKt;->**(**)**
 HSPLandroidx/compose/runtime/saveable/SaveableStateRegistryImpl;->**(**)**
 Landroidx/compose/runtime/saveable/*;
+HSPLcom/gnort67/wallpaperswitcher/**;->**(**)**
+Lcom/gnort67/wallpaperswitcher/**;

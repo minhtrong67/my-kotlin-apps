@@ -1,13 +1,39 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Firebase config: put the google-services.json downloaded from the Firebase console into app/.
-if (file("google-services.json").exists()) {
+// ---------------------------------------------------------------------------------------------------------------
+// Secrets live in <project>/.env (git-ignored). Real environment variables win over the file. See .env.example.
+// ---------------------------------------------------------------------------------------------------------------
+val dotEnv: Map<String, String> = buildMap {
+    val f = rootProject.file(".env")
+    if (f.exists()) f.readLines(Charsets.UTF_8).forEach { raw ->
+        val line = raw.trim()
+        if (line.isEmpty() || line.startsWith("#")) return@forEach
+        val i = line.indexOf('=')
+        if (i > 0) put(line.substring(0, i).trim(), line.substring(i + 1).trim().removeSurrounding("\"").removeSurrounding("'"))
+    }
+}
+fun envVar(name: String): String? = System.getenv(name)?.takeIf { it.isNotBlank() } ?: dotEnv[name]?.takeIf { it.isNotBlank() }
+
+// Firebase config: GOOGLE_SERVICES_JSON_BASE64 in .env is decoded into app/google-services.json (git-ignored) before the
+// Google Services plugin runs. Without it, a hand-placed app/google-services.json still works.
+val googleServicesFile = file("google-services.json")
+envVar("GOOGLE_SERVICES_JSON_BASE64")?.let { b64 ->
+    val bytes = Base64.getMimeDecoder().decode(b64)
+    if (!googleServicesFile.exists() || !googleServicesFile.readBytes().contentEquals(bytes)) googleServicesFile.writeBytes(bytes)
+}
+if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
+
+val appVersionName = "1.6.0"
+// APK files are named Expenser-<version>-<buildType>.apk
+base.archivesName.set("Expenser-$appVersionName")
 
 android {
     namespace = "com.expenser.app"
@@ -17,14 +43,27 @@ android {
         applicationId = "com.expenser.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.5.0"
+        versionCode = 6
+        versionName = appVersionName
+    }
+
+    // Release signing comes from .env (KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD). An unsigned APK cannot be
+    // installed, so without a keystore the release build is signed with the debug key instead (fine for side-loading).
+    val releaseKeystore = envVar("KEYSTORE_FILE")?.let { rootProject.file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKeystore != null) create("release") {
+            storeFile = releaseKeystore
+            storePassword = envVar("KEYSTORE_PASSWORD")
+            keyAlias = envVar("KEY_ALIAS")
+            keyPassword = envVar("KEY_PASSWORD") ?: envVar("KEYSTORE_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

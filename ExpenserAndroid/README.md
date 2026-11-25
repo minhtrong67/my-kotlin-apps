@@ -6,8 +6,15 @@ Bản native của web app React "Expenser". Dùng **cùng Firebase (Auth + Fire
 1. Firebase Console → dự án **của bản web** → *Project settings* → *Add app* → Android, package name: `com.expenser.app`.
 2. Lấy SHA-1 của khóa debug: `./gradlew signingReport` (hoặc Android Studio → Gradle → app → Tasks → android → signingReport). Dán SHA-1 vào mục *SHA certificate fingerprints* của app vừa thêm. (Khi phát hành thêm SHA-1 của khóa release / Play App Signing.)
 3. Authentication → Sign-in method → bật **Google**.
-4. Tải **google-services.json** (sau khi đã thêm SHA-1) và đặt vào `app/google-services.json`.
-5. Sync Gradle → Run. Không có file này app sẽ hiện màn "Chưa cấu hình Firebase".
+4. Tải **google-services.json** (sau khi đã thêm SHA-1) và đặt vào `app/google-services.json`, rồi chạy `powershell -File scripts\make-env.ps1` để chuyển nội dung vào `.env` (xem phần *Bảo mật bằng .env*). Sau đó có thể xóa file JSON.
+5. Sync Gradle → Run. Không có cấu hình này app sẽ hiện màn "Chưa cấu hình Firebase".
+
+## Bảo mật bằng .env
+- `.env` (đã có trong `.gitignore`) chứa `GOOGLE_SERVICES_JSON_BASE64` — Gradle tự giải mã thành `app/google-services.json` (cũng bị git bỏ qua) mỗi lần build. Mẫu: `.env.example`.
+- Ký bản release: chạy `powershell -File scripts\make-keystore.ps1` (tạo `keystore/expenser-release.jks` và ghi `KEYSTORE_*` vào `.env`, in ra SHA-1 để thêm vào Firebase). **Sao lưu keystore + .env**, mất là không thể cập nhật app.
+- Chưa có keystore thì bản release được ký bằng khóa debug (vẫn cài được, Google sign-in dùng SHA-1 debug đã đăng ký).
+- File APK: `app/build/outputs/apk/<debug|release>/Expenser-<phiên bản>-<debug|release>.apk`.
+- Lưu ý: giá trị trong google-services.json (API key…) vẫn nằm trong APK; hãy giới hạn API key theo package + SHA-1 trên Google Cloud.
 
 ## Chạy thử
 Android Studio (Ladybug 2024.2+) → mở thư mục này → Gradle sync → Run (API 26+).
@@ -17,7 +24,13 @@ Android Studio (Ladybug 2024.2+) → mở thư mục này → Gradle sync → Ru
 - Màu chủ đạo: **Material 3 baseline blue** (#0061A4); có thể đổi màu nhấn hoặc dùng Material You (Android 12+).
 - Icon adaptive Material 3 (108dp, vùng an toàn 66dp, có lớp monochrome cho themed icon) + splash screen.
 
-## Tính năng mới (1.5)
+## Tính năng mới (1.6)
+- Kéo thả (nắm biểu tượng ⋮⋮) để sắp xếp Danh mục, Quán cafe, Đồ uống; ảnh quán cafe 16:9.
+- Nhãn % ngay trong biểu đồ tròn; màu thu nhập / chi tiêu đậm hơn.
+- Animation: chuyển tab trượt theo hướng vuốt, form thêm/sửa trượt lên, FAB, danh sách, ảnh hiện dần; skeleton khi tải; cache ảnh 150 MB + tải trước ảnh quán/đồ uống.
+- Bản release ký sẵn (cài được), R8 + shrink, tên APK `Expenser-<ver>-<type>.apk`.
+
+## Tính năng (1.5)
 - Biểu đồ chỉ dùng biểu đồ tròn, có chú thích đầy đủ (màu, tên, số tiền, %); xuất báo cáo thống kê thành ảnh PNG.
 - Cài đặt gọn: Tài khoản, Ngôn ngữ, Giao diện, Nhắc nhở, Dữ liệu (accordion), Giới thiệu.
 - Dữ liệu: xuất / nhập CSV hoặc JSON cho từng mục (giao dịch, danh mục, ví, quán cafe, đồ uống) và xuất tất cả (JSON, hoặc CSV nén .zip), nhập tất cả từ JSON.

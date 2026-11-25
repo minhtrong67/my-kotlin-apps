@@ -2,6 +2,14 @@ package com.expenser.app.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,10 +93,20 @@ fun CafeScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
             listOf(Seg("0", stringResource(R.string.cafe_tab_transactions), Icons.AutoMirrored.Rounded.ReceiptLong), Seg("1", stringResource(R.string.cafe_tab_stats), Icons.Rounded.BarChart)),
             tab.toString(), { tab = it.toInt() }, Modifier.padding(16.dp, 8.dp, 16.dp, 0.dp),
         )
-        when {
-            cafeIds.isEmpty() -> EmptyState(Icons.Rounded.LocalCafe, stringResource(R.string.cafe_no_category))
-            tab == 0 -> CafeList(items, shops, drinks, onEdit)
-            else -> CafeStats(items)
+        AnimatedContent(
+            targetState = tab, modifier = Modifier.weight(1f),
+            transitionSpec = {
+                val dir = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(tween(280, easing = FastOutSlowInEasing)) { it / 3 * dir } + fadeIn(tween(220))) togetherWith
+                    (slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { -it / 3 * dir } + fadeOut(tween(120)))
+            },
+            label = "cafeTab",
+        ) { t ->
+            when {
+                cafeIds.isEmpty() -> EmptyState(Icons.Rounded.LocalCafe, stringResource(R.string.cafe_no_category))
+                t == 0 -> CafeList(items, shops, drinks, onEdit)
+                else -> CafeStats(items)
+            }
         }
     }
 }
@@ -309,64 +327,71 @@ fun CafeShopsScreen(vm: MainViewModel) {
     var editor by remember { mutableStateOf<ShopEditorState?>(null) }
     var deleteTarget by remember { mutableStateOf<CafeShop?>(null) }
     var search by rememberSaveable { mutableStateOf("") }
-    var viewer by remember { mutableStateOf<List<LightboxItem>?>(null) }
+    var viewer by remember { mutableStateOf<Pair<List<LightboxItem>, Int>?>(null) }
     val usage = remember(logs) { logs.groupingBy { it.shopId }.eachCount() }
     val list = remember(shops, search) { val q = normalizeText(search); if (q.isEmpty()) shops else shops.filter { normalizeText(it.name).contains(q) || normalizeText(it.address).contains(q) } }
+    val listState = rememberLazyListState()
+    val reorder = rememberReorder(list.map { it.id }, listState) { ids -> vm.reorderShops(ids) }
+    val byId = list.associateBy { it.id }
+    val shown = reorder.display(list.map { it.id }).mapNotNull { byId[it] }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { SearchField(search, { search = it }, stringResource(R.string.cafe_shop_search)) }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Storefront, if (search.isBlank()) stringResource(R.string.cafe_shop_empty) else stringResource(R.string.cafe_no_match, search)) }
-            itemsIndexed(list, key = { _, s -> s.id }) { index, s ->
-                SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp)) {
+            items(shown, key = { it.id }) { s ->
+                SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp), modifier = reorderable(reorder, s.id)) {
                     Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.Top) {
-                                Box(Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).then(if (s.imageUrl.isNotBlank()) Modifier.clickable { viewer = listOf(LightboxItem(s.imageUrl, s.name)) } else Modifier)) {
-                                    RemoteImage(s.imageUrl, Modifier.fillMaxSize(), Icons.Rounded.Storefront)
-                                }
-                                Spacer(Modifier.width(14.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.Top) {
-                                        Text(s.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                                        IconButton(onClick = { editor = ShopEditorState(s) }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Edit, stringResource(R.string.common_edit), Modifier.size(18.dp)) }
-                                        IconButton(onClick = { deleteTarget = s }, Modifier.size(32.dp)) { Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
+                        Column {
+                            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).then(if (s.imageUrl.isNotBlank()) Modifier.clickable {
+                                val withImg = shown.filter { it.imageUrl.isNotBlank() }
+                                viewer = withImg.map { LightboxItem(it.imageUrl, it.name) } to withImg.indexOfFirst { it.id == s.id }.coerceAtLeast(0)
+                            } else Modifier)) {
+                                RemoteImage(s.imageUrl, Modifier.fillMaxSize(), Icons.Rounded.Storefront)
+                                if (s.rating > 0) Surface(Modifier.align(Alignment.BottomStart).padding(10.dp), shape = CircleShape, color = Color.Black.copy(alpha = 0.55f)) {
+                                    Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Rounded.Star, null, Modifier.size(14.dp), tint = Color(0xFFFBBF24)); Spacer(Modifier.width(4.dp))
+                                        Text("${s.rating}/5", style = MaterialTheme.typography.labelMedium, color = Color.White)
                                     }
-                                    Spacer(Modifier.height(4.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        if (s.rating > 0) Row { repeat(5) { i -> Icon(if (i < s.rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, Modifier.size(16.dp), tint = if (i < s.rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) } }
-                                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                                            Row(Modifier.padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Rounded.LocalCafe, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(4.dp))
-                                                Text(stringResource(R.string.cafe_visits, usage[s.id] ?: 0), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
+                                }
+                            }
+                            Column(Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(s.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    IconButton(onClick = { editor = ShopEditorState(s) }, Modifier.size(36.dp)) { Icon(Icons.Rounded.Edit, stringResource(R.string.common_edit), Modifier.size(18.dp)) }
+                                    IconButton(onClick = { deleteTarget = s }, Modifier.size(36.dp)) { Icon(Icons.Rounded.Delete, stringResource(R.string.common_delete), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    if (s.rating > 0) Row { repeat(5) { i -> Icon(if (i < s.rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, Modifier.size(16.dp), tint = if (i < s.rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) } }
+                                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                                        Row(Modifier.padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Rounded.LocalCafe, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(4.dp))
+                                            Text(stringResource(R.string.cafe_visits, usage[s.id] ?: 0), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                 }
-                            }
-                            if (s.address.isNotBlank() || s.description.isNotBlank()) {
-                                Spacer(Modifier.height(12.dp))
-                                if (s.address.isNotBlank()) Row(verticalAlignment = Alignment.Top) {
-                                    Icon(Icons.Rounded.LocationOn, null, Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
-                                    Text(s.address, style = MaterialTheme.typography.bodyMedium)
+                                if (s.address.isNotBlank() || s.description.isNotBlank()) {
+                                    Spacer(Modifier.height(12.dp))
+                                    if (s.address.isNotBlank()) Row(verticalAlignment = Alignment.Top) {
+                                        Icon(Icons.Rounded.LocationOn, null, Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
+                                        Text(s.address, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                    if (s.description.isNotBlank()) Text(s.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                                 }
-                                if (s.description.isNotBlank()) Text(s.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (s.mapUrl.isNotBlank()) {
-                                    val url = normalizeUrl(s.mapUrl)
-                                    Button(
-                                        onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { vm.toast(R.string.cafe_map_open_error) } },
-                                        Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                                    ) { Icon(Icons.Rounded.Map, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.cafe_open_map), maxLines = 1) }
-                                    CopyButton(url, onCopied = { vm.toast(R.string.cafe_map_copied) })
-                                } else {
-                                    TextButton(onClick = { editor = ShopEditorState(s) }, Modifier.weight(1f)) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.cafe_add_map)) }
-                                }
-                                if (search.isBlank()) {
-                                    IconButton(enabled = index > 0, onClick = { vm.reorderShops(shops.map { it.id }.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up)) }
-                                    IconButton(enabled = index < shops.lastIndex, onClick = { vm.reorderShops(shops.map { it.id }.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down)) }
+                                HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (s.mapUrl.isNotBlank()) {
+                                        val url = normalizeUrl(s.mapUrl)
+                                        Button(
+                                            onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { vm.toast(R.string.cafe_map_open_error) } },
+                                            Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                                        ) { Icon(Icons.Rounded.Map, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.cafe_open_map), maxLines = 1) }
+                                        CopyButton(url, onCopied = { vm.toast(R.string.cafe_map_copied) })
+                                    } else {
+                                        TextButton(onClick = { editor = ShopEditorState(s) }, Modifier.weight(1f)) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.cafe_add_map)) }
+                                    }
+                                    if (search.isBlank()) DragHandle(reorder, s.id)
                                 }
                             }
                         }
@@ -376,7 +401,7 @@ fun CafeShopsScreen(vm: MainViewModel) {
         }
         ScreenFab({ editor = ShopEditorState(null) }, Modifier.align(Alignment.BottomEnd))
     }
-    viewer?.let { ImageLightbox(it, 0) { viewer = null } }
+    viewer?.let { (l, i) -> ImageLightbox(l, i) { viewer = null } }
     editor?.let { st -> ShopEditor(st, shops, vm) { editor = null } }
     deleteTarget?.let { s -> ConfirmDialog(stringResource(R.string.cafe_shop_confirm_delete, s.name), onConfirm = { vm.deleteShop(s) }, onDismiss = { deleteTarget = null }) }
 }
@@ -432,13 +457,17 @@ fun CafeDrinksScreen(vm: MainViewModel) {
     var viewer by remember { mutableStateOf<Pair<List<LightboxItem>, Int>?>(null) }
     val usage = remember(logs) { logs.groupingBy { it.drinkId }.eachCount() }
     val list = remember(drinks, search) { val q = normalizeText(search); if (q.isEmpty()) drinks else drinks.filter { normalizeText(it.name).contains(q) } }
+    val listState = rememberLazyListState()
+    val reorder = rememberReorder(list.map { it.id }, listState) { ids -> vm.reorderDrinks(ids) }
+    val byId = list.associateBy { it.id }
+    val shown = reorder.display(list.map { it.id }).mapNotNull { byId[it] }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item { SearchField(search, { search = it }, stringResource(R.string.cafe_drink_search)) }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Coffee, if (search.isBlank()) stringResource(R.string.cafe_drink_empty) else stringResource(R.string.cafe_no_match, search)) }
-            itemsIndexed(list, key = { _, d -> d.id }) { index, d ->
-                SwipeRow(onEdit = { editor = DrinkEditorState(d) }, onDelete = { deleteTarget = d }) {
+            items(shown, key = { it.id }) { d ->
+                SwipeRow(onEdit = { editor = DrinkEditorState(d) }, onDelete = { deleteTarget = d }, modifier = reorderable(reorder, d.id)) {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).then(if (d.imageUrl.isNotBlank()) Modifier.clickable { viewer = list.filter { it.imageUrl.isNotBlank() }.let { withImg -> withImg.map { LightboxItem(it.imageUrl, it.name) } to withImg.indexOfFirst { it.id == d.id } } } else Modifier)) {
@@ -449,10 +478,7 @@ fun CafeDrinksScreen(vm: MainViewModel) {
                                 Text(d.name, style = MaterialTheme.typography.titleSmall)
                                 Text(stringResource(R.string.cafe_drink_usage, usage[d.id] ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            if (search.isBlank()) {
-                                IconButton(enabled = index > 0, onClick = { vm.reorderDrinks(drinks.map { it.id }.toMutableList().apply { add(index - 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.move_up)) }
-                                IconButton(enabled = index < drinks.lastIndex, onClick = { vm.reorderDrinks(drinks.map { it.id }.toMutableList().apply { add(index + 1, removeAt(index)) }) }) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.move_down)) }
-                            }
+                            if (search.isBlank()) DragHandle(reorder, d.id)
                         }
                     }
                 }
