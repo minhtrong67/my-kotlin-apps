@@ -64,7 +64,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setDynamicColor(v: Boolean) = viewModelScope.launch { store.setDynamicColor(v) }
     fun setFontScale(v: Float) = viewModelScope.launch { store.setFontScale(v) }
     fun setLanguage(v: String) = viewModelScope.launch { store.setLanguage(v) }
-    fun setFontFamily(v: String) = viewModelScope.launch { store.setFontFamily(v) }
     fun setStartPage(v: String) = viewModelScope.launch { store.setStartPage(v) }
     fun setDailyEnabled(v: Boolean) = viewModelScope.launch { store.setDailyEnabled(v) }
     fun setDailyTime(v: String) = viewModelScope.launch { store.setDailyTime(v) }

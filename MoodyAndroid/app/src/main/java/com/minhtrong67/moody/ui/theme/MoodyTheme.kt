@@ -63,7 +63,6 @@ fun MoodyTheme(
     themeColor: String,
     dynamicColor: Boolean,
     fontScale: Float,
-    fontFamily: String,
     content: @Composable () -> Unit,
 ) {
     val dark = resolveDark(themeMode)
@@ -78,13 +77,12 @@ fun MoodyTheme(
             Palettes.byId(themeColor).let { scheme(if (dark) it.dark else it.light) }
         }
     }
-    val typography = remember(fontFamily) { typographyFor(fontFamily) }
     val d = LocalDensity.current
     val density = remember(d.density, d.fontScale, fontScale) { Density(d.density, d.fontScale * fontScale) }
     CompositionLocalProvider(
         LocalIsDark provides dark,
         LocalDensity provides density,
     ) {
-        MaterialTheme(colorScheme = colors, typography = typography, shapes = MoodyShapes, content = content)
+        MaterialTheme(colorScheme = colors, shapes = MoodyShapes, content = content)   // default typography = the phone's system font
     }
 }

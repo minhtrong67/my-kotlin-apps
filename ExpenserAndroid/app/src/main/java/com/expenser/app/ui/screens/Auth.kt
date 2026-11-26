@@ -10,6 +10,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -32,13 +35,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expenser.app.R
 import com.expenser.app.ui.MainViewModel
 
-@Composable
-private fun BrandMark() {
-    Surface(Modifier.size(88.dp), shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.primary, shadowElevation = 6.dp) {
-        Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.AccountBalanceWallet, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onPrimary) }
-    }
-}
-
 /** The four-colour Google "G" drawn with arcs (no bitmap asset needed). */
 @Composable
 private fun GoogleG(size: androidx.compose.ui.unit.Dp = 22.dp) {
@@ -56,15 +52,33 @@ private fun GoogleG(size: androidx.compose.ui.unit.Dp = 22.dp) {
 }
 
 @Composable
-private fun Feature(icon: ImageVector, title: String, desc: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+private fun FeatureChip(icon: ImageVector, title: String, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
-        Spacer(Modifier.width(14.dp))
-        Column {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        Text(title, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 2, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Decorative mini dashboard (ring + bars) shown in the hero; carries no real data. */
+@Composable
+private fun PreviewCard(modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(28.dp), color = Color.White.copy(alpha = 0.16f), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))) {
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Canvas(Modifier.size(72.dp)) {
+                val stroke = size.width * 0.22f; val inset = stroke / 2
+                val sz = Size(size.width - stroke, size.height - stroke)
+                fun arc(c: Long, start: Float, sweep: Float) = drawArc(Color(c), start, sweep, false, Offset(inset, inset), sz, style = Stroke(stroke, cap = StrokeCap.Round))
+                arc(0xFF22C55E, -90f, 150f); arc(0xFFEF4444, 70f, 110f); arc(0xFFFBBF24, 190f, 70f)
+            }
+            Spacer(Modifier.width(18.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf(0.9f to 0xFF22C55E, 0.62f to 0xFFEF4444, 0.38f to 0xFFFBBF24).forEach { (w, c) ->
+                    Box(Modifier.fillMaxWidth(w).height(10.dp).background(Color(c).copy(alpha = 0.9f), CircleShape))
+                }
+            }
         }
     }
 }
@@ -74,50 +88,70 @@ fun LoginScreen(vm: MainViewModel) {
     val signingIn by vm.signingIn.collectAsStateWithLifecycle()
     val error by vm.loginError.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val top = MaterialTheme.colorScheme.primaryContainer
-    val surface = MaterialTheme.colorScheme.surface
-    Surface(Modifier.fillMaxSize(), color = surface) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    val cs = MaterialTheme.colorScheme
+    val c1 = Color(0xFF1E40AF); val c2 = Color(0xFF2563EB); val c3 = Color(0xFF38BDF8)
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+
+    BoxWithConstraints(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(c1, c2, c3), start = Offset(0f, 0f), end = Offset(900f, 1900f)))) {
+        val compact = maxHeight < 700.dp
+        // soft decorative circles
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(Color.White.copy(alpha = 0.10f), radius = size.width * 0.55f, center = Offset(size.width * 0.95f, size.height * 0.02f))
+            drawCircle(Color.White.copy(alpha = 0.07f), radius = size.width * 0.38f, center = Offset(size.width * 0.05f, size.height * 0.34f))
+        }
+        Column(Modifier.fillMaxSize()) {
             // Hero
-            Column(
-                Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(top, surface))).statusBarsPadding().padding(start = 28.dp, end = 28.dp, top = 56.dp, bottom = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                BrandMark()
-                Spacer(Modifier.height(20.dp))
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                Spacer(Modifier.height(6.dp))
-                Text(stringResource(R.string.login_subtitle), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f), textAlign = TextAlign.Center)
-            }
-            // Features
-            Column(Modifier.padding(horizontal = 28.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                Feature(Icons.Rounded.Sync, stringResource(R.string.login_f1_title), stringResource(R.string.login_f1_desc))
-                Feature(Icons.Rounded.DonutLarge, stringResource(R.string.login_f2_title), stringResource(R.string.login_f2_desc))
-                Feature(Icons.Rounded.LocalCafe, stringResource(R.string.login_f3_title), stringResource(R.string.login_f3_desc))
-            }
-            Spacer(Modifier.height(40.dp))
-            // Action
-            Column(Modifier.navigationBarsPadding().padding(horizontal = 28.dp).padding(bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                AnimatedVisibility(error != null) {
-                    Surface(Modifier.padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.ErrorOutline, null); Spacer(Modifier.width(10.dp))
-                            Text(error ?: "", style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.weight(1f).fillMaxWidth().statusBarsPadding().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                AnimatedVisibility(shown, enter = fadeIn(tween(600)) + slideInVertically(tween(600)) { it / 6 }) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(Modifier.size(84.dp), shape = RoundedCornerShape(28.dp), color = Color.White, shadowElevation = 12.dp) {
+                            Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.AccountBalanceWallet, null, Modifier.size(46.dp), tint = c2) }
                         }
+                        Spacer(Modifier.height(18.dp))
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White)
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.login_subtitle), style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f), textAlign = TextAlign.Center)
+                        if (!compact) { Spacer(Modifier.height(28.dp)); PreviewCard(Modifier.fillMaxWidth(0.82f)) }
                     }
                 }
-                Surface(
-                    onClick = { vm.signIn(context) }, enabled = !signingIn, modifier = Modifier.fillMaxWidth().height(56.dp), shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                ) {
-                    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        if (signingIn) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp) else GoogleG()
-                        Spacer(Modifier.width(12.dp))
-                        Text(stringResource(if (signingIn) R.string.login_signing_in else R.string.login_google), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+            }
+            // Bottom sheet
+            AnimatedVisibility(shown, enter = fadeIn(tween(500, 150)) + slideInVertically(tween(550, 100)) { it / 3 }) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp), color = cs.surface, shadowElevation = 16.dp) {
+                    Column(Modifier.navigationBarsPadding().padding(horizontal = 28.dp).padding(top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(R.string.login_welcome), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(stringResource(R.string.login_welcome_sub), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(20.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FeatureChip(Icons.Rounded.Sync, stringResource(R.string.login_f1_title), Modifier.weight(1f))
+                            FeatureChip(Icons.Rounded.DonutLarge, stringResource(R.string.login_f2_title), Modifier.weight(1f))
+                            FeatureChip(Icons.Rounded.LocalCafe, stringResource(R.string.login_f3_title), Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(24.dp))
+                        AnimatedVisibility(error != null) {
+                            Surface(Modifier.padding(bottom = 14.dp), shape = RoundedCornerShape(16.dp), color = cs.errorContainer, contentColor = cs.onErrorContainer) {
+                                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.ErrorOutline, null); Spacer(Modifier.width(10.dp))
+                                    Text(error ?: "", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        Surface(
+                            onClick = { vm.signIn(context) }, enabled = !signingIn, modifier = Modifier.fillMaxWidth().height(56.dp), shape = CircleShape,
+                            color = cs.surfaceContainerLowest, border = BorderStroke(1.dp, cs.outline), shadowElevation = 2.dp,
+                        ) {
+                            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                if (signingIn) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp) else GoogleG()
+                                Spacer(Modifier.width(12.dp))
+                                Text(stringResource(if (signingIn) R.string.login_signing_in else R.string.login_google), style = MaterialTheme.typography.labelLarge, color = cs.onSurface)
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text(stringResource(R.string.login_same_account), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 }
-                Spacer(Modifier.height(16.dp))
-                Text(stringResource(R.string.login_same_account), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
         }
     }

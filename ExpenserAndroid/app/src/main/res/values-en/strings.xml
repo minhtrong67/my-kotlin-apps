@@ -172,7 +172,7 @@
     <string name="cafe_shop_save_error">Could not save the shop. Please try again.</string>
     <string name="cafe_drink_save_error">Could not save the drink. Please try again.</string>
     <string name="cafe_delete_error">Could not delete this item.</string>
-    <string name="cafe_shop_search">Search shops by name or address</string>
+    <string name="cafe_shop_search">Search shops</string>
     <string name="cafe_drink_search">Search drinks</string>
     <string name="cafe_no_match">Nothing matches \"%1$s\".</string>
     <string name="cafe_shop_empty">No cafe shops yet.</string>
@@ -360,4 +360,24 @@
     <string name="view_grid">Grid view</string>
     <string name="view_list">List view</string>
     <string name="view_cards">Card view</string>
+    <string name="image_pick">Upload photo</string>
+    <string name="image_change">Change photo</string>
+    <string name="image_remove">Remove photo</string>
+    <string name="image_uploading">Uploading photo…</string>
+    <string name="image_err_nokey">IMGBB_API_KEY is not set in the .env file</string>
+    <string name="image_err_failed">Upload failed, please try again</string>
+    <string name="image_err_large">Image too large (max 12 MB)</string>
+    <string name="image_err_invalid">Not a valid image file</string>
+    <string name="image_optional">Photo (optional)</string>
+    <string name="tx_quick_title">Quick add</string>
+    <string name="cafe_view_loading">Loading</string>
+    <string name="report_title">Income &amp; expense report</string>
+    <string name="report_top_expense">Top expense</string>
+    <string name="report_top_income">Top income</string>
+    <string name="report_no_data">No data for this period</string>
+    <string name="login_welcome">Welcome</string>
+    <string name="login_welcome_sub">Sign in to start managing your money</string>
+    <string name="settings_author">Author</string>
+    <string name="settings_ai_support">AI support</string>
+    <string name="pick_search">Search</string>
 </resources>

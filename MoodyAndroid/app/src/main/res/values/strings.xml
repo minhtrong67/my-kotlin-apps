@@ -320,6 +320,9 @@
     <string name="login_subShort">Sign in to sync your journal.</string>
     <string name="login_guestShort">Data stays on this device.</string>
     <string name="login_tagShort">Your daily mood journal</string>
+    <string name="crash_title">Moody closed unexpectedly last time</string>
+    <string name="crash_hint">Copy this error and send it to the developer.</string>
+    <string name="crash_copy">Copy</string>
     <string name="settings_general">General</string>
     <string name="login_googleContinue">Continue with Google</string>
     <string name="settings_exactAlarm">Allow exact alarms</string>

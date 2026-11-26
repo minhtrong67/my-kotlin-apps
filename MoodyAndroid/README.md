@@ -34,7 +34,7 @@ Lưu ý bảo mật: API key của Firebase không phải bí mật tuyệt đ�
 | Hôm nay (lời chào, thẻ check-in, chuỗi ngày, TB tuần, 7 ngày, gần đây) | `TodayScreen` |
 | Check-in full-screen (ngày giờ, 5 mood, hoạt động, ghi chú, xác nhận khi sửa) | `CheckInScreen` |
 | Lịch sử: tìm kiếm, lọc, sắp xếp, vuốt để sửa/xóa, lịch tháng + tóm tắt | `HistoryScreen` |
-| Thống kê ngày/tuần/tháng/năm, 2 biểu đồ tròn, chú thích %, xuất PDF/PNG | `StatsScreen` (chụp đúng vùng đang hiển thị, chia sẻ qua share sheet) |
+| Thống kê ngày/tuần/tháng/năm, 2 biểu đồ tròn, chú thích %, xuất ảnh PNG | `StatsScreen` (chụp đúng vùng đang hiển thị, chia sẻ qua share sheet) |
 | Quản lý hoạt động / tâm trạng | `ManageScreens` |
 | 19 màu chủ đề Material 3, sáng/tối/hệ thống, cỡ chữ, ngôn ngữ, trang mặc định | `SettingsScreen`, bảng màu sinh từ `palettes.js` |
 | Xuất/nhập CSV, JSON, "toàn bộ" (.zip 3 CSV) | `transfer/DataTransfer.kt` (file tương thích hai chiều với web) |
@@ -45,11 +45,16 @@ Lưu ý bảo mật: API key của Firebase không phải bí mật tuyệt đ�
 - Landing page marketing và nút "Cài đặt ứng dụng" (PWA) — không còn ý nghĩa trong app native.
 - Xuất/nhập **.xlsx** (CSV/JSON/ZIP đã đủ để trao đổi dữ liệu với web). Có thể thêm bằng thư viện `fastexcel`.
 
+## Nếu app bị văng
+
+Lần mở lại kế tiếp, Moody tự hiện hộp thoại "Lần trước Moody đã đóng đột ngột" kèm nguyên văn lỗi. Bấm **Sao chép** và gửi lại là đủ để sửa (không cần adb).
+
 ## Ghi chú bản mới
 
 - Màu chủ đạo mặc định **Teal**; thêm tuỳ chọn **Tự động (Material You)** (Android 12+) trong Cài đặt → Màu chủ đạo.
 - Vuốt ngang để chuyển giữa 4 tab (Hôm nay / Lịch sử / Thống kê / Cài đặt). Trong danh sách Lịch sử, vuốt trên một thẻ là sửa/xoá (cần vuốt xa), vuốt ở vùng trống để đổi tab.
 - File APK được đặt tên `Moody-v1.0.0-release.apk` / `Moody-v1.0.0-debug.apk` (đổi `appVersionName` trong `app/build.gradle.kts`).
+- Font: luôn dùng font hệ thống của điện thoại (không còn tuỳ chọn font).
 - Icon: adaptive icon (nền teal + mặt cười), có cả icon đơn sắc cho "Themed icons" của Android 13+.
 
 ## Nhắc nhở hoạt động thế nào

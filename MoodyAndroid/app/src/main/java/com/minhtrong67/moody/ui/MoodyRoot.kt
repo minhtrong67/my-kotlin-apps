@@ -193,7 +193,6 @@ private fun MainShell(
         else { manage = null; scope.launch { pager.scrollToPage(i) } }
     }
     BackHandler(enabled = manage != null) { manage = null }
-    BackHandler(enabled = manage == null && page != startPage && drawer.isClosed) { goPage(startPage) }
 
     // ---- check-in is a full-screen overlay (no Scaffold padding jumps, one smooth slide) ----
     var checkInKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -310,7 +309,7 @@ private fun MainShell(
                             onUpdate = { k, e, l -> vm.updateMood(k, e, l) },
                             onReset = { vm.resetMood(it) },
                         )
-                        else -> HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it }) { p ->
+                        else -> HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { it }) { p ->
                             when (p) {
                                 0 -> TodayScreen(
                                     entries = entries, user = user,

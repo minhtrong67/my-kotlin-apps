@@ -114,7 +114,6 @@ import com.minhtrong67.moody.ui.components.SegmentedTabs
 import com.minhtrong67.moody.ui.components.StaggerIn
 import com.minhtrong67.moody.ui.components.TimePickerDialog
 import com.minhtrong67.moody.ui.components.UserAvatar
-import com.minhtrong67.moody.ui.theme.Fonts
 import com.minhtrong67.moody.ui.theme.LocalIsDark
 import com.minhtrong67.moody.ui.theme.Palettes
 import com.minhtrong67.moody.util.todayISO
@@ -364,12 +363,6 @@ fun SettingsScreen(
                 }
                 Divider()
                 SettingItem(
-                    title = stringResource(R.string.settings_fontFamily),
-                    leading = { Icon(Icons.Rounded.TextFields, null, tint = cs.primary) },
-                    trailing = { ValueMenu(Fonts.ids.map { it to fontLabel(it, ctx) }, settings.fontFamily, { vm.setFontFamily(it) }) },
-                )
-                Divider()
-                SettingItem(
                     title = stringResource(R.string.settings_fontSize),
                     leading = { Icon(Icons.Rounded.FormatSize, null, tint = cs.primary) },
                     trailing = {
@@ -610,14 +603,6 @@ private fun Swatch(selected: Boolean, onClick: () -> Unit, preview: @Composable 
         preview()
         if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
     }
-}
-
-private fun fontLabel(id: String, ctx: Context) = when (id) {
-    "google-sans-flex" -> "Google Sans Flex"
-    "roboto" -> "Roboto"
-    "inter" -> "Inter"
-    "be-vietnam-pro" -> "Be Vietnam Pro"
-    else -> ctx.getString(R.string.settings_fontSystem)
 }
 
 private fun startPageLabel(key: String): Int = when (key) {

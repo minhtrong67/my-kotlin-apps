@@ -172,7 +172,7 @@
     <string name="cafe_shop_save_error">Không thể lưu quán cafe. Vui lòng thử lại.</string>
     <string name="cafe_drink_save_error">Không thể lưu đồ uống. Vui lòng thử lại.</string>
     <string name="cafe_delete_error">Không thể xóa mục này.</string>
-    <string name="cafe_shop_search">Tìm quán theo tên, địa chỉ</string>
+    <string name="cafe_shop_search">Tìm quán</string>
     <string name="cafe_drink_search">Tìm đồ uống</string>
     <string name="cafe_no_match">Không tìm thấy \"%1$s\".</string>
     <string name="cafe_shop_empty">Chưa có quán cafe nào.</string>
@@ -360,4 +360,24 @@
     <string name="view_grid">Dạng lưới</string>
     <string name="view_list">Dạng danh sách</string>
     <string name="view_cards">Dạng thẻ</string>
+    <string name="image_pick">Tải ảnh lên</string>
+    <string name="image_change">Đổi ảnh</string>
+    <string name="image_remove">Xoá ảnh</string>
+    <string name="image_uploading">Đang tải ảnh lên…</string>
+    <string name="image_err_nokey">Chưa cấu hình IMGBB_API_KEY trong file .env</string>
+    <string name="image_err_failed">Tải ảnh lên thất bại, thử lại nhé</string>
+    <string name="image_err_large">Ảnh quá lớn (tối đa 12 MB)</string>
+    <string name="image_err_invalid">File không phải ảnh hợp lệ</string>
+    <string name="image_optional">Ảnh (không bắt buộc)</string>
+    <string name="tx_quick_title">Nhập nhanh</string>
+    <string name="cafe_view_loading">Đang tải</string>
+    <string name="report_title">Báo cáo thu chi</string>
+    <string name="report_top_expense">Chi nhiều nhất</string>
+    <string name="report_top_income">Thu nhiều nhất</string>
+    <string name="report_no_data">Chưa có dữ liệu trong kỳ này</string>
+    <string name="login_welcome">Chào mừng bạn</string>
+    <string name="login_welcome_sub">Đăng nhập để bắt đầu quản lý thu chi của bạn</string>
+    <string name="settings_author">Tác giả</string>
+    <string name="settings_ai_support">AI hỗ trợ</string>
+    <string name="pick_search">Tìm kiếm</string>
 </resources>

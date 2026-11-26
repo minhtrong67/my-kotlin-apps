@@ -5,7 +5,6 @@ package com.minhtrong67.moody.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.pdf.PdfDocument
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -29,7 +28,6 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.SentimentSatisfied
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -81,7 +79,6 @@ import com.minhtrong67.moody.ui.components.MoodyCard
 import com.minhtrong67.moody.ui.components.SegmentedTabs
 import com.minhtrong67.moody.ui.components.ScrollToTopButton
 import com.minhtrong67.moody.ui.components.WavyProgress
-import com.minhtrong67.moody.ui.components.rememberWavePhase
 import com.minhtrong67.moody.ui.theme.LocalIsDark
 import com.minhtrong67.moody.util.Period
 import com.minhtrong67.moody.util.Slice
@@ -135,14 +132,14 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
     // The report layer is recorded ONLY while exporting. Recording it permanently would re-draw this whole tall page twice
     // on every frame (the wave animation invalidates it 60x/s) and starve the RenderThread.
     var capturing by remember { mutableStateOf(false) }
-    suspend fun captureAndExport(pdf: Boolean) {
+    suspend fun captureAndExport() {
         try {
             capturing = true
             withFrameNanos { }            // frame 1: draw pass records the layer
             withFrameNanos { }            // frame 2: recorded content is ready
             val bitmap = layer.toImageBitmap().asAndroidBitmap()
             capturing = false
-            exportReport(ctx, bitmap, label, pdf)
+            exportReport(ctx, bitmap, label)
         } finally {
             capturing = false
         }
@@ -189,33 +186,17 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
 
         // Export buttons
         Text(stringResource(R.string.stats_export, periodWord), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            val busy = exporting != null
-            ActionButton(
-                if (exporting == "pdf") stringResource(R.string.stats_creating) else "PDF", Icons.Rounded.PictureAsPdf,
-                onClick = {
-                    scope.launch {
-                        exporting = "pdf"
-                        runCatching { captureAndExport(pdf = true) }
-                            .onFailure { toaster.show(failedMsg) }
-                        exporting = null
-                    }
-                },
-                enabled = hasData && !busy, modifier = Modifier.weight(1f),
-            )
-            ActionButton(
-                if (exporting == "png") stringResource(R.string.stats_creating) else stringResource(R.string.stats_png), Icons.Rounded.Image,
-                onClick = {
-                    scope.launch {
-                        exporting = "png"
-                        runCatching { captureAndExport(pdf = false) }
-                            .onFailure { toaster.show(failedMsg) }
-                        exporting = null
-                    }
-                },
-                tonal = true, enabled = hasData && !busy, modifier = Modifier.weight(1f),
-            )
-        }
+        ActionButton(
+            if (exporting != null) stringResource(R.string.stats_creating) else stringResource(R.string.stats_png), Icons.Rounded.Image,
+            onClick = {
+                scope.launch {
+                    exporting = "png"
+                    runCatching { captureAndExport() }.onFailure { toaster.show(failedMsg) }
+                    exporting = null
+                }
+            },
+            enabled = hasData && exporting == null, modifier = Modifier.fillMaxWidth(),
+        )
         Spacer(Modifier.height(20.dp))
 
         // Captured area (exactly what is exported): stat tiles + 2 charts with legends.
@@ -328,7 +309,6 @@ private fun Legend(items: List<Slice>) {
     val pcts = roundedPercents(items.map { it.count })
     val total = items.sumOf { it.count }.coerceAtLeast(1)
     val cs = MaterialTheme.colorScheme
-    val phase = rememberWavePhase()
     MoodyCard(Modifier.fillMaxWidth()) {
         items.forEachIndexed { i, it ->
             Column(Modifier.padding(vertical = 6.dp)) {
@@ -340,34 +320,23 @@ private fun Legend(items: List<Slice>) {
                     Text("${pcts[i]}%", style = MaterialTheme.typography.labelLarge, modifier = Modifier.size(width = 44.dp, height = 20.dp), textAlign = TextAlign.End)
                 }
                 Spacer(Modifier.height(6.dp))
-                WavyProgress(progress = it.count.toFloat() / total, color = it.color, phase = phase, index = i)
+                WavyProgress(progress = it.count.toFloat() / total, color = it.color, index = i)
             }
         }
     }
 }
 
-/** Saves the captured bitmap as PNG or single-page PDF in the cache and opens the share sheet. */
-private suspend fun exportReport(context: Context, captured: Bitmap, label: String, pdf: Boolean) {
-    val uriFile = withContext(Dispatchers.IO) {
+/** Saves the captured bitmap as a PNG in the cache and opens the share sheet. */
+private suspend fun exportReport(context: Context, captured: Bitmap, label: String) {
+    val file = withContext(Dispatchers.IO) {
         val bmp = if (captured.config == Bitmap.Config.HARDWARE) captured.copy(Bitmap.Config.ARGB_8888, false) else captured
         val dir = File(context.cacheDir, "reports").apply { mkdirs() }
         val safe = label.replace(Regex("[\\s/,→]+"), "-")
-        val file = File(dir, "moody-stats-$safe.${if (pdf) "pdf" else "png"}")
-        if (pdf) {
-            val doc = PdfDocument()
-            val page = doc.startPage(PdfDocument.PageInfo.Builder(bmp.width, bmp.height, 1).create())
-            page.canvas.drawBitmap(bmp, 0f, 0f, null)
-            doc.finishPage(page)
-            file.outputStream().use { doc.writeTo(it) }
-            doc.close()
-        } else {
-            file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        }
-        file
+        File(dir, "moody-stats-$safe.png").also { f -> f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", uriFile)
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val send = Intent(Intent.ACTION_SEND).apply {
-        type = if (pdf) "application/pdf" else "image/png"
+        type = "image/png"
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }

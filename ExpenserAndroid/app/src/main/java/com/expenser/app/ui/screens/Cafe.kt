@@ -1,5 +1,6 @@
 package com.expenser.app.ui.screens
 
+import androidx.compose.animation.Crossfade
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
@@ -316,7 +317,7 @@ private fun CafeStats(items: List<CafeItem>) {
             item { SectionCard(stringResource(R.string.cafe_chart_shops)) { PieWithBars(shopRows, false) } }
         }
     }
-    ScrollToTop(statsState)
+    ScrollToTop(statsState, aboveFab = false)
     }
 }
 
@@ -337,12 +338,14 @@ fun CafeShopsScreen(vm: MainViewModel) {
     var viewer by remember { mutableStateOf<Pair<List<LightboxItem>, Int>?>(null) }
     val usage = remember(logs) { logs.groupingBy { it.shopId }.eachCount() }
     val list = remember(shops, search) { val q = normalizeText(search); if (q.isEmpty()) shops else shops.filter { normalizeText(it.name).contains(q) || normalizeText(it.address).contains(q) } }
-    val listState = rememberLazyListState()
+    var compact by rememberBoolPref("cafe_shops_compact", false)
+    val cardState = rememberLazyListState()
+    val compactState = rememberLazyListState()
+    val listState = if (compact) compactState else cardState
     val reorder = rememberReorder(list.map { it.id }, listState) { ids -> vm.reorderShops(ids) }
     val byId = list.associateBy { it.id }
     val shown = reorder.display(list.map { it.id }).mapNotNull { byId[it] }
 
-    var compact by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.padding(16.dp, 8.dp, 16.dp, 4.dp), verticalAlignment = Alignment.CenterVertically) {
             SearchField(search, { search = it }, stringResource(R.string.cafe_shop_search), Modifier.weight(1f))
@@ -350,12 +353,13 @@ fun CafeShopsScreen(vm: MainViewModel) {
             ViewToggleButton(if (compact) Icons.Rounded.ViewAgenda else Icons.AutoMirrored.Rounded.ViewList, stringResource(if (compact) R.string.view_cards else R.string.view_list), { compact = !compact })
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-        LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)) {
+        Crossfade(compact, animationSpec = tween(240), label = "shopView") { isCompact ->
+        LazyColumn(Modifier.fillMaxSize(), state = if (isCompact) compactState else cardState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp)) {
             if (list.isNotEmpty()) item { SwipeHint() }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Storefront, if (search.isBlank()) stringResource(R.string.cafe_shop_empty) else stringResource(R.string.cafe_no_match, search)) }
             items(shown, key = { it.id }) { s ->
                 SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp), modifier = reorderable(reorder, s.id)) {
-                    if (compact) ShopCompactRow(
+                    if (isCompact) ShopCompactRow(
                         s, usage[s.id] ?: 0,
                         onImage = if (s.imageUrl.isNotBlank()) ({
                             val withImg = shown.filter { it.imageUrl.isNotBlank() }
@@ -420,6 +424,7 @@ fun CafeShopsScreen(vm: MainViewModel) {
                 }
             }
         }
+        }
         ScrollToTop(listState)
         ScreenFab({ editor = ShopEditorState(null) }, Modifier.align(Alignment.BottomEnd))
         }
@@ -464,6 +469,7 @@ private fun ShopEditor(state: ShopEditorState, all: List<CafeShop>, vm: MainView
     var address by remember { mutableStateOf(e?.address ?: "") }
     var mapUrl by remember { mutableStateOf(e?.mapUrl ?: "") }
     var imageUrl by remember { mutableStateOf(e?.imageUrl ?: "") }
+    var uploading by remember { mutableStateOf(false) }
     var description by remember { mutableStateOf(e?.description ?: "") }
     var rating by remember { mutableIntStateOf(e?.rating ?: 0) }
     var submitted by remember { mutableStateOf(false) }
@@ -476,7 +482,7 @@ private fun ShopEditor(state: ShopEditorState, all: List<CafeShop>, vm: MainView
     }
     val mapErr = if (mapUrl.isNotBlank() && !(mapUrl.trim().startsWith("http://") || mapUrl.trim().startsWith("https://"))) stringResource(R.string.validation_map_url_invalid) else null
     FormScreen(
-        stringResource(if (e == null) R.string.cafe_shop_add_title else R.string.cafe_shop_edit_title), stringResource(R.string.common_save), onClose = onDismiss,
+        stringResource(if (e == null) R.string.cafe_shop_add_title else R.string.cafe_shop_edit_title), stringResource(R.string.common_save), onClose = onDismiss, confirmEnabled = !uploading,
         onConfirm = { submitted = true; if (err == null && mapErr == null) vm.saveShop(e, trimmed, address, mapUrl, imageUrl, description, rating, onDismiss) },
     ) {
         run {
@@ -484,7 +490,7 @@ private fun ShopEditor(state: ShopEditorState, all: List<CafeShop>, vm: MainView
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.cafe_shop_name)) }, singleLine = true, isError = submitted && err != null, supportingText = { if (submitted && err != null) Text(err) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
                 OutlinedTextField(address, { address = it.take(200) }, label = { Text(stringResource(R.string.cafe_address)) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(mapUrl, { mapUrl = it }, label = { Text(stringResource(R.string.cafe_map_url)) }, supportingText = { Text(if (submitted && mapErr != null) mapErr else stringResource(R.string.cafe_map_url_hint)) }, isError = submitted && mapErr != null, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(imageUrl, { imageUrl = it }, label = { Text(stringResource(R.string.cafe_photo)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                ImageUploadField(imageUrl, { imageUrl = it }, Modifier.fillMaxWidth(), onBusyChange = { uploading = it })
                 OutlinedTextField(description, { description = it.take(500) }, label = { Text(stringResource(R.string.cafe_description)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 Text(stringResource(R.string.cafe_rating), style = MaterialTheme.typography.titleSmall)
                 Row { (1..5).forEach { i -> IconButton(onClick = { rating = if (rating == i) 0 else i }) { Icon(if (i <= rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, stringResource(R.string.cafe_stars_n, i), tint = if (i <= rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) } } }
@@ -511,7 +517,7 @@ fun CafeDrinksScreen(vm: MainViewModel) {
     val byId = list.associateBy { it.id }
     val shown = reorder.display(list.map { it.id }).mapNotNull { byId[it] }
 
-    var grid by rememberSaveable { mutableStateOf(false) }
+    var grid by rememberBoolPref("cafe_drinks_grid", false)
     val gridState = rememberLazyGridState()
     fun openViewer(d: CafeDrink) {
         val withImg = list.filter { it.imageUrl.isNotBlank() }
@@ -526,7 +532,8 @@ fun CafeDrinksScreen(vm: MainViewModel) {
             ViewToggleButton(if (grid) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView, stringResource(if (grid) R.string.view_list else R.string.view_grid), { grid = !grid })
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (grid) {
+            Crossfade(grid, animationSpec = tween(240), label = "drinkView") { g ->
+            if (g) {
                 if (list.isEmpty()) EmptyState(Icons.Rounded.Coffee, emptyText)
                 else LazyVerticalGrid(
                     GridCells.Fixed(2), state = gridState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp),
@@ -536,7 +543,6 @@ fun CafeDrinksScreen(vm: MainViewModel) {
                         DrinkGridCard(d, usage[d.id] ?: 0, onImage = { openViewer(d) }, onEdit = { editor = DrinkEditorState(d) }, onDelete = { deleteTarget = d })
                     }
                 }
-                ScrollToTop(gridState)
             } else {
                 LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (list.isEmpty()) item { EmptyState(Icons.Rounded.Coffee, emptyText) } else item { SwipeHint() }
@@ -558,8 +564,9 @@ fun CafeDrinksScreen(vm: MainViewModel) {
                         }
                     }
                 }
-                ScrollToTop(listState)
             }
+            }
+            if (grid) ScrollToTop(gridState) else ScrollToTop(listState)
             ScreenFab({ editor = DrinkEditorState(null) }, Modifier.align(Alignment.BottomEnd))
         }
     }
@@ -574,7 +581,7 @@ data class DrinkEditorState(val editing: CafeDrink?)
 private fun DrinkGridCard(d: CafeDrink, uses: Int, onImage: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f).then(if (d.imageUrl.isNotBlank()) Modifier.clickable(onClick = onImage) else Modifier)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(1f).then(if (d.imageUrl.isNotBlank()) Modifier.clickable(onClick = onImage) else Modifier)) {
                 RemoteImage(d.imageUrl, Modifier.fillMaxSize(), Icons.Rounded.Coffee)
             }
             Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -594,6 +601,7 @@ private fun DrinkEditor(state: DrinkEditorState, all: List<CafeDrink>, vm: MainV
     val e = state.editing
     var name by remember { mutableStateOf(e?.name ?: "") }
     var imageUrl by remember { mutableStateOf(e?.imageUrl ?: "") }
+    var uploading by remember { mutableStateOf(false) }
     var description by remember { mutableStateOf(e?.description ?: "") }
     var submitted by remember { mutableStateOf(false) }
     val trimmed = name.trim()
@@ -604,13 +612,13 @@ private fun DrinkEditor(state: DrinkEditorState, all: List<CafeDrink>, vm: MainV
         else -> null
     }
     FormScreen(
-        stringResource(if (e == null) R.string.cafe_drink_add_title else R.string.cafe_drink_edit_title), stringResource(R.string.common_save), onClose = onDismiss,
+        stringResource(if (e == null) R.string.cafe_drink_add_title else R.string.cafe_drink_edit_title), stringResource(R.string.common_save), onClose = onDismiss, confirmEnabled = !uploading,
         onConfirm = { submitted = true; if (err == null) vm.saveDrink(e, trimmed, imageUrl, description, onDismiss) },
     ) {
         run {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.cafe_drink_name)) }, singleLine = true, isError = submitted && err != null, supportingText = { if (submitted && err != null) Text(err) }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(imageUrl, { imageUrl = it }, label = { Text(stringResource(R.string.cafe_photo)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                ImageUploadField(imageUrl, { imageUrl = it }, Modifier.fillMaxWidth(), onBusyChange = { uploading = it })
                 OutlinedTextField(description, { description = it.take(500) }, label = { Text(stringResource(R.string.cafe_description)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
             }
         }

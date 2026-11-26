@@ -319,6 +319,9 @@
     <string name="login_subShort">Đăng nhập để đồng bộ nhật ký.</string>
     <string name="login_guestShort">Dữ liệu lưu trên máy này.</string>
     <string name="login_tagShort">Nhật ký tâm trạng mỗi ngày</string>
+    <string name="crash_title">Lần trước Moody đã đóng đột ngột</string>
+    <string name="crash_hint">Hãy sao chép lỗi này và gửi cho nhà phát triển.</string>
+    <string name="crash_copy">Sao chép</string>
     <string name="settings_general">Chung</string>
     <string name="login_googleContinue">Tiếp tục với Google</string>
     <string name="settings_exactAlarm">Cho phép báo thức chính xác</string>

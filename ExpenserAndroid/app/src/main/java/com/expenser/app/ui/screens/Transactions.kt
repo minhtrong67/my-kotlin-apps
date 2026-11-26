@@ -44,7 +44,8 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     val catById = remember(categories) { categories.associateBy { it.id } }
     val walletById = remember(wallets) { wallets.associateBy { it.id } }
 
-    var view by rememberSaveable { mutableStateOf(TxView.LIST) }
+    val viewPref = rememberStringPref("tx_view", TxView.LIST.name)
+    val view = runCatching { TxView.valueOf(viewPref.value) }.getOrDefault(TxView.LIST)
     var search by rememberSaveable { mutableStateOf("") }
     var typeFilter by rememberSaveable { mutableStateOf("all") }
     var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
@@ -90,7 +91,7 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
             item(key = "view") {
                 PillSegmented(
                     listOf(Seg(TxView.LIST.name, stringResource(R.string.tx_view_list), Icons.AutoMirrored.Rounded.ViewList), Seg(TxView.CALENDAR.name, stringResource(R.string.tx_view_calendar), Icons.Rounded.CalendarMonth)),
-                    view.name, { view = TxView.valueOf(it) },
+                    view.name, { viewPref.value = it },
                 )
             }
             if (view == TxView.LIST) item(key = "filters") {
@@ -203,7 +204,7 @@ private fun FiltersPanel(
     }
 }
 
-/** Month grid: days with spending are tinted (stronger = more spent); tapping a day opens its transactions in a bottom sheet. */
+/** Month grid: days are tinted by net (green positive / red negative); tapping a day opens its transactions in a bottom sheet. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CalendarView(transactions: List<Tx>, catById: Map<String, Category>, walletById: Map<String, Wallet>, onEdit: (Tx) -> Unit, onDelete: (Tx) -> Unit) {
@@ -212,7 +213,7 @@ private fun CalendarView(transactions: List<Tx>, catById: Map<String, Category>,
     val period = remember(anchor) { periodFor(Range.MONTH, anchor) }
     val inMonth = remember(transactions, period) { transactions.filter { it.date in period.start..period.fullEnd && it.type != TxType.TRANSFER } }
     val byDay = remember(inMonth) { inMonth.groupBy { dayKey(it.date) } }
-    val maxExpense = remember(byDay) { byDay.values.maxOfOrNull { l -> l.filter { it.type == TxType.EXPENSE }.sumOf { it.amount } }?.coerceAtLeast(1L) ?: 1L }
+    val maxNet = remember(byDay) { byDay.values.maxOfOrNull { l -> kotlin.math.abs(l.sumOf { if (it.type == TxType.INCOME) it.amount else -it.amount }) }?.coerceAtLeast(1L) ?: 1L }
     val weekdays = stringArrayResource(R.array.weekdays_short)
     val colors = LocalIncomeColors.current
     val today = dayKey(System.currentTimeMillis())
@@ -234,9 +235,12 @@ private fun CalendarView(transactions: List<Tx>, catById: Map<String, Category>,
                         val spent = list.filter { it.type == TxType.EXPENSE }.sumOf { it.amount }
                         val earned = list.filter { it.type == TxType.INCOME }.sumOf { it.amount }
                         val net = earned - spent
+                        // Day tint follows the day's net: positive -> green, negative -> red (stronger = larger amount).
+                        val strength = 0.16f + 0.44f * (kotlin.math.abs(net).toFloat() / maxNet)
                         val bg = when {
-                            spent > 0 -> colors.expense.copy(alpha = 0.14f + 0.46f * (spent.toFloat() / maxExpense))
-                            earned > 0 -> colors.income.copy(alpha = 0.22f)
+                            net > 0 -> colors.income.copy(alpha = strength)
+                            net < 0 -> colors.expense.copy(alpha = strength)
+                            spent > 0 || earned > 0 -> MaterialTheme.colorScheme.surfaceContainerHighest
                             else -> MaterialTheme.colorScheme.surfaceContainerLow
                         }
                         val tinted = spent > 0 || earned > 0
@@ -271,13 +275,11 @@ private fun CalendarView(transactions: List<Tx>, catById: Map<String, Category>,
                 HorizontalDivider()
                 if (list.isEmpty()) EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(R.string.calendar_no_tx))
                 else {
-                    SwipeHint(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                    LazyColumn(Modifier.heightIn(max = 460.dp), contentPadding = PaddingValues(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // View-only: no swipe actions here.
+                    LazyColumn(Modifier.heightIn(max = 460.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(list, key = { it.id }) { tx ->
-                            SwipeRow(onEdit = { selected = null; onEdit(tx) }, onDelete = { onDelete(tx) }, modifier = Modifier.animateItem()) {
-                                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp)) {
-                                    TxRow(tx, catById[tx.categoryId ?: ""], walletById, showDate = false)
-                                }
+                            Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp), modifier = Modifier.animateItem()) {
+                                TxRow(tx, catById[tx.categoryId ?: ""], walletById, showDate = false)
                             }
                         }
                     }

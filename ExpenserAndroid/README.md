@@ -2,6 +2,24 @@
 
 Bản native của web app React "Expenser". Dùng **cùng Firebase (Auth + Firestore)** với bản web nên dữ liệu đồng bộ giữa web và app.
 
+## 1.8.2
+- Sửa lỗi form giao dịch báo thiếu quán/đồ uống dù đã chọn (nút Lưu giờ luôn kiểm tra theo dữ liệu mới nhất); hai nút Hủy/Lưu bằng nhau.
+- Ghi nhớ kiểu xem (card/list, lưới, danh sách/lịch) cho từng màn hình; "Nhập nhanh" nhỏ gọn hơn; đổi màu 2 thẻ top danh mục.
+
+## 1.8.1
+- Form giao dịch: báo lỗi rõ khi không lưu được; "Nhập nhanh" lọc theo số tiền đang gõ; chọn quán / đồ uống bằng sheet có ảnh, tìm kiếm và đổi list/lưới.
+- Lightbox vuốt ngang thay cho nút trước/sau; nút lên đầu trang nằm bên phải (trên nút thêm), to hơn.
+- Ảnh báo cáo tỉ lệ dọc 9:16; thẻ thống kê hiển thị danh mục chi / thu nhiều nhất; lưới đồ uống ảnh vuông 1:1; thêm thông tin tác giả.
+
+## 1.8.0
+- Ảnh trong form quán / đồ uống / giao dịch cafe: chọn ảnh từ máy, tự nén và tải lên imgbb (cần `IMGBB_API_KEY` trong `.env`).
+- Form giao dịch: hàng "Nhập nhanh" gợi ý danh mục + số tiền đã dùng nhiều; chọn xong ngày giờ tự lấy giờ hiện tại.
+- Lịch giao dịch: sheet theo ngày chỉ để xem; ô ngày xanh khi tổng ngày dương, đỏ khi âm.
+- Quán cafe: placeholder ngắn hơn, đổi card/list và lưới/list mượt hơn (Crossfade).
+- Nút lên đầu trang cuộn mượt.
+- Ảnh báo cáo thống kê thiết kế lại (tổng thu/chi, top danh mục, biểu đồ tròn + thẻ số liệu).
+- Màn đăng nhập thiết kế lại.
+
 ## Thiết lập Firebase (bắt buộc, làm 1 lần)
 1. Firebase Console → dự án **của bản web** → *Project settings* → *Add app* → Android, package name: `com.expenser.app`.
 2. Lấy SHA-1 của khóa debug: `./gradlew signingReport` (hoặc Android Studio → Gradle → app → Tasks → android → signingReport). Dán SHA-1 vào mục *SHA certificate fingerprints* của app vừa thêm. (Khi phát hành thêm SHA-1 của khóa release / Play App Signing.)

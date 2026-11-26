@@ -41,6 +41,7 @@ class MoodyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(applicationContext)
+        installCrashRecorder()
         // Keep the alarms in sync with the settings (BootReceiver restores them after reboot / update).
         appScope.launch {
             container.settingsStore.settings
@@ -48,5 +49,23 @@ class MoodyApp : Application() {
                 .distinctUntilChanged()
                 .collect { ReminderScheduler.reschedule(applicationContext, container.settingsStore) }
         }
+    }
+
+    /**
+     * Saves the stack trace of an uncaught crash so the next launch can show it (MainActivity) — the user can copy it
+     * without adb. The previous handler still runs, so Android's normal crash behaviour is unchanged.
+     */
+    private fun installCrashRecorder() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching {
+                java.io.File(filesDir, CRASH_FILE).writeText("Thread: ${thread.name}\n" + android.util.Log.getStackTraceString(error))
+            }
+            previous?.uncaughtException(thread, error)
+        }
+    }
+
+    companion object {
+        const val CRASH_FILE = "last_crash.txt"
     }
 }

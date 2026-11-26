@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.TrendingDown
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -87,21 +89,29 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             try {
-                fun slices(rows: List<CatRow>, tot: Long) = rows.mapIndexed { i, it -> ImgSlice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, chartColor(i, it.category != null).toArgb(), Format.money(it.value), "${it.pct}%") }
-                val sections = mutableListOf(
-                    ImgSection(ieSection, ctx.getString(R.string.dashboard_remaining), Format.compactMoney(income - expense), listOf(
-                        ImgSlice(incLabel, income, inc.income.toArgb(), Format.money(income), "${if (income + expense == 0L) 0 else Math.round(income * 100.0 / (income + expense))}%"),
-                        ImgSlice(expLabel, expense, errorColor.toArgb(), Format.money(expense), "${if (income + expense == 0L) 0 else Math.round(expense * 100.0 / (income + expense))}%"),
-                    )),
-                )
-                if (categoryRows.isNotEmpty()) sections.add(ImgSection(catSection, expLabel, Format.compactMoney(expense), slices(categoryRows, expense)))
-                if (incomeRows.isNotEmpty()) sections.add(ImgSection(incSection, incLabel, Format.compactMoney(income), slices(incomeRows, income)))
-                val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-                    ReportImage.render(appName, label, listOf(
-                        ImgSummary(totalLabels[0], Format.money(income), inc.income.toArgb()), ImgSummary(totalLabels[1], Format.money(expense), colors.error.toArgb()),
-                        ImgSummary(totalLabels[2], Format.money(income - expense), colors.primary.toArgb()),
-                    ), sections, colors.primary.toArgb(), colors.onSurface.toArgb(), colors.onSurfaceVariant.toArgb(), colors.surface.toArgb(), colors.surfaceContainerHighest.toArgb())
+                fun slices(rows: List<CatRow>): List<RSlice> {
+                    val mk = { i: Int, r: CatRow -> RSlice(r.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, r.value, chartColor(i, r.category != null).toArgb(), Format.money(r.value), r.pct) }
+                    val head = rows.take(5).mapIndexed(mk)
+                    val rest = rows.drop(5)
+                    if (rest.isEmpty()) return head
+                    val v = rest.sumOf { it.value }
+                    return head + RSlice(other, v, chartColor(5, false).toArgb(), Format.money(v), rest.sumOf { it.pct })
                 }
+                val data = ReportData(
+                    appName = appName, title = ctx.getString(R.string.report_title), period = label,
+                    generated = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date()),
+                    incomeLabel = totalLabels[0], incomeText = Format.money(income), incomeColor = inc.income.toArgb(),
+                    expenseLabel = totalLabels[1], expenseText = Format.money(expense), expenseColor = errorColor.toArgb(),
+                    balanceLabel = totalLabels[2], balanceText = Format.money(income - expense), balanceColor = (if (income - expense >= 0) inc.income else errorColor).toArgb(),
+                    topExpenseTitle = ctx.getString(R.string.report_top_expense),
+                    topExpense = categoryRows.firstOrNull()?.let { r -> RSlice(r.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, r.value, errorColor.toArgb(), Format.money(r.value), r.pct) },
+                    topIncomeTitle = ctx.getString(R.string.report_top_income),
+                    topIncome = incomeRows.firstOrNull()?.let { r -> RSlice(r.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, r.value, inc.income.toArgb(), Format.money(r.value), r.pct) },
+                    expense = RSection(catSection, expLabel, Format.compactMoney(expense), slices(categoryRows)),
+                    income = RSection(incSection, incLabel, Format.compactMoney(income), slices(incomeRows)),
+                    emptyText = ctx.getString(R.string.report_no_data),
+                )
+                val bmp = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { ReportImage.render(data) }
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ctx.contentResolver.openOutputStream(uri)?.use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
                 vm.toast(R.string.settings_exported)
             } catch (e: Exception) { vm.toast(R.string.settings_export_error) }
@@ -128,8 +138,12 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                 StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.stats_total_expense), Format.money(expense), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f).fillMaxHeight())
             }
             Spacer(Modifier.height(10.dp))
-            StatTile(Icons.Rounded.Balance, stringResource(R.string.stats_difference), Format.money(income - expense), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, Modifier.fillMaxWidth(),
-                hint = stringResource(R.string.stats_transactions_count, filtered.size))
+            val topE = categoryRows.firstOrNull(); val topI = incomeRows.firstOrNull()
+            fun topName(r: CatRow?) = r?.let { x -> (x.category?.let { c -> "${c.emoji} ${c.name}" } ?: other) + " · ${x.pct}%" } ?: "—"
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(Icons.AutoMirrored.Rounded.TrendingDown, stringResource(R.string.report_top_expense), Format.money(topE?.value ?: 0), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, Modifier.weight(1f).fillMaxHeight(), hint = topName(topE))
+                StatTile(Icons.AutoMirrored.Rounded.TrendingUp, stringResource(R.string.report_top_income), Format.money(topI?.value ?: 0), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, Modifier.weight(1f).fillMaxHeight(), hint = topName(topI))
+            }
         }
 
         item {
@@ -173,7 +187,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
             }
         }
     }
-        ScrollToTop(listState)
+        ScrollToTop(listState, aboveFab = false)
     }
 
     sheetCategory?.let { row ->

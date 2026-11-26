@@ -9,7 +9,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -362,23 +361,12 @@ fun MoodPickBubble(mood: MoodDef, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** One clock for every wavy bar on screen (cheaper than one infinite animation per bar). Returns a 0..1 phase. */
-@Composable
-fun rememberWavePhase(): androidx.compose.runtime.State<Float> {
-    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "wave")
-    return t.animateFloat(
-        0f, 1f,
-        androidx.compose.animation.core.infiniteRepeatable(tween(1800, easing = androidx.compose.animation.core.LinearEasing)),
-        label = "wavePhase",
-    )
-}
-
 /**
- * Material 3 Expressive-style wavy progress: the filled part is a wave that travels while the bar fills in
- * (staggered by [index]); the remaining track is flat with an end dot.
+ * Material 3 Expressive-style wavy progress: the bar fills in (staggered by [index]); the filled part is a wave,
+ * the remaining track is flat with an end dot. Only the fill animates, so a screen full of bars costs nothing at rest.
  */
 @Composable
-fun WavyProgress(progress: Float, color: Color, phase: androidx.compose.runtime.State<Float>, modifier: Modifier = Modifier, index: Int = 0) {
+fun WavyProgress(progress: Float, color: Color, modifier: Modifier = Modifier, index: Int = 0) {
     val anim = remember { Animatable(0f) }
     LaunchedEffect(progress) {
         delay(index * 80L)
@@ -392,14 +380,13 @@ fun WavyProgress(progress: Float, color: Color, phase: androidx.compose.runtime.
         val cy = size.height / 2f
         val endX = ((size.width - stroke) * anim.value) + stroke / 2f
         if (anim.value > 0.001f) {
-            val shift = phase.value * 2.0 * PI
             val path = Path().apply {
                 var x = stroke / 2f
-                moveTo(x, cy + amp * sin(2.0 * PI * (x / wl) - shift).toFloat())
-                val step = 2.dp.toPx()
+                moveTo(x, cy + amp * sin(2.0 * PI * (x / wl)).toFloat())
+                val step = 3.dp.toPx()
                 while (x < endX) {
                     x = min(x + step, endX)
-                    lineTo(x, cy + amp * sin(2.0 * PI * (x / wl) - shift).toFloat())
+                    lineTo(x, cy + amp * sin(2.0 * PI * (x / wl)).toFloat())
                 }
             }
             drawPath(path, color, style = Stroke(stroke, cap = StrokeCap.Round, join = StrokeJoin.Round))

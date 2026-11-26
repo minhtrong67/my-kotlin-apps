@@ -31,7 +31,7 @@ if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.7.0"
+val appVersionName = "1.8.2"
 // APK files are named Expenser-<version>-<buildType>.apk
 base.archivesName.set("Expenser-$appVersionName")
 
@@ -43,8 +43,9 @@ android {
         applicationId = "com.expenser.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
+        versionCode = 10
         versionName = appVersionName
+        buildConfigField("String", "IMGBB_API_KEY", "\"${envVar("IMGBB_API_KEY") ?: ""}\"")
     }
 
     // Release signing comes from .env (KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD). An unsigned APK cannot be

@@ -80,6 +80,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.draw.drawBehind
@@ -407,9 +408,9 @@ fun FormScreen(title: String, confirmLabel: String, onClose: () -> Unit, onConfi
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onClose, Modifier.weight(1f)) { Text(stringResource(R.string.common_cancel)) }
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = onConfirm, enabled = confirmEnabled, modifier = Modifier.weight(1.6f).height(48.dp)) {
+                OutlinedButton(onClick = onClose, Modifier.weight(1f).height(52.dp)) { Text(stringResource(R.string.common_cancel)) }
+                Spacer(Modifier.width(12.dp))
+                Button(onClick = onConfirm, enabled = confirmEnabled, modifier = Modifier.weight(1f).height(52.dp)) {
                     Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(confirmLabel)
                 }
             }
@@ -821,13 +822,12 @@ fun RemoteImage(url: String?, modifier: Modifier = Modifier, fallbackIcon: Image
 
 data class LightboxItem(val url: String, val title: String)
 
-/** Full-screen photo viewer: swipe or use the arrows for previous / next, double-tap or pinch to zoom. */
+/** Full-screen photo viewer: swipe left / right for previous / next, double-tap or pinch to zoom. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageLightbox(items: List<LightboxItem>, startIndex: Int, onDismiss: () -> Unit) {
     if (items.isEmpty()) return
     val pager = rememberPagerState(initialPage = startIndex.coerceIn(0, items.lastIndex)) { items.size }
-    val scope = rememberCoroutineScope()
     var zoomed by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -854,10 +854,6 @@ fun ImageLightbox(items: List<LightboxItem>, startIndex: Int, onDismiss: () -> U
                     Text(items[pager.currentPage].title, color = Color.White, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (items.size > 1) Text("${pager.currentPage + 1} / ${items.size}", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.labelMedium)
                 }
-            }
-            if (items.size > 1) {
-                if (pager.currentPage > 0) FilledTonalIconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }, modifier = Modifier.align(Alignment.CenterStart).padding(8.dp)) { Icon(Icons.Rounded.ChevronLeft, stringResource(R.string.stats_prev)) }
-                if (pager.currentPage < items.lastIndex) FilledTonalIconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.align(Alignment.CenterEnd).padding(8.dp)) { Icon(Icons.Rounded.ChevronRight, stringResource(R.string.stats_next)) }
             }
         }
     }
@@ -1028,39 +1024,59 @@ fun rememberShowTop(state: LazyListState, after: Int = 5): State<Boolean> = reme
 @Composable
 fun rememberShowTop(state: androidx.compose.foundation.lazy.grid.LazyGridState, after: Int = 6): State<Boolean> = remember(state) { derivedStateOf { state.firstVisibleItemIndex >= after } }
 
-/** Round "back to top" button, bottom-start (the add FAB lives bottom-end). Put it inside a Box that holds the list. */
+/** Round "back to top" button, bottom-end. With [aboveFab] it sits above the add FAB that lives in the same corner. */
 @Composable
-fun BoxScope.ScrollToTopButton(visible: Boolean, onClick: () -> Unit) {
+fun BoxScope.ScrollToTopButton(visible: Boolean, aboveFab: Boolean = true, onClick: () -> Unit) {
     AnimatedVisibility(
-        visible, modifier = Modifier.align(Alignment.BottomStart),
+        visible, modifier = Modifier.align(Alignment.BottomEnd),
         enter = scaleIn(tween(180), initialScale = 0.6f) + fadeIn(tween(160)), exit = scaleOut(tween(120), targetScale = 0.6f) + fadeOut(tween(100)),
     ) {
         SmallFloatingActionButton(
-            onClick = onClick, modifier = Modifier.padding(16.dp),
+            onClick = onClick, modifier = Modifier.padding(start = 16.dp, end = 20.dp, top = 16.dp, bottom = if (aboveFab) 92.dp else 20.dp).size(48.dp),
             containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.scroll_top)) }
+        ) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.scroll_top), Modifier.size(28.dp)) }
     }
 }
 
 @Composable
-fun BoxScope.ScrollToTop(state: LazyListState) {
+fun BoxScope.ScrollToTop(state: LazyListState, aboveFab: Boolean = true) {
     val show by rememberShowTop(state)
     val scope = rememberCoroutineScope()
-    ScrollToTopButton(show) { scope.launch { state.animateScrollToItem(0) } }
+    ScrollToTopButton(show, aboveFab) { scope.launch { smoothToTop(state) } }
+}
+
+/** Jump close to the top first (long lists), then glide the last stretch with an eased tween. */
+suspend fun smoothToTop(state: LazyListState) {
+    if (state.firstVisibleItemIndex > 4) state.scrollToItem(4, state.firstVisibleItemScrollOffset)
+    val items = state.layoutInfo.visibleItemsInfo
+    val avg = if (items.isEmpty()) 300f else items.map { it.size }.average().toFloat()
+    val distance = state.firstVisibleItemIndex * avg + state.firstVisibleItemScrollOffset
+    if (distance > 0f) state.animateScrollBy(-distance, tween(520, easing = FastOutSlowInEasing))
+    if (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset != 0) state.animateScrollToItem(0)
+}
+
+suspend fun smoothToTop(state: androidx.compose.foundation.lazy.grid.LazyGridState) {
+    if (state.firstVisibleItemIndex > 6) state.scrollToItem(6, state.firstVisibleItemScrollOffset)
+    val items = state.layoutInfo.visibleItemsInfo
+    val avg = if (items.isEmpty()) 300f else items.map { it.size.height }.average().toFloat()
+    val rows = state.firstVisibleItemIndex / state.layoutInfo.visibleItemsInfo.maxOfOrNull { it.column + 1 }.let { it ?: 1 }.coerceAtLeast(1)
+    val distance = rows * avg + state.firstVisibleItemScrollOffset
+    if (distance > 0f) state.animateScrollBy(-distance, tween(520, easing = FastOutSlowInEasing))
+    if (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset != 0) state.animateScrollToItem(0)
 }
 
 @Composable
-fun BoxScope.ScrollToTop(state: androidx.compose.foundation.lazy.grid.LazyGridState) {
+fun BoxScope.ScrollToTop(state: androidx.compose.foundation.lazy.grid.LazyGridState, aboveFab: Boolean = true) {
     val show by rememberShowTop(state)
     val scope = rememberCoroutineScope()
-    ScrollToTopButton(show) { scope.launch { state.animateScrollToItem(0) } }
+    ScrollToTopButton(show, aboveFab) { scope.launch { smoothToTop(state) } }
 }
 
 @Composable
-fun BoxScope.ScrollToTop(state: ScrollState) {
+fun BoxScope.ScrollToTop(state: ScrollState, aboveFab: Boolean = true) {
     val show by remember(state) { derivedStateOf { state.value > 900 } }
     val scope = rememberCoroutineScope()
-    ScrollToTopButton(show) { scope.launch { state.animateScrollTo(0) } }
+    ScrollToTopButton(show, aboveFab) { scope.launch { state.animateScrollTo(0, tween(500, easing = FastOutSlowInEasing)) } }
 }
 
 /** Square tonal icon button that sits next to a search box (same 56 dp height) to switch between layouts. */

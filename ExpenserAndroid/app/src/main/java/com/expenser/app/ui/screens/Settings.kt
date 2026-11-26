@@ -262,10 +262,13 @@ fun SettingsScreen(vm: MainViewModel) {
         SettingCard(stringResource(R.string.settings_about), Icons.Rounded.Info) {
             Text("Expenser · ${stringResource(R.string.settings_version)} ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
             Text(stringResource(R.string.settings_about_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            Row { Text(stringResource(R.string.settings_author), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("minhtrong67", style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }
+            Row { Text(stringResource(R.string.settings_ai_support), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("Claude Sonnet 5.5", style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }
         }
         Spacer(Modifier.height(24.dp))
     }
-    ScrollToTop(scrollState)
+    ScrollToTop(scrollState, aboveFab = false)
     }
 
     if (confirmSignOut) ConfirmDialog(stringResource(R.string.settings_logout_confirm), stringResource(R.string.common_logout), onConfirm = { vm.signOut(context) }, onDismiss = { confirmSignOut = false })

@@ -1,6 +1,8 @@
 package com.expenser.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -11,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import com.expenser.app.util.toColor
 import com.expenser.app.ui.theme.LocalIncomeColors
@@ -37,6 +40,7 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
     val shops by vm.shops.collectAsStateWithLifecycle()
     val drinks by vm.drinks.collectAsStateWithLifecycle()
     val logs by vm.logs.collectAsStateWithLifecycle()
+    val history by vm.transactions.collectAsStateWithLifecycle()
 
     val editing = request.editing
     val log = remember(editing, logs) { editing?.let { e -> logs.firstOrNull { it.txId == e.id } } }
@@ -53,6 +57,7 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
     var cafeLoaded by rememberSaveable { mutableStateOf(false) }
     var submitted by rememberSaveable { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
+    var uploading by remember { mutableStateOf(false) }
 
     // Cafe details of an edited transaction arrive with the logs flow.
     LaunchedEffect(log) {
@@ -77,14 +82,36 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
     val errDrink = if (showCafe && drinkId == null) stringResource(R.string.validation_drink_required) else null
     val valid = listOf(errAmount, errCategory, errWallet, errDate, errNote, errShop, errDrink).all { it == null }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Strings are constant per locale, so they are safe to capture in the click handler.
+    val msgAmount = stringResource(R.string.validation_amount_positive); val msgAmountBig = stringResource(R.string.validation_amount_large)
+    val msgCategory = stringResource(R.string.validation_category_required); val msgWallet = stringResource(R.string.validation_wallet_required)
+    val msgDate = stringResource(R.string.validation_date_future); val msgNote = stringResource(R.string.validation_note_max)
+    val msgShop = stringResource(R.string.validation_shop_required); val msgDrink = stringResource(R.string.validation_drink_required)
+
+    // The save handler re-reads every piece of state at the moment of the tap, so it can never act on an out-of-date composition.
     fun submit() {
         submitted = true
-        if (!valid || saving) return
+        if (saving) return
+        val cat = categories.firstOrNull { it.id == categoryId && it.type == type }
+        val cafe = type == TxType.EXPENSE && isCafeCategory(cat)
+        val amt = amount.toLongOrNull() ?: 0L
+        val problem = when {
+            amt <= 0 -> msgAmount
+            amt > 999_999_999_999L -> msgAmountBig
+            cat == null -> msgCategory
+            wallets.none { it.id == walletId } -> msgWallet
+            date > endOfDay(System.currentTimeMillis()) -> msgDate
+            note.length > 200 -> msgNote
+            cafe && shopId == null -> msgShop
+            cafe && drinkId == null -> msgDrink
+            else -> null
+        }
+        if (problem != null) { android.widget.Toast.makeText(context, problem, android.widget.Toast.LENGTH_SHORT).show(); return }
         saving = true
         vm.saveTransaction(
             editing,
-            TxInput(type, amountValue, categoryId!!, walletId!!, date, note,
-                if (showCafe) CafeInput(shopId, drinkId, imageUrl) else null),
+            TxInput(type, amt, cat!!.id, walletId!!, date, note, if (cafe) CafeInput(shopId, drinkId, imageUrl) else null),
         ) { onDismiss() }
     }
 
@@ -95,7 +122,7 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
     FormScreen(
         title = stringResource(if (editing == null) R.string.tx_add_title else R.string.tx_edit_title),
         confirmLabel = stringResource(R.string.common_save),
-        onClose = onDismiss, onConfirm = ::submit, confirmEnabled = !saving,
+        onClose = onDismiss, onConfirm = { submit() }, confirmEnabled = !saving && !uploading,
     ) {
         PillSegmented(
             listOf(
@@ -106,6 +133,32 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
         )
 
         MoneyField(amount, { amount = it }, stringResource(R.string.tx_amount), error = if (submitted) errAmount else null)
+
+        // Quick pick: past (category, amount) pairs of this type, most used first. Typing an amount narrows them to matching amounts.
+        val pairs = remember(history, categories, type) {
+            val catIds = categories.filter { it.type == type }.map { it.id }.toSet()
+            history.filter { it.type == type && it.categoryId != null && catIds.contains(it.categoryId!!) && it.amount > 0 }
+                .groupBy { it.categoryId!! to it.amount }
+                .entries.sortedWith(compareByDescending<Map.Entry<Pair<String, Long>, List<Tx>>> { it.value.size }.thenByDescending { e -> e.value.maxOf { it.date } })
+                .map { it.key }
+        }
+        val quick = remember(pairs, amount) { (if (amount.isEmpty()) pairs else pairs.filter { it.second.toString().startsWith(amount) }).take(if (amount.isEmpty()) 15 else 20) }
+        if (editing == null && quick.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.tx_quick_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    quick.forEach { (catId, amt) ->
+                        val cat = categories.firstOrNull { it.id == catId } ?: return@forEach
+                        Surface(
+                            onClick = { categoryId = catId; amount = amt.toString(); date = System.currentTimeMillis() },
+                            shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        ) {
+                            Text("${cat.emoji} ${cat.name} · ${Format.money(amt)}", Modifier.padding(horizontal = 10.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                    }
+                }
+            }
+        }
 
         SelectField(
             stringResource(R.string.tx_category), selectedCategory?.takeIf { it.type == type }?.name ?: "", { sheet = "category" },
@@ -128,12 +181,11 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
         if (showCafe) {
             SectionCard(stringResource(R.string.cafe_form_section)) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SelectField(stringResource(R.string.cafe_shop), shops.firstOrNull { it.id == shopId }?.name ?: "", { sheet = "shop" }, error = if (submitted) errShop else null)
-                    SelectField(stringResource(R.string.cafe_drink), drinks.firstOrNull { it.id == drinkId }?.name ?: "", { sheet = "drink" }, error = if (submitted) errDrink else null)
-                    OutlinedTextField(
-                        value = imageUrl, onValueChange = { imageUrl = it }, label = { Text(stringResource(R.string.cafe_photo)) },
-                        singleLine = true, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth(),
-                    )
+                    SelectField(stringResource(R.string.cafe_shop), shops.firstOrNull { it.id == shopId }?.name ?: "", { sheet = "shop" }, error = if (submitted) errShop else null,
+                        leading = { RemoteImage(shops.firstOrNull { it.id == shopId }?.imageUrl, Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)), Icons.Rounded.Storefront) })
+                    SelectField(stringResource(R.string.cafe_drink), drinks.firstOrNull { it.id == drinkId }?.name ?: "", { sheet = "drink" }, error = if (submitted) errDrink else null,
+                        leading = { RemoteImage(drinks.firstOrNull { it.id == drinkId }?.imageUrl, Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)), Icons.Rounded.Coffee) })
+                    ImageUploadField(imageUrl, { imageUrl = it }, Modifier.fillMaxWidth(), onBusyChange = { uploading = it })
                 }
             }
         }
@@ -146,8 +198,8 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
         "wallet" -> ChoiceSheet(stringResource(R.string.tx_wallet), wallets, walletId, { it.id }, { walletId = it.id }, { sheet = "" }) { w ->
             Row(verticalAlignment = Alignment.CenterVertically) { IconAvatar(walletIcon(w.icon), w.color.toColor(), 36.dp); Spacer(Modifier.width(12.dp)); Column { Text(w.name, style = MaterialTheme.typography.bodyLarge); Text(Format.money(w.balance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         }
-        "shop" -> ChoiceSheet(stringResource(R.string.cafe_shop), shops, shopId, { it.id }, { shopId = it.id }, { sheet = "" }) { Text(it.name, style = MaterialTheme.typography.bodyLarge) }
-        "drink" -> ChoiceSheet(stringResource(R.string.cafe_drink), drinks, drinkId, { it.id }, { drinkId = it.id }, { sheet = "" }) { Text(it.name, style = MaterialTheme.typography.bodyLarge) }
+        "shop" -> MediaChoiceSheet(stringResource(R.string.cafe_shop), shops.map { PickItem(it.id, it.name, it.address.ifBlank { null }, it.imageUrl) }, shopId, Icons.Rounded.Storefront, { shopId = it }, { sheet = "" })
+        "drink" -> MediaChoiceSheet(stringResource(R.string.cafe_drink), drinks.map { PickItem(it.id, it.name, null, it.imageUrl) }, drinkId, Icons.Rounded.Coffee, { drinkId = it }, { sheet = "" })
     }
 }
 
