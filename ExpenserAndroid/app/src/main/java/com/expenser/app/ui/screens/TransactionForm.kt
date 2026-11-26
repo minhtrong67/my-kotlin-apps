@@ -90,7 +90,7 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
 
     var sheet by remember { mutableStateOf("") } // "", "category", "wallet", "shop", "drink"
     val income = LocalIncomeColors.current.income
-    val expenseColor = MaterialTheme.colorScheme.error
+    val expenseColor = com.expenser.app.ui.theme.LocalIncomeColors.current.expense
 
     FormScreen(
         title = stringResource(if (editing == null) R.string.tx_add_title else R.string.tx_edit_title),

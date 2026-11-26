@@ -31,7 +31,7 @@ if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.6.0"
+val appVersionName = "1.7.0"
 // APK files are named Expenser-<version>-<buildType>.apk
 base.archivesName.set("Expenser-$appVersionName")
 
@@ -43,7 +43,7 @@ android {
         applicationId = "com.expenser.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
+        versionCode = 7
         versionName = appVersionName
     }
 

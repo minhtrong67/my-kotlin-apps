@@ -176,7 +176,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
         if (enabled) ReminderScheduler.schedule(app, time) else ReminderScheduler.cancel(app)
     }
 
-    fun sendTestReminder() = ReminderScheduler.show(app)
+    fun sendTestReminder() { if (!ReminderScheduler.show(app)) toast(R.string.reminder_denied) }
 
     // ---------- Import / export ----------
     fun snapshot() = DataSnapshot(transactions.value, categories.value, wallets.value, shops.value, drinks.value)

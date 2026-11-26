@@ -24,10 +24,10 @@ import com.expenser.app.data.AppSettings
 
 /** Semantic income colours (expense uses the scheme's error roles). */
 @Immutable
-data class IncomeColors(val income: Color, val onIncome: Color, val container: Color, val onContainer: Color)
+data class IncomeColors(val income: Color, val onIncome: Color, val container: Color, val onContainer: Color, val expense: Color = Color(0xFFC62828))
 
 val LocalIncomeColors = staticCompositionLocalOf {
-    IncomeColors(Color(0xFF0B7A3B), Color.White, Color(0xFF8DF9AC), Color(0xFF00210D))
+    IncomeColors(Color(0xFF0B7A3B), Color.White, Color(0xFF8DF9AC), Color(0xFF00210D), Color(0xFFC62828))
 }
 
 private fun c(hex: Long) = Color(0xFF000000 or hex)
@@ -135,8 +135,8 @@ fun ExpenserTheme(settings: AppSettings, content: @Composable () -> Unit) {
         dark -> DefaultDark
         else -> DefaultLight
     }
-    val income = if (dark) IncomeColors(c(0x2EBD5F), c(0x00210D), c(0x005229), c(0x8DF9AC))
-    else IncomeColors(c(0x0B7A3B), Color.White, c(0x8DF9AC), c(0x00210D))
+    val income = if (dark) IncomeColors(c(0x1E9E4A), c(0x00210D), c(0x005229), c(0x8DF9AC), c(0xD7363B))
+    else IncomeColors(c(0x0B7A3B), Color.White, c(0x8DF9AC), c(0x00210D), c(0xC62828))
 
     val scale = when (settings.fontSize) { "sm" -> 0.92f; "lg" -> 1.1f; else -> 1f }
     val base = LocalDensity.current

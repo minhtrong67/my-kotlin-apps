@@ -279,7 +279,7 @@
     <string name="manageActs_updateTitle">Update this activity?</string>
     <string name="manageActs_deleteTitle">Delete this activity?</string>
     <string name="settings_about">About Moody</string>
-    <string name="login_firebaseError">Firebase is not configured for this build (google-services.json is missing). You can still use guest mode below.</string>
+    <string name="login_firebaseError">Firebase is not set up in this build (.env is missing). Guest mode still works.</string>
     <string name="settings_langAutoHint">Follows the device language.</string>
     <string name="settings_reminders">Reminders</string>
     <string name="settings_remindersHint">Moody can remind you even when the app is closed.</string>
@@ -313,6 +313,13 @@
     <string name="settings_themeDynamic">Dynamic (Material You)</string>
     <string name="settings_themeDynamicHint">Colors follow your wallpaper (Android 12+).</string>
     <string name="settings_troubleshoot">Not receiving notifications?</string>
+    <string name="settings_fontSystem">System default</string>
+    <string name="login_feat1">Quick</string>
+    <string name="login_feat2">Insights</string>
+    <string name="login_feat3">Private</string>
+    <string name="login_subShort">Sign in to sync your journal.</string>
+    <string name="login_guestShort">Data stays on this device.</string>
+    <string name="login_tagShort">Your daily mood journal</string>
     <string name="settings_general">General</string>
     <string name="login_googleContinue">Continue with Google</string>
     <string name="settings_exactAlarm">Allow exact alarms</string>

@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
                 LocalConfiguration provides localized.resources.configuration,
                 LocalActivityContext provides this@MainActivity,
             ) {
-                MoodyTheme(s.themeMode, s.themeColor, s.fontScale, s.fontFamily) {
+                MoodyTheme(s.themeMode, s.themeColor, s.dynamicColor, s.fontScale, s.fontFamily) {
                     Surface(color = MaterialTheme.colorScheme.surface) {
                         MoodyRoot(vm, s, pendingRoute) { pendingRoute = null }
                     }

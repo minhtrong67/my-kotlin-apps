@@ -40,6 +40,9 @@ fun sessionOf(ms: Long): Session {
 }
 
 val CHART_PALETTE = listOf(
-    "#B45309", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6",
-    "#EC4899", "#06B6D4", "#EF4444", "#84CC16", "#64748B",
+    "#2563EB", "#F97316", "#10B981", "#EC4899", "#8B5CF6", "#EAB308", "#06B6D4", "#EF4444",
+    "#84CC16", "#92400E", "#14B8A6", "#D946EF", "#0EA5E9", "#F43F5E", "#A855F7", "#64748B",
 ).map { Color(android.graphics.Color.parseColor(it)) }
+
+/** Distinct colour for slice [i] of a chart; "other / unknown" slices stay neutral grey. */
+fun chartColor(i: Int, known: Boolean = true): Color = if (known) CHART_PALETTE[i % CHART_PALETTE.size] else Color(0xFF94A3B8)

@@ -24,7 +24,14 @@ Android Studio (Ladybug 2024.2+) → mở thư mục này → Gradle sync → Ru
 - Màu chủ đạo: **Material 3 baseline blue** (#0061A4); có thể đổi màu nhấn hoặc dùng Material You (Android 12+).
 - Icon adaptive Material 3 (108dp, vùng an toàn 66dp, có lớp monochrome cho themed icon) + splash screen.
 
-## Tính năng mới (1.6)
+## Tính năng mới (1.7)
+- Vuốt chuyển tab dạng pager: kéo từ từ thấy màn kế bên, thả quá nửa thì chuyển; vuốt phải ở Tổng quan mở sidebar.
+- Giao dịch chỉ vuốt để sửa / xóa (không tap); lịch tô màu theo mức chi, chạm ngày mở sheet danh sách; chú thích "vuốt để sửa / xóa".
+- Nút "lên đầu trang" ở các danh sách dài; Đồ uống có dạng lưới / danh sách; Quán cafe có dạng thẻ / danh sách gọn (kéo thả).
+- Biểu đồ: bảng màu 16 màu khác nhau, xanh / đỏ cố định đậm (không phụ thuộc Material You); thẻ thống kê bằng nhau.
+- Thông báo nhắc nhở dùng AlarmManager (tự đặt lại sau khi khởi động lại máy / cập nhật app), icon thông báo riêng.
+
+## Tính năng (1.6)
 - Kéo thả (nắm biểu tượng ⋮⋮) để sắp xếp Danh mục, Quán cafe, Đồ uống; ảnh quán cafe 16:9.
 - Nhãn % ngay trong biểu đồ tròn; màu thu nhập / chi tiêu đậm hơn.
 - Animation: chuyển tab trượt theo hướng vuốt, form thêm/sửa trượt lên, FAB, danh sách, ảnh hiện dần; skeleton khi tải; cache ảnh 150 MB + tải trước ảnh quán/đồ uống.

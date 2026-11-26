@@ -61,6 +61,7 @@ fun resolveDark(themeMode: String): Boolean = when (themeMode) {
 fun MoodyTheme(
     themeMode: String,
     themeColor: String,
+    dynamicColor: Boolean,
     fontScale: Float,
     fontFamily: String,
     content: @Composable () -> Unit,
@@ -69,8 +70,8 @@ fun MoodyTheme(
     // Remembered so a recomposition of the root never rebuilds the scheme / typography (they are static
     // composition locals: a new instance would force the whole UI tree to recompose).
     val ctx = LocalContext.current
-    val colors = remember(dark, themeColor) {
-        if (themeColor == Palettes.DYNAMIC_ID && Build.VERSION.SDK_INT >= 31) {
+    val colors = remember(dark, themeColor, dynamicColor) {
+        if (dynamicColor && Build.VERSION.SDK_INT >= 31) {
             // Material You: colors extracted from the wallpaper by the system
             if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         } else {

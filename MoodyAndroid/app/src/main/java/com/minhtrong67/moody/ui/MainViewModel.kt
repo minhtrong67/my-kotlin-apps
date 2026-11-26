@@ -61,6 +61,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------- Settings ----------------
     fun setThemeMode(v: String) = viewModelScope.launch { store.setThemeMode(v) }
     fun setThemeColor(v: String) = viewModelScope.launch { store.setThemeColor(v) }
+    fun setDynamicColor(v: Boolean) = viewModelScope.launch { store.setDynamicColor(v) }
     fun setFontScale(v: Float) = viewModelScope.launch { store.setFontScale(v) }
     fun setLanguage(v: String) = viewModelScope.launch { store.setLanguage(v) }
     fun setFontFamily(v: String) = viewModelScope.launch { store.setFontFamily(v) }

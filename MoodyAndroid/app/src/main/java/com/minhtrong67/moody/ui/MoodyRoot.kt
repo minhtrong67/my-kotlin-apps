@@ -91,11 +91,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.minhtrong67.moody.R
 import com.minhtrong67.moody.data.ActivitiesState
 import com.minhtrong67.moody.data.AppUser
@@ -112,7 +107,6 @@ import com.minhtrong67.moody.ui.screens.TodayScreen
 import com.minhtrong67.moody.util.effectiveLanguage
 import kotlinx.coroutines.launch
 
-private const val R_TABS = "tabs"
 private const val R_TODAY = "today"
 private const val R_HISTORY = "history"
 private const val R_STATS = "stats"
@@ -128,8 +122,6 @@ private val TABS = listOf(
     Tab(R_STATS, R.string.nav_stats, Icons.Outlined.BarChart, Icons.Rounded.BarChart),
     Tab(R_SETTINGS, R.string.nav_settings, Icons.Outlined.Settings, Icons.Rounded.Settings),
 )
-
-private fun NavHostController.goManage(route: String) = navigate(route) { launchSingleTop = true }
 
 @Composable
 fun MoodyRoot(vm: MainViewModel, settings: Settings, pendingRoute: String?, onRouteConsumed: () -> Unit) {
@@ -184,25 +176,24 @@ private fun MainShell(
     val moodOverrides by vm.moodOverrides.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    // The four tabs live in ONE pager (swipe left/right to switch); Manage pages are regular destinations on top.
+    // The four tabs live in ONE pager (swipe left/right). A Manage page (activities / moods), when open, replaces the pager.
+    // Plain state instead of a NavController: fewer moving parts, no graph rebuilds, smaller APK.
     val startPage = remember {
         when (settings.startPage) { "history" -> 1; "stats" -> 2; "settings" -> 3; else -> 0 }
     }
     val pager = rememberPagerState(initialPage = startPage) { TABS.size }
-    val nav = rememberNavController()
-    val backEntry by nav.currentBackStackEntryAsState()
-    val route = backEntry?.destination?.route ?: R_TABS
-    val onTabs = route == R_TABS
+    var manage by rememberSaveable { mutableStateOf<String?>(null) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val page = pager.currentPage
-    LaunchedEffect(route, page) { scrollBehavior.state.contentOffset = 0f }   // a new page starts un-scrolled
+    LaunchedEffect(manage, page) { scrollBehavior.state.contentOffset = 0f }   // a new page starts un-scrolled
 
     fun goPage(i: Int) {
-        if (onTabs) scope.launch { pager.animateScrollToPage(i) }
-        else { nav.popBackStack(R_TABS, false); scope.launch { pager.scrollToPage(i) } }
+        if (manage == null) scope.launch { pager.animateScrollToPage(i) }
+        else { manage = null; scope.launch { pager.scrollToPage(i) } }
     }
-    BackHandler(enabled = onTabs && page != startPage && drawer.isClosed) { goPage(startPage) }
+    BackHandler(enabled = manage != null) { manage = null }
+    BackHandler(enabled = manage == null && page != startPage && drawer.isClosed) { goPage(startPage) }
 
     // ---- check-in is a full-screen overlay (no Scaffold padding jumps, one smooth slide) ----
     var checkInKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -216,8 +207,8 @@ private fun MainShell(
             startHandled = true
             when (settings.startPage) {
                 "checkin" -> if (pendingRoute == null) openCheckIn()
-                "activities" -> nav.goManage(R_ACTIVITIES)
-                "moods" -> nav.goManage(R_MOODS)
+                "activities" -> manage = R_ACTIVITIES
+                "moods" -> manage = R_MOODS
             }
         }
     }
@@ -230,7 +221,11 @@ private fun MainShell(
         if (pendingRoute != null) onRouteConsumed()
     }
 
-    val title = if (onTabs) TABS[page].label else if (route == R_ACTIVITIES) R.string.nav_activities else R.string.nav_moods
+    val title = when (manage) {
+        R_ACTIVITIES -> R.string.nav_activities
+        R_MOODS -> R.string.nav_moods
+        else -> TABS[page].label
+    }
     val lang = effectiveLanguage(settings.language)
 
     Box(Modifier.fillMaxSize()) {
@@ -244,11 +239,11 @@ private fun MainShell(
                     modifier = Modifier.fillMaxWidth(0.82f),
                 ) {
                     DrawerBody(
-                        selectedKey = if (onTabs) TABS[page].route else route, user = user,
+                        selectedKey = manage ?: TABS[page].route, user = user,
                         onNavigate = { r ->
                             scope.launch { drawer.close() }
                             val i = TABS.indexOfFirst { it.route == r }
-                            if (i >= 0) goPage(i) else nav.goManage(r)
+                            if (i >= 0) goPage(i) else manage = r
                         },
                         onLogout = { scope.launch { drawer.close() }; vm.logout() },
                     )
@@ -270,7 +265,7 @@ private fun MainShell(
                 bottomBar = {
                     NavigationBar(containerColor = cs.surfaceContainer) {
                         TABS.forEachIndexed { i, t ->
-                            val sel = onTabs && page == i
+                            val sel = manage == null && page == i
                             NavigationBarItem(
                                 selected = sel,
                                 onClick = { if (!sel) goPage(i) },
@@ -282,7 +277,7 @@ private fun MainShell(
                 },
                 floatingActionButton = {
                     AnimatedVisibility(
-                        visible = onTabs && (page == 0 || page == 1),
+                        visible = manage == null && (page == 0 || page == 1),
                         enter = scaleIn(spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium)) + fadeIn(),
                         exit = scaleOut(tween(120)) + fadeOut(tween(120)),
                     ) {
@@ -294,18 +289,28 @@ private fun MainShell(
                     }
                 },
             ) { inner ->
-                NavHost(
-                    navController = nav,
-                    startDestination = R_TABS,
+                // "Fade through" between the pager and a Manage page.
+                AnimatedContent(
+                    targetState = manage,
                     modifier = Modifier.fillMaxSize().padding(inner),
-                    // Material "fade through": outgoing page fades quickly, incoming fades + settles from 96%.
-                    enterTransition = { fadeIn(tween(230, delayMillis = 70)) + scaleIn(tween(230, delayMillis = 70, easing = FastOutSlowInEasing), initialScale = 0.96f) },
-                    exitTransition = { fadeOut(tween(70)) },
-                    popEnterTransition = { fadeIn(tween(230, delayMillis = 70)) + scaleIn(tween(230, delayMillis = 70, easing = FastOutSlowInEasing), initialScale = 0.96f) },
-                    popExitTransition = { fadeOut(tween(70)) },
-                ) {
-                    composable(R_TABS) {
-                        HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it }) { p ->
+                    transitionSpec = {
+                        (fadeIn(tween(230, delayMillis = 70)) + scaleIn(tween(230, delayMillis = 70, easing = FastOutSlowInEasing), initialScale = 0.96f)) togetherWith fadeOut(tween(70))
+                    },
+                    label = "shell",
+                ) { m ->
+                    when (m) {
+                        R_ACTIVITIES -> ManageActivitiesScreen(
+                            onAdd = { e, l -> vm.addActivity(e, l) },
+                            onUpdate = { id, e, l -> vm.updateActivity(id, e, l) },
+                            onRemove = { vm.removeActivity(it) },
+                            onReorder = { vm.reorderActivities(it) },
+                        )
+                        R_MOODS -> ManageMoodsScreen(
+                            overridden = moodOverrides?.keys ?: emptySet(),
+                            onUpdate = { k, e, l -> vm.updateMood(k, e, l) },
+                            onReset = { vm.resetMood(it) },
+                        )
+                        else -> HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it }) { p ->
                             when (p) {
                                 0 -> TodayScreen(
                                     entries = entries, user = user,
@@ -325,26 +330,11 @@ private fun MainShell(
                                 2 -> StatsScreen(entries)
                                 else -> SettingsScreen(
                                     vm = vm, settings = settings, user = user, entries = entries,
-                                    onOpenActivities = { nav.goManage(R_ACTIVITIES) },
-                                    onOpenMoods = { nav.goManage(R_MOODS) },
+                                    onOpenActivities = { manage = R_ACTIVITIES },
+                                    onOpenMoods = { manage = R_MOODS },
                                 )
                             }
                         }
-                    }
-                    composable(R_ACTIVITIES) {
-                        ManageActivitiesScreen(
-                            onAdd = { e, l -> vm.addActivity(e, l) },
-                            onUpdate = { id, e, l -> vm.updateActivity(id, e, l) },
-                            onRemove = { vm.removeActivity(it) },
-                            onReorder = { vm.reorderActivities(it) },
-                        )
-                    }
-                    composable(R_MOODS) {
-                        ManageMoodsScreen(
-                            overridden = moodOverrides?.keys ?: emptySet(),
-                            onUpdate = { k, e, l -> vm.updateMood(k, e, l) },
-                            onReset = { vm.resetMood(it) },
-                        )
                     }
                 }
             }
@@ -371,7 +361,7 @@ private fun MainShell(
                     },
                     onAddActivity = { e, l -> vm.addActivity(e, l) },
                     onClose = { checkInKey = null },
-                    onManageActivities = { checkInKey = null; nav.goManage(R_ACTIVITIES) },
+                    onManageActivities = { checkInKey = null; manage = R_ACTIVITIES },
                 )
             }
         }

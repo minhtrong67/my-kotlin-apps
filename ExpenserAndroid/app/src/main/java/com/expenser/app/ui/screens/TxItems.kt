@@ -34,7 +34,7 @@ fun txTitle(tx: Tx, category: Category?): String {
 @Composable
 fun amountColor(type: String): Color = when (type) {
     TxType.INCOME -> LocalIncomeColors.current.income
-    TxType.EXPENSE -> MaterialTheme.colorScheme.error
+    TxType.EXPENSE -> com.expenser.app.ui.theme.LocalIncomeColors.current.expense
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 

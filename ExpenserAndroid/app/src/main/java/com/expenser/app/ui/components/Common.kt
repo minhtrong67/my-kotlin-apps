@@ -37,6 +37,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -299,8 +300,8 @@ fun AccordionCard(
 ) {
     Surface(modifier.fillMaxWidth().animateContentSize(tween(200)), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column {
-            Row(Modifier.clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+            Row(Modifier.clickable(onClick = onToggle).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
                     Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(22.dp))
                 }
                 Spacer(Modifier.width(14.dp))
@@ -734,7 +735,7 @@ data class Bucket(val label: String, val income: Long, val expense: Long)
 fun TrendBars(buckets: List<Bucket>, modifier: Modifier = Modifier, barAreaHeight: Dp = 140.dp) {
     val max = buckets.maxOfOrNull { maxOf(it.income, it.expense) }?.coerceAtLeast(1L) ?: 1L
     val income = LocalIncomeColors.current.income
-    val expense = MaterialTheme.colorScheme.error
+    val expense = com.expenser.app.ui.theme.LocalIncomeColors.current.expense
     Row(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         buckets.forEach { b ->
             val hi by animateFloatAsState(b.income / max.toFloat(), tween(600), label = "hi")
@@ -1006,4 +1007,64 @@ fun DateSelect(label: String, millis: Long?, onChange: (Long?) -> Unit, modifier
         if (millis != null) Box(Modifier.align(Alignment.CenterEnd).size(56.dp).clip(CircleShape).clickable { onChange(null) })
     }
     if (open) SimpleDatePicker(millis ?: System.currentTimeMillis(), { onChange(it) }, { open = false })
+}
+
+
+// ---------------------------------------------------------------- hints & scroll-to-top
+
+/** Small caption above swipeable lists. */
+@Composable
+fun SwipeHint(modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.SwapHoriz, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+        Spacer(Modifier.width(6.dp))
+        Text(stringResource(R.string.swipe_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+    }
+}
+
+@Composable
+fun rememberShowTop(state: LazyListState, after: Int = 5): State<Boolean> = remember(state) { derivedStateOf { state.firstVisibleItemIndex >= after } }
+
+@Composable
+fun rememberShowTop(state: androidx.compose.foundation.lazy.grid.LazyGridState, after: Int = 6): State<Boolean> = remember(state) { derivedStateOf { state.firstVisibleItemIndex >= after } }
+
+/** Round "back to top" button, bottom-start (the add FAB lives bottom-end). Put it inside a Box that holds the list. */
+@Composable
+fun BoxScope.ScrollToTopButton(visible: Boolean, onClick: () -> Unit) {
+    AnimatedVisibility(
+        visible, modifier = Modifier.align(Alignment.BottomStart),
+        enter = scaleIn(tween(180), initialScale = 0.6f) + fadeIn(tween(160)), exit = scaleOut(tween(120), targetScale = 0.6f) + fadeOut(tween(100)),
+    ) {
+        SmallFloatingActionButton(
+            onClick = onClick, modifier = Modifier.padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.scroll_top)) }
+    }
+}
+
+@Composable
+fun BoxScope.ScrollToTop(state: LazyListState) {
+    val show by rememberShowTop(state)
+    val scope = rememberCoroutineScope()
+    ScrollToTopButton(show) { scope.launch { state.animateScrollToItem(0) } }
+}
+
+@Composable
+fun BoxScope.ScrollToTop(state: androidx.compose.foundation.lazy.grid.LazyGridState) {
+    val show by rememberShowTop(state)
+    val scope = rememberCoroutineScope()
+    ScrollToTopButton(show) { scope.launch { state.animateScrollToItem(0) } }
+}
+
+@Composable
+fun BoxScope.ScrollToTop(state: ScrollState) {
+    val show by remember(state) { derivedStateOf { state.value > 900 } }
+    val scope = rememberCoroutineScope()
+    ScrollToTopButton(show) { scope.launch { state.animateScrollTo(0) } }
+}
+
+/** Square tonal icon button that sits next to a search box (same 56 dp height) to switch between layouts. */
+@Composable
+fun ViewToggleButton(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FilledTonalIconButton(onClick = onClick, modifier = modifier.size(56.dp)) { Icon(icon, description) }
 }

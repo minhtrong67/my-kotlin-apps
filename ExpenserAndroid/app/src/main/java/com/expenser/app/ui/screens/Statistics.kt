@@ -71,7 +71,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     val incomeRows = remember(filtered, catById) { rowsFor(TxType.INCOME) }
     var sheetType by remember { mutableStateOf(TxType.EXPENSE) }
     val inc = LocalIncomeColors.current
-    val errorColor = MaterialTheme.colorScheme.error
+    val errorColor = com.expenser.app.ui.theme.LocalIncomeColors.current.expense
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -87,11 +87,11 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             try {
-                fun slices(rows: List<CatRow>, tot: Long) = rows.map { ImgSlice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, (it.category?.color?.toColor() ?: Color(0xFF94A3B8)).toArgb(), Format.money(it.value), "${it.pct}%") }
+                fun slices(rows: List<CatRow>, tot: Long) = rows.mapIndexed { i, it -> ImgSlice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, chartColor(i, it.category != null).toArgb(), Format.money(it.value), "${it.pct}%") }
                 val sections = mutableListOf(
                     ImgSection(ieSection, ctx.getString(R.string.dashboard_remaining), Format.compactMoney(income - expense), listOf(
                         ImgSlice(incLabel, income, inc.income.toArgb(), Format.money(income), "${if (income + expense == 0L) 0 else Math.round(income * 100.0 / (income + expense))}%"),
-                        ImgSlice(expLabel, expense, colors.error.toArgb(), Format.money(expense), "${if (income + expense == 0L) 0 else Math.round(expense * 100.0 / (income + expense))}%"),
+                        ImgSlice(expLabel, expense, errorColor.toArgb(), Format.money(expense), "${if (income + expense == 0L) 0 else Math.round(expense * 100.0 / (income + expense))}%"),
                     )),
                 )
                 if (categoryRows.isNotEmpty()) sections.add(ImgSection(catSection, expLabel, Format.compactMoney(expense), slices(categoryRows, expense)))
@@ -108,7 +108,9 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
         }
     }
 
-    LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -121,9 +123,9 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile(Icons.Rounded.ArrowUpward, stringResource(R.string.stats_total_income), Format.money(income), inc.container, inc.onContainer, Modifier.weight(1f))
-                StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.stats_total_expense), Format.money(expense), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f))
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(Icons.Rounded.ArrowUpward, stringResource(R.string.stats_total_income), Format.money(income), inc.container, inc.onContainer, Modifier.weight(1f).fillMaxHeight())
+                StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.stats_total_expense), Format.money(expense), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f).fillMaxHeight())
             }
             Spacer(Modifier.height(10.dp))
             StatTile(Icons.Rounded.Balance, stringResource(R.string.stats_difference), Format.money(income - expense), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, Modifier.fillMaxWidth(),
@@ -152,7 +154,7 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                     if (categoryRows.isEmpty()) EmptyState(Icons.Rounded.DonutLarge, stringResource(R.string.stats_no_expense))
                     else {
                         DonutWithLegend(
-                            categoryRows.map { Slice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, it.category?.color?.toColor() ?: Color(0xFF94A3B8)) },
+                            categoryRows.mapIndexed { i, it -> Slice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, chartColor(i, it.category != null)) },
                             centerTitle = expLabel, centerValue = Format.compactMoney(expense),
                             onSliceClick = { sheetType = TxType.EXPENSE; sheetCategory = categoryRows[it] },
                         )
@@ -163,13 +165,15 @@ fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
             if (incomeRows.isNotEmpty()) item {
                 SectionCard(stringResource(R.string.stats_pie_income)) {
                     DonutWithLegend(
-                        incomeRows.map { Slice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, it.category?.color?.toColor() ?: Color(0xFF94A3B8)) },
+                        incomeRows.mapIndexed { i, it -> Slice(it.category?.let { c -> "${c.emoji} ${c.name}" } ?: other, it.value, chartColor(i, it.category != null)) },
                         centerTitle = incLabel, centerValue = Format.compactMoney(income),
                         onSliceClick = { sheetType = TxType.INCOME; sheetCategory = incomeRows[it] },
                     )
                 }
             }
         }
+    }
+        ScrollToTop(listState)
     }
 
     sheetCategory?.let { row ->

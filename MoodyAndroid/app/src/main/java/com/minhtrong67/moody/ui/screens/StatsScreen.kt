@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -131,6 +132,22 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
     })
     val failedMsg = stringResource(R.string.stats_exportFailed)
 
+    // The report layer is recorded ONLY while exporting. Recording it permanently would re-draw this whole tall page twice
+    // on every frame (the wave animation invalidates it 60x/s) and starve the RenderThread.
+    var capturing by remember { mutableStateOf(false) }
+    suspend fun captureAndExport(pdf: Boolean) {
+        try {
+            capturing = true
+            withFrameNanos { }            // frame 1: draw pass records the layer
+            withFrameNanos { }            // frame 2: recorded content is ready
+            val bitmap = layer.toImageBitmap().asAndroidBitmap()
+            capturing = false
+            exportReport(ctx, bitmap, label, pdf)
+        } finally {
+            capturing = false
+        }
+    }
+
     val scroll = rememberScrollState()
     val showTop by remember { androidx.compose.runtime.derivedStateOf { scroll.value > 500 } }
     Box(modifier.fillMaxSize()) {
@@ -179,7 +196,7 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
                 onClick = {
                     scope.launch {
                         exporting = "pdf"
-                        runCatching { exportReport(ctx, layer.toImageBitmap().asAndroidBitmap(), label, pdf = true) }
+                        runCatching { captureAndExport(pdf = true) }
                             .onFailure { toaster.show(failedMsg) }
                         exporting = null
                     }
@@ -191,7 +208,7 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
                 onClick = {
                     scope.launch {
                         exporting = "png"
-                        runCatching { exportReport(ctx, layer.toImageBitmap().asAndroidBitmap(), label, pdf = false) }
+                        runCatching { captureAndExport(pdf = false) }
                             .onFailure { toaster.show(failedMsg) }
                         exporting = null
                     }
@@ -205,8 +222,12 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
         Column(
             Modifier
                 .drawWithContent {
-                    layer.record { this@drawWithContent.drawContent() }
-                    drawLayer(layer)
+                    if (capturing) {
+                        layer.record { this@drawWithContent.drawContent() }
+                        drawLayer(layer)
+                    } else {
+                        drawContent()
+                    }
                 }
                 .background(cs.surface)
                 .padding(vertical = 12.dp),

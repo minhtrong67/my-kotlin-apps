@@ -281,7 +281,7 @@
     <string name="reminder_enable">Enable reminder</string>
     <string name="reminder_enable_hint">One notification a day; tap it to add a transaction</string>
     <string name="reminder_time">Reminder time</string>
-    <string name="reminder_test">Send a test notification</string>
+    <string name="reminder_test">Send test</string>
     <string name="reminder_on">Reminder set for %1$s every day</string>
     <string name="reminder_off">Reminder turned off</string>
     <string name="reminder_time_saved">Reminder time set to %1$s</string>
@@ -355,4 +355,9 @@
     <string name="login_f2_desc">Income and spending by day, week, month and year</string>
     <string name="login_f3_title">Cafe recap</string>
     <string name="login_f3_desc">Keep every cup, shop and moment</string>
+    <string name="swipe_hint">Swipe right to edit · left to delete</string>
+    <string name="scroll_top">Back to top</string>
+    <string name="view_grid">Grid view</string>
+    <string name="view_list">List view</string>
+    <string name="view_cards">Card view</string>
 </resources>

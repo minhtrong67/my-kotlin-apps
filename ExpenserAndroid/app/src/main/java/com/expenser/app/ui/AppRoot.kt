@@ -12,6 +12,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +51,7 @@ import com.expenser.app.ui.components.*
 import com.expenser.app.ui.screens.*
 import kotlinx.coroutines.launch
 
+const val ROUTE_TABS = "tabs"
 const val ROUTE_DASHBOARD = "dashboard"
 const val ROUTE_TRANSACTIONS = "transactions"
 const val ROUTE_STATS = "statistics"
@@ -70,25 +78,6 @@ private val DRAWER = listOf(
 )
 private val BOTTOM = listOf(ROUTE_DASHBOARD, ROUTE_TRANSACTIONS, ROUTE_STATS, ROUTE_SETTINGS).map { r -> DRAWER.first { it.route == r } }
 
-private fun tabIndexOf(e: NavBackStackEntry): Int = BOTTOM.indexOfFirst { it.route == e.destination.route }
-
-/** Bottom tabs slide sideways in the direction of travel (matches the swipe); other screens fade + gently scale in. */
-private fun enterFor(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition {
-    val a = tabIndexOf(from); val b = tabIndexOf(to)
-    return if (a >= 0 && b >= 0 && a != b) {
-        val dir = if (b > a) 1 else -1
-        slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) { it / 3 * dir } + fadeIn(tween(240))
-    } else fadeIn(tween(240)) + scaleIn(tween(260, easing = FastOutSlowInEasing), initialScale = 0.96f)
-}
-
-private fun exitFor(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition {
-    val a = tabIndexOf(from); val b = tabIndexOf(to)
-    return if (a >= 0 && b >= 0 && a != b) {
-        val dir = if (b > a) 1 else -1
-        slideOutHorizontally(tween(240, easing = FastOutSlowInEasing)) { -it / 3 * dir } + fadeOut(tween(140))
-    } else fadeOut(tween(140))
-}
-
 @Composable
 fun AppRoot(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled: () -> Unit) {
     val configured = vm.configured
@@ -105,7 +94,10 @@ fun AppRoot(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled: () -> Uni
 private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled: () -> Unit) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
-    val route = backStack?.destination?.route ?: ROUTE_DASHBOARD
+    val navRoute = backStack?.destination?.route ?: ROUTE_TABS
+    // The four bottom tabs live in one pager so a slow swipe drags the next screen into view.
+    val pager = rememberPagerState(pageCount = { BOTTOM.size })
+    val route = if (navRoute == ROUTE_TABS) BOTTOM[pager.currentPage].route else navRoute
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -131,22 +123,44 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         if (launchAdd != null) { form = TxFormRequest(initialType = if (launchAdd == TxType.INCOME) TxType.INCOME else TxType.EXPENSE); onLaunchAddHandled() }
     }
     BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }
+    BackHandler(!drawer.isOpen && navRoute == ROUTE_TABS && pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0) } }
 
     fun go(r: String) {
         scope.launch { drawer.close() }
         if (r == route) return
-        nav.navigate(r) { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true }
+        val tab = BOTTOM.indexOfFirst { it.route == r }
+        if (tab >= 0) {
+            if (navRoute != ROUTE_TABS) { nav.popBackStack(ROUTE_TABS, false); scope.launch { pager.scrollToPage(tab) } }
+            else scope.launch { pager.animateScrollToPage(tab) }
+        } else nav.navigate(r) { popUpTo(ROUTE_TABS); launchSingleTop = true }
+    }
+
+    // Overscrolling to the right on the first tab (Overview) pulls the sidebar open.
+    val drawerPull = remember(pager, drawer) {
+        object : NestedScrollConnection {
+            var pulled = 0f
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && pager.currentPage == 0 && available.x > 0f) pulled += available.x
+                return Offset.Zero
+            }
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                val open = pulled > 90f || available.x > 1500f
+                pulled = 0f
+                if (open && pager.currentPage == 0) drawer.open()
+                return Velocity.Zero
+            }
+        }
     }
 
     val title = DRAWER.firstOrNull { it.route == route }?.label ?: R.string.app_name
     val showFab = route == ROUTE_DASHBOARD || route == ROUTE_TRANSACTIONS || (route == ROUTE_CAFE && cafeId != null)
 
     val formHost = remember { FormHostState() }
-    val tabIndex = BOTTOM.indexOfFirst { it.route == route }
     CompositionLocalProvider(LocalFormHost provides formHost) {
     Box(Modifier.fillMaxSize()) {
     ModalNavigationDrawer(
         drawerState = drawer,
+        gesturesEnabled = drawer.isOpen || navRoute != ROUTE_TABS,
         drawerContent = {
             ModalDrawerSheet(drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp), drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.fillMaxHeight().statusBarsPadding()) {
@@ -206,26 +220,25 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
             },
             containerColor = MaterialTheme.colorScheme.surface,
         ) { padding ->
-            Box(
-                Modifier.padding(padding).fillMaxSize().then(
-                    if (tabIndex >= 0) Modifier.swipeSwitch(
-                        onPrev = { if (tabIndex > 0) go(BOTTOM[tabIndex - 1].route) },
-                        onNext = { if (tabIndex < BOTTOM.lastIndex) go(BOTTOM[tabIndex + 1].route) },
-                    ) else Modifier,
-                ),
-            ) {
+            Box(Modifier.padding(padding).fillMaxSize()) {
                 NavHost(
-                    nav, startDestination = ROUTE_DASHBOARD,
-                    enterTransition = { enterFor(initialState, targetState) },
-                    exitTransition = { exitFor(initialState, targetState) },
-                    popEnterTransition = { enterFor(initialState, targetState) },
-                    popExitTransition = { exitFor(initialState, targetState) },
+                    nav, startDestination = ROUTE_TABS,
+                    enterTransition = { fadeIn(tween(220)) + scaleIn(tween(240, easing = FastOutSlowInEasing), initialScale = 0.96f) },
+                    exitTransition = { fadeOut(tween(140)) },
+                    popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(240, easing = FastOutSlowInEasing), initialScale = 0.96f) },
+                    popExitTransition = { fadeOut(tween(140)) },
                 ) {
-                    composable(ROUTE_DASHBOARD) { DashboardScreen(vm, onAdd = { form = TxFormRequest() }, onEdit = { form = TxFormRequest(editing = it) }, onViewAll = { go(ROUTE_TRANSACTIONS) }) }
-                    composable(ROUTE_TRANSACTIONS) { TransactionsScreen(vm, onEdit = { form = TxFormRequest(editing = it) }) }
-                    composable(ROUTE_STATS) { StatisticsScreen(vm, onEdit = { form = TxFormRequest(editing = it) }) }
+                    composable(ROUTE_TABS) {
+                        HorizontalPager(pager, Modifier.fillMaxSize().nestedScroll(drawerPull), key = { BOTTOM[it].route }) { page ->
+                            when (BOTTOM[page].route) {
+                                ROUTE_DASHBOARD -> DashboardScreen(vm, onAdd = { form = TxFormRequest() }, onEdit = { form = TxFormRequest(editing = it) }, onViewAll = { go(ROUTE_TRANSACTIONS) })
+                                ROUTE_TRANSACTIONS -> TransactionsScreen(vm, onEdit = { form = TxFormRequest(editing = it) })
+                                ROUTE_STATS -> StatisticsScreen(vm, onEdit = { form = TxFormRequest(editing = it) })
+                                else -> SettingsScreen(vm)
+                            }
+                        }
+                    }
                     composable(ROUTE_WALLETS) { WalletsScreen(vm) }
-                    composable(ROUTE_SETTINGS) { SettingsScreen(vm) }
                     composable(ROUTE_CATEGORIES) { CategoriesScreen(vm) }
                     composable(ROUTE_CAFE) { CafeScreen(vm, onEdit = { form = TxFormRequest(editing = it) }) }
                     composable(ROUTE_CAFE_SHOPS) { CafeShopsScreen(vm) }

@@ -36,8 +36,9 @@ fun WalletsScreen(vm: MainViewModel) {
         m
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
                 StatTile(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.wallet_total_all), Format.money(wallets.sumOf { it.balance }),
                     MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, Modifier.fillMaxWidth(),
@@ -48,8 +49,9 @@ fun WalletsScreen(vm: MainViewModel) {
                     })
             }
             if (wallets.isEmpty()) item { EmptyState(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.wallet_empty), action = stringResource(R.string.wallet_add_first) to { editor = WalletEditorState(null) }) }
+            if (wallets.isNotEmpty()) item { SwipeHint() }
             items(wallets, key = { it.id }) { w ->
-                SwipeRow(onEdit = { editor = WalletEditorState(w) }, onDelete = { deleteTarget = w }, shape = RoundedCornerShape(24.dp)) {
+                SwipeRow(onEdit = { editor = WalletEditorState(w) }, onDelete = { deleteTarget = w }, shape = RoundedCornerShape(24.dp), modifier = Modifier.animateItem()) {
                     Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             IconAvatar(walletIcon(w.icon), w.color.toColor(), 48.dp)
@@ -58,12 +60,13 @@ fun WalletsScreen(vm: MainViewModel) {
                                 Text(w.name, style = MaterialTheme.typography.titleMedium)
                                 Text(stringResource(R.string.wallet_usage, usage[w.id] ?: 0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text(Format.money(w.balance), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = if (w.balance < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                            Text(Format.money(w.balance), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = if (w.balance < 0) com.expenser.app.ui.theme.LocalIncomeColors.current.expense else MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
             }
         }
+        ScrollToTop(listState)
         ScreenFab({ editor = WalletEditorState(null) }, Modifier.align(Alignment.BottomEnd))
     }
 

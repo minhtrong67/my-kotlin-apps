@@ -281,7 +281,7 @@
     <string name="reminder_enable">Bật nhắc nhở</string>
     <string name="reminder_enable_hint">Mỗi ngày một thông báo, chạm vào là mở ngay form thêm giao dịch</string>
     <string name="reminder_time">Giờ nhắc</string>
-    <string name="reminder_test">Gửi thử thông báo</string>
+    <string name="reminder_test">Gửi thử</string>
     <string name="reminder_on">Đã bật nhắc nhở lúc %1$s mỗi ngày</string>
     <string name="reminder_off">Đã tắt nhắc nhở</string>
     <string name="reminder_time_saved">Đã đổi giờ nhắc thành %1$s</string>
@@ -355,4 +355,9 @@
     <string name="login_f2_desc">Biểu đồ thu chi theo ngày, tuần, tháng, năm</string>
     <string name="login_f3_title">Cafe recap</string>
     <string name="login_f3_desc">Lưu lại từng ly cafe, quán và khoảnh khắc</string>
+    <string name="swipe_hint">Vuốt sang phải để sửa · sang trái để xóa</string>
+    <string name="scroll_top">Lên đầu trang</string>
+    <string name="view_grid">Dạng lưới</string>
+    <string name="view_list">Dạng danh sách</string>
+    <string name="view_cards">Dạng thẻ</string>
 </resources>

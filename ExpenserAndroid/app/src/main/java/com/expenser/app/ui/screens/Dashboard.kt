@@ -51,7 +51,7 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
     val catById = remember(categories) { categories.associateBy { it.id } }
     val walletById = remember(wallets) { wallets.associateBy { it.id } }
     val inc = LocalIncomeColors.current
-    val errorColor = MaterialTheme.colorScheme.error
+    val errorColor = com.expenser.app.ui.theme.LocalIncomeColors.current.expense
 
     val stats = remember(transactions) {
         val now = System.currentTimeMillis()
@@ -75,8 +75,10 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
     val totalBalance = wallets.sumOf { it.balance }
 
     if (loading) { LoadingBox(); return }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
-    LazyColumn(contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Box(Modifier.fillMaxSize()) {
+    LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -86,9 +88,9 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
                         MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer, Modifier.weight(1f),
                         valueColor = if (remaining < 0) errorColor else MaterialTheme.colorScheme.onTertiaryContainer)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatTile(Icons.Rounded.ArrowUpward, stringResource(R.string.dashboard_month_income), Format.money(monthIncome), inc.container, inc.onContainer, Modifier.weight(1f), badge = { ChangeBadge(monthIncome, sums[2]) })
-                    StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.dashboard_month_expense), Format.money(monthExpense), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f), badge = { ChangeBadge(monthExpense, sums[3]) })
+                Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatTile(Icons.Rounded.ArrowUpward, stringResource(R.string.dashboard_month_income), Format.money(monthIncome), inc.container, inc.onContainer, Modifier.weight(1f).fillMaxHeight(), badge = { ChangeBadge(monthIncome, sums[2]) })
+                    StatTile(Icons.Rounded.ArrowDownward, stringResource(R.string.dashboard_month_expense), Format.money(monthExpense), MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer, Modifier.weight(1f).fillMaxHeight(), badge = { ChangeBadge(monthExpense, sums[3]) })
                 }
             }
         }
@@ -113,7 +115,7 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
                 else {
                     val other = stringResource(R.string.common_other)
                     DonutWithLegend(
-                        rows.map { (id, v) -> Slice(catById[id]?.let { "${it.emoji} ${it.name}" } ?: other, v, catById[id]?.color?.toColor() ?: Color(0xFF94A3B8)) },
+                        rows.mapIndexed { i, (id, v) -> Slice(catById[id]?.let { "${it.emoji} ${it.name}" } ?: other, v, chartColor(i, catById[id] != null)) },
                         centerTitle = stringResource(R.string.tx_expense), centerValue = Format.compactMoney(monthExpense),
                     )
                 }
@@ -149,5 +151,7 @@ fun DashboardScreen(vm: MainViewModel, onAdd: () -> Unit, onEdit: (com.expenser.
                 }
             }
         }
+    }
+        ScrollToTop(listState)
     }
 }

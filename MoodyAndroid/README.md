@@ -17,12 +17,15 @@ App chạy được ngay ở **chế độ khách** (dữ liệu lưu trên máy
 
 ## Bật đăng nhập Google + đồng bộ (dùng chung project Firebase với web)
 
-1. Firebase Console → project Moody hiện tại → **Add app → Android**, package name `com.minhtrong67.moody`.
-2. Thêm **SHA-1** (debug): chạy `./gradlew signingReport` và copy SHA-1 của biến thể `debug`. Khi phát hành thì thêm SHA-1 của keystore release.
-3. Authentication → Sign-in method → bật **Google** (đã bật nếu web đang dùng).
-4. Tải `google-services.json`, đặt vào `app/google-services.json`, rồi Sync lại.
-   (File này đã nằm trong `.gitignore`; Gradle chỉ áp dụng plugin Firebase khi file tồn tại.)
-5. Firestore rules của web (`users/{uid}/...` chỉ chủ tài khoản truy cập) dùng được nguyên cho Android.
+Cấu hình Firebase nằm trong file **`.env`** ở thư mục gốc (đã được `.gitignore`, không commit, không cần `google-services.json`):
+
+1. Sao chép `.env.example` thành `.env` và điền 6 giá trị (lấy trong Firebase Console → Project settings → Your apps → Android, hoặc từ file `google-services.json` cũ):
+   `FIREBASE_PROJECT_ID`, `FIREBASE_PROJECT_NUMBER`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_APP_ID`, `FIREBASE_API_KEY`, `GOOGLE_WEB_CLIENT_ID` (OAuth client loại *Web*).
+2. Package name đăng ký trên Firebase phải là `com.minhtrong67.moody`, và đã thêm **SHA-1** (`./gradlew signingReport`). Bật Google ở Authentication.
+3. Build lại. Không có `.env` thì app vẫn chạy ở chế độ khách.
+4. Trên CI có thể đặt cùng tên đó làm biến môi trường thay cho file `.env`.
+
+Lưu ý bảo mật: API key của Firebase không phải bí mật tuyệt đối (nó nằm trong APK), hãy **giới hạn key theo package + SHA-1** trong Google Cloud Console → APIs & Services → Credentials, và dùng Firestore Rules (chỉ chủ tài khoản đọc/ghi `users/{uid}/...`).
 
 ## Đối chiếu với web
 

@@ -54,6 +54,7 @@ fun CategoriesScreen(vm: MainViewModel) {
                 )
             }
             item { SearchField(search, { search = it }, stringResource(R.string.cat_search)) }
+            if (list.isNotEmpty()) item { SwipeHint() }
             if (list.isEmpty()) item { EmptyState(Icons.Rounded.Category, if (search.isBlank()) stringResource(R.string.cat_empty) else stringResource(R.string.cat_no_match, search)) }
             items(shown, key = { it.id }) { c ->
                 SwipeRow(onEdit = { editor = CategoryEditorState(c, c.type) }, onDelete = { deleteTarget = c }, modifier = reorderable(reorder, c.id)) {
@@ -71,6 +72,7 @@ fun CategoriesScreen(vm: MainViewModel) {
                 }
             }
         }
+        ScrollToTop(listState)
         ScreenFab({ editor = CategoryEditorState(null, type) }, Modifier.align(Alignment.BottomEnd))
     }
 

@@ -48,7 +48,10 @@ import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LightMode
@@ -320,7 +323,7 @@ fun SettingsScreen(
 
             // ---------- Appearance ----------
             Section(stringResource(R.string.settings_appearance)) {
-                Column(Modifier.padding(16.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                     SegmentedTabs(
                         listOf("light" to stringResource(R.string.theme_lightShort), "dark" to stringResource(R.string.theme_darkShort), "system" to stringResource(R.string.theme_systemShort)),
                         settings.themeMode, { vm.setThemeMode(it) },
@@ -328,47 +331,54 @@ fun SettingsScreen(
                     )
                 }
                 Divider()
+                val dyn = dynamicOk && settings.dynamicColor
+                if (dynamicOk) {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_themeDynamic),
+                        subtitle = stringResource(R.string.settings_themeDynamicHint),
+                        checked = settings.dynamicColor,
+                        leading = { Icon(Icons.Rounded.AutoAwesome, null, tint = cs.primary) },
+                    ) { vm.setDynamicColor(it) }
+                    Divider()
+                }
                 SettingItem(
                     title = stringResource(R.string.settings_themeColor),
-                    subtitle = if (settings.themeColor == Palettes.DYNAMIC_ID) stringResource(R.string.settings_themeDynamic) else colorName(ctx, settings.themeColor),
+                    subtitle = if (dyn) null else colorName(ctx, settings.themeColor),
                     leading = {
-                        if (settings.themeColor == Palettes.DYNAMIC_ID && dynamicOk) DynamicPreview(dark, 36.dp)
-                        else PalettePreview(Palettes.byId(settings.themeColor), dark, 36.dp)
+                        if (dyn) DynamicPreview(dark, 32.dp) else PalettePreview(Palettes.byId(settings.themeColor), dark, 32.dp)
                     },
-                    onClick = { colorsOpen = !colorsOpen },
+                    onClick = if (dyn) null else ({ colorsOpen = !colorsOpen }),
                     trailing = {
-                        val rot by animateFloatAsState(if (colorsOpen) 180f else 0f, label = "chev")
-                        Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(rot), tint = cs.onSurfaceVariant)
+                        val rot by animateFloatAsState(if (colorsOpen && !dyn) 180f else 0f, label = "chev")
+                        Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(rot), tint = if (dyn) cs.outlineVariant else cs.onSurfaceVariant)
                     },
                 )
-                AnimatedVisibility(colorsOpen) {
+                AnimatedVisibility(colorsOpen && !dyn) {
                     Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (dynamicOk) Swatch(selected = settings.themeColor == Palettes.DYNAMIC_ID, onClick = { vm.setThemeColor(Palettes.DYNAMIC_ID) }) { DynamicPreview(dark, 40.dp) }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Palettes.all.forEach { p ->
                                 Swatch(selected = p.id == settings.themeColor, onClick = { vm.setThemeColor(p.id) }) { PalettePreview(p, dark, 40.dp) }
                             }
                         }
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            stringResource(if (dynamicOk) R.string.settings_themeDynamicHint else R.string.settings_themeColorHint),
-                            style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
-                        )
                     }
                 }
                 Divider()
                 SettingItem(
                     title = stringResource(R.string.settings_fontFamily),
                     leading = { Icon(Icons.Rounded.TextFields, null, tint = cs.primary) },
-                    trailing = { ValueMenu(Fonts.ids.map { it to fontLabel(it) }, settings.fontFamily, { vm.setFontFamily(it) }) },
+                    trailing = { ValueMenu(Fonts.ids.map { it to fontLabel(it, ctx) }, settings.fontFamily, { vm.setFontFamily(it) }) },
                 )
-                Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-                    Text(stringResource(R.string.settings_fontSize), style = MaterialTheme.typography.labelLarge, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-                    SegmentedTabs(
-                        listOf("0.9" to stringResource(R.string.settings_font_0_9), "1.0" to stringResource(R.string.settings_font_1), "1.15" to stringResource(R.string.settings_font_1_15)),
-                        settings.fontScale.toString(), { vm.setFontScale(it.toFloat()) },
-                    )
-                }
+                Divider()
+                SettingItem(
+                    title = stringResource(R.string.settings_fontSize),
+                    leading = { Icon(Icons.Rounded.FormatSize, null, tint = cs.primary) },
+                    trailing = {
+                        ValueMenu(
+                            listOf("0.9" to stringResource(R.string.settings_font_0_9), "1.0" to stringResource(R.string.settings_font_1), "1.15" to stringResource(R.string.settings_font_1_15)),
+                            settings.fontScale.toString(), { vm.setFontScale(it.toFloat()) },
+                        )
+                    },
+                )
                 Divider()
                 SettingItem(
                     title = stringResource(R.string.settings_language),
@@ -402,15 +412,16 @@ fun SettingsScreen(
             Section(stringResource(R.string.settings_reminders)) {
                 SwitchItem(stringResource(R.string.settings_remindDaily), settings.dailyEnabled,
                     subtitle = if (settings.dailyEnabled) settings.dailyTime else null,
-                    onSubtitleClick = { showTime = true }) { on ->
+                    onSubtitleClick = { showTime = true },
+                    leading = { Icon(Icons.Rounded.Notifications, null, tint = cs.primary) }) { on ->
                     if (on) withNotifPermission { vm.setDailyEnabled(true) } else vm.setDailyEnabled(false)
                 }
                 Divider()
-                SwitchItem(stringResource(R.string.settings_remindWeekly), settings.weeklyEnabled) { on ->
+                SwitchItem(stringResource(R.string.settings_remindWeekly), settings.weeklyEnabled, leading = { Icon(Icons.Rounded.CalendarViewWeek, null, tint = cs.primary) }) { on ->
                     if (on) withNotifPermission { vm.setWeeklyEnabled(true) } else vm.setWeeklyEnabled(false)
                 }
                 Divider()
-                SwitchItem(stringResource(R.string.settings_remindMonthly), settings.monthlyEnabled) { on ->
+                SwitchItem(stringResource(R.string.settings_remindMonthly), settings.monthlyEnabled, leading = { Icon(Icons.Rounded.CalendarMonth, null, tint = cs.primary) }) { on ->
                     if (on) withNotifPermission { vm.setMonthlyEnabled(true) } else vm.setMonthlyEnabled(false)
                 }
                 Divider()
@@ -564,9 +575,17 @@ private fun SettingItem(
 }
 
 @Composable
-private fun SwitchItem(title: String, checked: Boolean, subtitle: String? = null, onSubtitleClick: (() -> Unit)? = null, onChange: (Boolean) -> Unit) {
+private fun SwitchItem(
+    title: String,
+    checked: Boolean,
+    subtitle: String? = null,
+    onSubtitleClick: (() -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
+    onChange: (Boolean) -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (leading != null) Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { leading() }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             if (subtitle != null) {
@@ -593,12 +612,12 @@ private fun Swatch(selected: Boolean, onClick: () -> Unit, preview: @Composable 
     }
 }
 
-private fun fontLabel(id: String) = when (id) {
+private fun fontLabel(id: String, ctx: Context) = when (id) {
     "google-sans-flex" -> "Google Sans Flex"
     "roboto" -> "Roboto"
     "inter" -> "Inter"
     "be-vietnam-pro" -> "Be Vietnam Pro"
-    else -> "System"
+    else -> ctx.getString(R.string.settings_fontSystem)
 }
 
 private fun startPageLabel(key: String): Int = when (key) {

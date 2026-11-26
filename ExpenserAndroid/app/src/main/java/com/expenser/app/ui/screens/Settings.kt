@@ -53,15 +53,16 @@ private val ACCENTS = listOf(
 )
 
 @Composable
-private fun SettingCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+private fun SettingCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(Modifier.heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
-                Spacer(Modifier.width(12.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.width(14.dp))
+                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                action?.invoke()
             }
             content()
         }
@@ -69,15 +70,16 @@ private fun SettingCard(title: String, icon: ImageVector, modifier: Modifier = M
 }
 
 @Composable
-private fun Label(text: String) = Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Label(text: String) = Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 0.dp))
 
 @Composable
 private fun SwitchRow(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Spacer(Modifier.width(12.dp))
         Switch(checked, onChange)
     }
 }
@@ -157,7 +159,9 @@ fun SettingsScreen(vm: MainViewModel) {
         EntityInfo(Entity.DRINKS, R.string.nav_cafe_drinks, Icons.Rounded.Coffee) to drinks.size,
     )
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val scrollState = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ---- account ----
         SettingCard(stringResource(R.string.settings_account), Icons.Rounded.Person) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -180,7 +184,9 @@ fun SettingsScreen(vm: MainViewModel) {
         }
 
         // ---- appearance ----
-        SettingCard(stringResource(R.string.settings_appearance), Icons.Rounded.Palette) {
+        SettingCard(stringResource(R.string.settings_appearance), Icons.Rounded.Palette, action = {
+            TextButton(onClick = { confirmReset = true }, contentPadding = PaddingValues(horizontal = 10.dp)) { Icon(Icons.Rounded.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.settings_reset_btn), maxLines = 1) }
+        }) {
             Label(stringResource(R.string.settings_mode))
             PillSegmented(listOf(Seg("light", stringResource(R.string.settings_mode_light), Icons.Rounded.LightMode), Seg("dark", stringResource(R.string.settings_mode_dark), Icons.Rounded.DarkMode), Seg("system", stringResource(R.string.settings_mode_system), Icons.Rounded.BrightnessAuto)), settings.themeMode, { vm.setThemeMode(it) })
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -202,7 +208,6 @@ fun SettingsScreen(vm: MainViewModel) {
             }
             Label(stringResource(R.string.settings_font_size))
             PillSegmented(listOf(Seg("sm", stringResource(R.string.settings_font_sm)), Seg("md", stringResource(R.string.settings_font_md)), Seg("lg", stringResource(R.string.settings_font_lg))), settings.fontSize, { vm.setFontSize(it) })
-            TextButton(onClick = { confirmReset = true }, Modifier.align(Alignment.End)) { Icon(Icons.Rounded.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.settings_reset_btn)) }
         }
 
         // ---- reminder ----
@@ -214,9 +219,9 @@ fun SettingsScreen(vm: MainViewModel) {
                 else { vm.setReminder(on, settings.reminderTime); vm.toast(if (on) R.string.reminder_on else R.string.reminder_off, settings.reminderTime) }
             }
             if (settings.reminderEnabled) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { showTime = true }, Modifier.weight(1f)) { Icon(Icons.Rounded.Schedule, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(settings.reminderTime) }
-                    FilledTonalButton(onClick = { vm.sendTestReminder() }, Modifier.weight(1f)) { Text(stringResource(R.string.reminder_test)) }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = { showTime = true }, Modifier.weight(1f).height(48.dp)) { Icon(Icons.Rounded.Schedule, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(settings.reminderTime, maxLines = 1) }
+                    FilledTonalButton(onClick = { vm.sendTestReminder() }, Modifier.weight(1f).height(48.dp)) { Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.reminder_test), maxLines = 1) }
                 }
             }
         }
@@ -225,7 +230,7 @@ fun SettingsScreen(vm: MainViewModel) {
         AccordionCard(stringResource(R.string.settings_data), Icons.Rounded.Storage, dataOpen, { dataOpen = !dataOpen }, subtitle = stringResource(R.string.data_subtitle)) {
             entities.forEach { (info, count) ->
                 var menu by remember { mutableStateOf(false) }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(info.icon, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
@@ -233,23 +238,23 @@ fun SettingsScreen(vm: MainViewModel) {
                         Text(stringResource(R.string.data_count, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Box {
-                        FilledTonalButton(onClick = { menu = true }, contentPadding = PaddingValues(horizontal = 12.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.settings_export)) }
+                        FilledTonalButton(onClick = { menu = true }, Modifier.height(40.dp), contentPadding = PaddingValues(horizontal = 12.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.settings_export)) }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem({ Text("CSV") }, { menu = false; export(info.entity, false) })
                             DropdownMenuItem({ Text("JSON") }, { menu = false; export(info.entity, true) })
                         }
                     }
                     Spacer(Modifier.width(6.dp))
-                    OutlinedButton(onClick = { startImport(info.entity) }, contentPadding = PaddingValues(horizontal = 12.dp)) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.settings_import)) }
+                    OutlinedButton(onClick = { startImport(info.entity) }, Modifier.height(40.dp), contentPadding = PaddingValues(horizontal = 12.dp)) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.settings_import)) }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
             }
             Label(stringResource(R.string.data_all))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { export(null, true) }, Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.data_export_all_json), maxLines = 1) }
-                Button(onClick = { export(null, false) }, Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.data_export_all_csv), maxLines = 1) }
+                Button(onClick = { export(null, true) }, Modifier.weight(1f).height(48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.data_export_all_json), maxLines = 1) }
+                Button(onClick = { export(null, false) }, Modifier.weight(1f).height(48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.data_export_all_csv), maxLines = 1) }
             }
-            OutlinedButton(onClick = { startImport(null) }, Modifier.fillMaxWidth()) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.data_import_all)) }
+            OutlinedButton(onClick = { startImport(null) }, Modifier.fillMaxWidth().height(48.dp)) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.data_import_all)) }
             Text(stringResource(R.string.settings_import_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
@@ -259,6 +264,8 @@ fun SettingsScreen(vm: MainViewModel) {
             Text(stringResource(R.string.settings_about_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(24.dp))
+    }
+    ScrollToTop(scrollState)
     }
 
     if (confirmSignOut) ConfirmDialog(stringResource(R.string.settings_logout_confirm), stringResource(R.string.common_logout), onConfirm = { vm.signOut(context) }, onDismiss = { confirmSignOut = false })

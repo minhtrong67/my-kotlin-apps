@@ -23,6 +23,7 @@ val START_PAGES = listOf("today", "history", "stats", "checkin", "activities", "
 data class Settings(
     val themeMode: String = "system",              // system | light | dark
     val themeColor: String = Palettes.DEFAULT_ID,  // palette id (teal, blue, ...)
+    val dynamicColor: Boolean = false,             // Material You: follow the wallpaper (Android 12+)
     val fontScale: Float = 1f,                     // 0.9 | 1 | 1.15
     val language: String = "auto",                 // auto | vi | en
     val startPage: String = "today",
@@ -32,7 +33,7 @@ data class Settings(
     val weeklyEnabled: Boolean = false,
     val monthlyEnabled: Boolean = false,
     val checkedInDate: String = "",                // yyyy-MM-dd of the last known check-in "today" (skips the daily nudge)
-    val fontFamily: String = "google-sans-flex",
+    val fontFamily: String = "system",
 )
 
 class SettingsStore(private val context: Context) {
@@ -43,6 +44,7 @@ class SettingsStore(private val context: Context) {
     private object K {
         val themeMode = stringPreferencesKey("theme_mode")
         val themeColor = stringPreferencesKey("theme_color")
+        val dynamicColor = booleanPreferencesKey("dynamic_color")
         val fontScale = stringPreferencesKey("font_scale")
         val language = stringPreferencesKey("language")
         val startPage = stringPreferencesKey("start_page")
@@ -61,6 +63,7 @@ class SettingsStore(private val context: Context) {
         Settings(
             themeMode = p[K.themeMode] ?: "system",
             themeColor = p[K.themeColor] ?: Palettes.DEFAULT_ID,
+            dynamicColor = p[K.dynamicColor] ?: false,
             fontScale = p[K.fontScale]?.toFloatOrNull() ?: 1f,
             language = p[K.language] ?: "auto",
             startPage = p[K.startPage]?.takeIf { it in START_PAGES } ?: "today",
@@ -70,12 +73,13 @@ class SettingsStore(private val context: Context) {
             weeklyEnabled = p[K.weeklyEnabled] ?: false,
             monthlyEnabled = p[K.monthlyEnabled] ?: false,
             checkedInDate = p[K.checkedInDate] ?: "",
-            fontFamily = p[K.fontFamily] ?: "google-sans-flex",
+            fontFamily = p[K.fontFamily] ?: "system",
         )
     }
 
     suspend fun setThemeMode(v: String) { ds.edit { it[K.themeMode] = v } }
     suspend fun setThemeColor(v: String) { ds.edit { it[K.themeColor] = v } }
+    suspend fun setDynamicColor(v: Boolean) { ds.edit { it[K.dynamicColor] = v } }
     suspend fun setFontScale(v: Float) { ds.edit { it[K.fontScale] = v.toString() } }
     suspend fun setLanguage(v: String) { ds.edit { it[K.language] = v } }
     suspend fun setStartPage(v: String) { ds.edit { it[K.startPage] = v } }

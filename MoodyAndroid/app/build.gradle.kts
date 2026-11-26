@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -12,11 +14,28 @@ val appVersionCode = 1
 // APK file name: Moody-v1.0.0-release.apk / Moody-v1.0.0-debug.apk
 base { archivesName.set("Moody-v$appVersionName") }
 
-// Firebase (Google sign-in + Firestore sync) is optional: the plugin is applied only when
-// app/google-services.json exists. Without it the app still builds and runs in guest mode.
-if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
+// ---- Firebase config comes from ".env" (git-ignored) or from real environment variables (CI) ----
+// No google-services.json and no google-services plugin: the values become the same string resources the plugin would
+// generate (google_app_id, google_api_key, ...), which the Firebase SDK reads at startup.
+// Without them the app still builds and runs in guest mode.
+val envProps = Properties().apply {
+    val f = rootProject.file(".env")
+    if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }
 }
+fun envOf(key: String): String? =
+    (System.getenv(key) ?: envProps.getProperty(key))?.trim()
+        ?.removeSurrounding("\"")?.removeSurrounding("'")?.takeIf { it.isNotEmpty() }
+
+val firebaseResources = mapOf(
+    "google_app_id" to "FIREBASE_APP_ID",
+    "google_api_key" to "FIREBASE_API_KEY",
+    "gcm_defaultSenderId" to "FIREBASE_PROJECT_NUMBER",
+    "project_id" to "FIREBASE_PROJECT_ID",
+    "google_storage_bucket" to "FIREBASE_STORAGE_BUCKET",
+    "default_web_client_id" to "GOOGLE_WEB_CLIENT_ID",
+)
+val firebaseConfigured = listOf("FIREBASE_APP_ID", "FIREBASE_API_KEY", "FIREBASE_PROJECT_ID", "GOOGLE_WEB_CLIENT_ID").all { envOf(it) != null }
+if (!firebaseConfigured) logger.warn("Moody: .env is missing or incomplete -> building WITHOUT Firebase (guest mode only). See .env.example")
 
 android {
     namespace = "com.minhtrong67.moody"
@@ -31,6 +50,10 @@ android {
 
         // Keep only the languages the app ships (drops every other translation bundled by Material / Firebase / Play services).
         resourceConfigurations += listOf("en", "vi")
+
+        if (firebaseConfigured) {
+            firebaseResources.forEach { (resName, envKey) -> envOf(envKey)?.let { resValue("string", resName, it) } }
+        }
     }
 
     buildTypes {
@@ -76,7 +99,6 @@ dependencies {
     implementation(libs.compose.material.icons.extended)
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 

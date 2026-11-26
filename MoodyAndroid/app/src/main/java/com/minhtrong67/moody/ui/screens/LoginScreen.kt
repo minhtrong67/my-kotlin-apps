@@ -23,17 +23,14 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Bolt
@@ -78,8 +75,8 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Sign-in: soft tonal hero (logo, wordmark, five bobbing mood faces) over a bottom sheet holding the actions.
- * Everything uses theme colors, so it follows the palette / Material You choice and dark mode.
+ * Sign-in on ONE screen (no scrolling): the hero takes whatever height is left, the action sheet is compact and fixed.
+ * Short phones drop the decorative faces / feature row instead of scrolling.
  */
 @Composable
 fun LoginScreen(vm: MainViewModel) {
@@ -92,7 +89,10 @@ fun LoginScreen(vm: MainViewModel) {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(60); shown = true }
 
-    Box(Modifier.fillMaxSize().background(cs.surface)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(cs.surface)) {
+        val compact = maxHeight < 660.dp      // small phones / split screen
+        val tiny = maxHeight < 560.dp
+
         // Decorative tonal background (drawn once; no animation)
         Canvas(Modifier.fillMaxSize()) {
             drawRect(Brush.verticalGradient(listOf(cs.primaryContainer.copy(alpha = if (dark) 0.75f else 0.95f), cs.surface), 0f, size.height * 0.7f))
@@ -100,82 +100,80 @@ fun LoginScreen(vm: MainViewModel) {
             drawCircle(Brush.radialGradient(listOf(cs.tertiary.copy(alpha = 0.18f), Color.Transparent), Offset(size.width * 0.05f, size.height * 0.32f), size.width * 0.55f), size.width * 0.55f, Offset(size.width * 0.05f, size.height * 0.32f))
         }
 
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val screenH = maxHeight
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                // ---------------- hero ----------------
-                Column(
-                    Modifier.fillMaxWidth().heightIn(min = screenH * 0.44f).statusBarsPadding().padding(horizontal = 24.dp, vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-                ) {
-                    AnimatedVisibility(shown, enter = fadeIn(tween(500)) + slideInVertically(tween(600, easing = FastOutSlowInEasing)) { it / 6 }) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxSize()) {
+            // ---------------- hero (fills the remaining height) ----------------
+            Column(
+                Modifier.weight(1f).fillMaxWidth().statusBarsPadding().padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+            ) {
+                AnimatedVisibility(shown, enter = fadeIn(tween(500)) + slideInVertically(tween(600, easing = FastOutSlowInEasing)) { it / 6 }) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (!compact) {
                             MoodFaces()
-                            Spacer(Modifier.height(28.dp))
-                            Image(
-                                painterResource(R.mipmap.ic_logo), null,
-                                Modifier.size(88.dp).shadow(16.dp, RoundedCornerShape(26.dp), ambientColor = cs.primary, spotColor = cs.primary).clip(RoundedCornerShape(26.dp)),
-                            )
-                            Spacer(Modifier.height(18.dp))
-                            Text("Moody", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = cs.onPrimaryContainer.takeIf { dark } ?: cs.primary)
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                stringResource(R.string.login_tagline), style = MaterialTheme.typography.bodyLarge,
-                                color = cs.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 12.dp),
-                            )
+                            Spacer(Modifier.height(24.dp))
                         }
+                        val logo = if (compact) 72.dp else 88.dp
+                        Image(
+                            painterResource(R.mipmap.ic_logo), null,
+                            Modifier.size(logo).shadow(14.dp, RoundedCornerShape(logo * 0.3f), ambientColor = cs.primary, spotColor = cs.primary).clip(RoundedCornerShape(logo * 0.3f)),
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Text("Moody", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = if (dark) cs.onPrimaryContainer else cs.primary)
+                        Spacer(Modifier.height(4.dp))
+                        Text(stringResource(R.string.login_tagShort), style = MaterialTheme.typography.bodyLarge, color = cs.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1)
                     }
                 }
+            }
 
-                // ---------------- action sheet ----------------
-                AnimatedVisibility(shown, enter = fadeIn(tween(400, 120)) + slideInVertically(tween(550, 120, FastOutSlowInEasing)) { it / 3 }) {
-                    Surface(
-                        Modifier.fillMaxWidth(), color = cs.surfaceContainerLow,
-                        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp), shadowElevation = 6.dp,
+            // ---------------- action sheet (compact, fixed height) ----------------
+            AnimatedVisibility(shown, enter = fadeIn(tween(400, 120)) + slideInVertically(tween(550, 120, FastOutSlowInEasing)) { it / 3 }) {
+                Surface(
+                    Modifier.fillMaxWidth(), color = cs.surfaceContainerLow,
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), shadowElevation = 6.dp,
+                ) {
+                    Column(
+                        Modifier.navigationBarsPadding().padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Column(Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.login_welcome), style = MaterialTheme.typography.headlineSmall)
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                stringResource(R.string.login_welcomeSub), style = MaterialTheme.typography.bodyMedium,
-                                color = cs.onSurfaceVariant, textAlign = TextAlign.Center,
-                            )
-                            Spacer(Modifier.height(24.dp))
+                        Text(stringResource(R.string.login_welcome), style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(4.dp))
+                        Text(stringResource(R.string.login_subShort), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1)
+                        Spacer(Modifier.height(18.dp))
 
-                            if (vm.firebaseReady) {
-                                GoogleButton(loading = signingIn) { vm.signInWithGoogle(activity) }
-                                if (failed) {
-                                    Spacer(Modifier.height(10.dp))
-                                    Text(stringResource(R.string.login_error), color = cs.error, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
-                                }
-                                Spacer(Modifier.height(16.dp))
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    HorizontalDivider(Modifier.weight(1f), color = cs.outlineVariant)
-                                    Text(stringResource(R.string.login_or), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
-                                    HorizontalDivider(Modifier.weight(1f), color = cs.outlineVariant)
-                                }
-                                Spacer(Modifier.height(16.dp))
-                            } else {
-                                Text(stringResource(R.string.login_firebaseError), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center)
-                                Spacer(Modifier.height(16.dp))
+                        if (vm.firebaseReady) {
+                            GoogleButton(loading = signingIn) { vm.signInWithGoogle(activity) }
+                            if (failed) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(stringResource(R.string.login_error), color = cs.error, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                             }
-
-                            ActionButton(
-                                stringResource(R.string.login_guest), Icons.Rounded.PhoneAndroid,
-                                onClick = { vm.continueAsGuest() }, tonal = true, enabled = !signingIn,
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(stringResource(R.string.login_guestHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center)
-
-                            Spacer(Modifier.height(28.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                Feature(Icons.Rounded.Bolt, R.string.login_f1_title)
-                                Feature(Icons.Rounded.BarChart, R.string.login_f2_title)
-                                Feature(Icons.Rounded.Lock, R.string.login_f3_title)
+                            Spacer(Modifier.height(12.dp))
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                HorizontalDivider(Modifier.weight(1f), color = cs.outlineVariant)
+                                Text(stringResource(R.string.login_or), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+                                HorizontalDivider(Modifier.weight(1f), color = cs.outlineVariant)
                             }
-                            Spacer(Modifier.height(20.dp))
-                            Text(stringResource(R.string.login_footer), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant.copy(alpha = 0.8f))
+                            Spacer(Modifier.height(12.dp))
+                        } else {
+                            Text(stringResource(R.string.login_firebaseError), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 3)
+                            Spacer(Modifier.height(12.dp))
+                        }
+
+                        ActionButton(
+                            stringResource(R.string.login_guest), Icons.Rounded.PhoneAndroid,
+                            onClick = { vm.continueAsGuest() }, tonal = true, enabled = !signingIn,
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(stringResource(R.string.login_guestShort), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, textAlign = TextAlign.Center)
+
+                        if (!tiny) {
+                            Spacer(Modifier.height(18.dp))
+                            // Three equal columns, one-word labels => icons and text always line up.
+                            Row(Modifier.fillMaxWidth()) {
+                                Feature(Icons.Rounded.Bolt, R.string.login_feat1, Modifier.weight(1f))
+                                Feature(Icons.Rounded.BarChart, R.string.login_feat2, Modifier.weight(1f))
+                                Feature(Icons.Rounded.Lock, R.string.login_feat3, Modifier.weight(1f))
+                            }
                         }
                     }
                 }
@@ -228,13 +226,13 @@ private fun MoodFaces() {
 }
 
 @Composable
-private fun Feature(icon: ImageVector, title: Int) {
+private fun Feature(icon: ImageVector, title: Int, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 4.dp)) {
-        Box(Modifier.size(44.dp).clip(CircleShape).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = cs.onPrimaryContainer)
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(cs.primaryContainer), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(20.dp), tint = cs.onPrimaryContainer)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(title), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 2)
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(title), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1)
     }
 }

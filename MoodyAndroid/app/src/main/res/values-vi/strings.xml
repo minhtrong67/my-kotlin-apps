@@ -278,7 +278,7 @@
     <string name="manageActs_updateTitle">Cập nhật hoạt động này?</string>
     <string name="manageActs_deleteTitle">Xóa hoạt động này?</string>
     <string name="settings_about">Về Moody</string>
-    <string name="login_firebaseError">Bản build này chưa cấu hình Firebase (thiếu google-services.json). Bạn vẫn có thể dùng thử ở chế độ khách bên dưới.</string>
+    <string name="login_firebaseError">Bản build này chưa cấu hình Firebase (thiếu .env). Chế độ khách vẫn dùng được.</string>
     <string name="settings_langAutoHint">Tự động theo ngôn ngữ thiết bị.</string>
     <string name="settings_reminders">Nhắc nhở</string>
     <string name="settings_remindersHint">Moody có thể nhắc bạn ngay cả khi đã đóng ứng dụng.</string>
@@ -312,6 +312,13 @@
     <string name="settings_themeDynamic">Tự động (Material You)</string>
     <string name="settings_themeDynamicHint">Màu thay đổi theo hình nền của bạn (Android 12+).</string>
     <string name="settings_troubleshoot">Không nhận được thông báo?</string>
+    <string name="settings_fontSystem">Mặc định hệ thống</string>
+    <string name="login_feat1">Nhanh gọn</string>
+    <string name="login_feat2">Thống kê</string>
+    <string name="login_feat3">Riêng tư</string>
+    <string name="login_subShort">Đăng nhập để đồng bộ nhật ký.</string>
+    <string name="login_guestShort">Dữ liệu lưu trên máy này.</string>
+    <string name="login_tagShort">Nhật ký tâm trạng mỗi ngày</string>
     <string name="settings_general">Chung</string>
     <string name="login_googleContinue">Tiếp tục với Google</string>
     <string name="settings_exactAlarm">Cho phép báo thức chính xác</string>
