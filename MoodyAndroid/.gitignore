@@ -4,6 +4,7 @@
 !.env.example
 google-services.json
 **/google-services.json
+app/google-services.json
 GoogleService-Info.plist
 keystore.properties
 *.jks
