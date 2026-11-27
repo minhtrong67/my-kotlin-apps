@@ -31,9 +31,10 @@ if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.9.1"
-// APK files are named Expenser-<version>-<buildType>.apk
-base.archivesName.set("Expenser-$appVersionName")
+val appVersionName = "1.10.0"
+val appVersionCode = 15
+// APK naming convention: expenser-<versionName>-<versionCode>-<buildType>.apk (e.g. expenser-1.10.0-15-release.apk)
+base.archivesName.set("expenser-$appVersionName-$appVersionCode")
 
 android {
     namespace = "com.expenser.app"
@@ -43,7 +44,7 @@ android {
         applicationId = "com.expenser.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
+        versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "IMGBB_API_KEY", "\"${envVar("IMGBB_API_KEY") ?: ""}\"")
     }

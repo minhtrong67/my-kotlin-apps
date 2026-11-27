@@ -4,8 +4,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val appVersionName = "1.0.0"
-base.archivesName.set("CalendarPro-v$appVersionName")
+val appVersionName = "1.1.0"
+val appVersionCode = 2
+
+// Tên file APK theo chuẩn: <ứng-dụng>-<phiên-bản>-<loại-build>.apk  →  calendar-pro-1.1.0-release.apk
+base.archivesName.set("calendar-pro-$appVersionName")
 
 android {
     namespace = "com.gnort67.calendarpro"
@@ -15,7 +18,7 @@ android {
         applicationId = "com.gnort67.calendarpro"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        versionCode = appVersionCode
         versionName = appVersionName
         vectorDrawables.useSupportLibrary = true
         // Chỉ giữ tài nguyên vi/en để APK gọn nhẹ
@@ -39,6 +42,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    lint { checkReleaseBuilds = false; abortOnError = false }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 

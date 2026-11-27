@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -29,13 +28,9 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.util.Locale
 
-/** Tab "Tiến độ năm": vòng sóng, thống kê, các tháng và cột mốc. */
-fun LazyListScope.yearProgressItems(lang: String, today: LocalDate) {
-    item(key = "yp") { YearProgressBody(lang, today) }
-}
-
+/** Tab "Tiến độ năm": vòng sóng, thống kê, các tháng và cột mốc. Xoay ngang thì chia hai cột. */
 @Composable
-private fun YearProgressBody(lang: String, today: LocalDate) {
+fun YearProgressBody(lang: String, today: LocalDate, landscape: Boolean) {
     var kind by rememberSaveable { mutableStateOf("solar") }
     val cs = MaterialTheme.colorScheme
     val range = remember(kind, today) { YearProgress.getRange(kind, today) }
@@ -47,11 +42,13 @@ private fun YearProgressBody(lang: String, today: LocalDate) {
     LaunchedEffect(kind) { started = false; delay(60); started = true }
     val anim by animateFloatAsState(if (started) st.fraction.toFloat() else 0f, tween(1400, easing = FastOutSlowInEasing), label = "year-ring")
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val segBlock: @Composable () -> Unit = {
         SegmentedControl(
             listOf(SegOption(stringResource(R.string.year_progress_solar), "check"), SegOption(stringResource(R.string.year_progress_lunar))),
             if (kind == "solar") 0 else 1, { kind = if (it == 0) "solar" else "lunar" }
         )
+    }
+    val ringBlock: @Composable () -> Unit = {
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(40.dp), color = cs.surfaceContainerLow) {
             Box {
                 BlobDecoration(Modifier.matchParentSize(), cs.primaryContainer)
@@ -75,6 +72,8 @@ private fun YearProgressBody(lang: String, today: LocalDate) {
                 }
             }
         }
+    }
+    val restBlock: @Composable () -> Unit = {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Stat(stringResource(R.string.year_progress_passed), stringResource(R.string.year_progress_days, st.passedDays), Modifier.weight(1f))
             Stat(stringResource(R.string.year_progress_left), stringResource(R.string.year_progress_days, st.leftDays), Modifier.weight(1f))
@@ -134,6 +133,14 @@ private fun YearProgressBody(lang: String, today: LocalDate) {
                 }
             }
         }
+    }
+    if (landscape) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { segBlock(); ringBlock() }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) { restBlock() }
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { segBlock(); ringBlock(); restBlock() }
     }
 }
 

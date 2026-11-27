@@ -1,7 +1,9 @@
 package com.gnort67.calendarpro.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -18,6 +20,17 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -32,7 +45,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -164,19 +176,56 @@ fun SegmentedControl(
     }
 }
 
+/** Nút "lên đầu trang": nảy vào bằng lò xo, to 56dp dễ chạm. */
 @Composable
 fun ScrollTopButton(visible: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val haptic = LocalHapticFeedback.current
     AnimatedVisibility(
         visible, modifier = modifier,
-        enter = scaleIn(spring(dampingRatio = 0.6f)) + fadeIn(), exit = scaleOut() + fadeOut()
+        enter = scaleIn(spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
+        exit = scaleOut(tween(180)) + fadeOut(tween(180))
     ) {
-        SmallFloatingActionButton(
-            onClick = onClick,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ) { AppIcon("arrow_upward") }
+        FloatingActionButton(
+            onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            shape = RoundedCornerShape(20.dp)
+        ) { AppIcon("arrow_upward", size = 28.dp) }
     }
 }
+
+/** Đang xoay ngang (chiều rộng lớn hơn chiều cao). */
+@Composable
+fun isLandscape(): Boolean {
+    val c = LocalConfiguration.current
+    return c.screenWidthDp > c.screenHeightDp
+}
+
+private fun scrollDuration(distancePx: Float): Int = (500 + distancePx / 4f).coerceIn(500f, 1000f).toInt()
+
+/** Cuộn lên đầu mượt: hoạt ảnh một mạch theo khoảng cách ước lượng, rồi chốt đúng vị trí 0. */
+suspend fun LazyListState.smoothScrollToTop() {
+    val vis = layoutInfo.visibleItemsInfo
+    if (vis.isEmpty()) return
+    val avg = vis.sumOf { it.size } / vis.size
+    val dist = (firstVisibleItemIndex * avg + firstVisibleItemScrollOffset).toFloat()
+    if (dist > 0f) animateScrollBy(-dist, tween(scrollDuration(dist), easing = FastOutSlowInEasing))
+    scrollToItem(0)
+}
+
+suspend fun LazyGridState.smoothScrollToTop(columns: Int) {
+    val vis = layoutInfo.visibleItemsInfo
+    if (vis.isEmpty()) return
+    val avg = vis.sumOf { it.size.height } / vis.size
+    val dist = (firstVisibleItemIndex / columns.coerceAtLeast(1) * avg + firstVisibleItemScrollOffset).toFloat()
+    if (dist > 0f) animateScrollBy(-dist, tween(scrollDuration(dist), easing = FastOutSlowInEasing))
+    scrollToItem(0)
+}
+
+/** Vùng an toàn cho bottom sheet: tránh camera đục lỗ / thanh trạng thái phía trên và tai thỏ hai bên khi xoay ngang. */
+val sheetInsets: WindowInsets
+    @Composable get() = WindowInsets.statusBars.union(WindowInsets.displayCutout)
+        .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {

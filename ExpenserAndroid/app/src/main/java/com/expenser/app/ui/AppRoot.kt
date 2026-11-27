@@ -53,6 +53,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.expenser.app.R
+import com.expenser.app.reminder.ReminderScheduler
 import com.expenser.app.data.TxType
 import com.expenser.app.ui.components.*
 import com.expenser.app.ui.screens.*
@@ -133,7 +134,11 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         }
     }
     LaunchedEffect(launchAdd) {
-        if (launchAdd != null) { form = TxFormRequest(initialType = if (launchAdd == TxType.INCOME) TxType.INCOME else TxType.EXPENSE); onLaunchAddHandled() }
+        if (launchAdd == ReminderScheduler.EXTRA_REPORT) {
+            if (navRoute != ROUTE_TABS) nav.popBackStack(ROUTE_TABS, false)
+            pager.scrollToPage(BOTTOM.indexOfFirst { it.route == ROUTE_STATS })
+            onLaunchAddHandled()
+        } else if (launchAdd != null) { form = TxFormRequest(initialType = if (launchAdd == TxType.INCOME) TxType.INCOME else TxType.EXPENSE); onLaunchAddHandled() }
     }
     BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }
     BackHandler(!drawer.isOpen && navRoute == ROUTE_TABS && pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0, animationSpec = tween(360, easing = FastOutSlowInEasing)) } }

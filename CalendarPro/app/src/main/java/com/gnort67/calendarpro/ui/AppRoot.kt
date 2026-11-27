@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -46,7 +47,10 @@ import com.gnort67.calendarpro.R
 import com.gnort67.calendarpro.core.Holiday
 import com.gnort67.calendarpro.core.PersonalEvent
 import com.gnort67.calendarpro.data.AppSettings
+import com.gnort67.calendarpro.notify.Reminders
 import com.gnort67.calendarpro.ui.components.AppIcon
+import com.gnort67.calendarpro.ui.components.isLandscape
+import com.gnort67.calendarpro.ui.components.sheetInsets
 import com.gnort67.calendarpro.ui.components.pressable
 import com.gnort67.calendarpro.ui.screens.*
 import kotlinx.coroutines.CancellationException
@@ -89,6 +93,7 @@ fun AppRoot(vm: MainViewModel, s: AppSettings) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val ctx = LocalContext.current
     val cs = MaterialTheme.colorScheme
 
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -103,6 +108,10 @@ fun AppRoot(vm: MainViewModel, s: AppSettings) {
     LaunchedEffect(lang) {
         val cur = AppCompatDelegate.getApplicationLocales().toLanguageTags()
         if (!cur.startsWith(lang)) AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(lang))
+    }
+
+    LaunchedEffect(s.notifyEnabled, s.notifyHour, s.notifyMinute) {
+        if (s.notifyEnabled && Reminders.canNotify(ctx)) Reminders.schedule(ctx, s.notifyHour, s.notifyMinute) else Reminders.cancel(ctx)
     }
 
     fun message(text: String) {
@@ -125,14 +134,22 @@ fun AppRoot(vm: MainViewModel, s: AppSettings) {
     }
     BackHandler(enabled = !showSettings && pager.currentPage != 0 && !drawer.isOpen) { goTab(0) }
 
+    val landscape = isLandscape()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val bottomInset = navBottom + 16.dp + 76.dp
+    // Dọc: chừa chỗ cho thanh điều hướng nổi. Ngang: thanh điều hướng nằm bên trái nên chỉ chừa lề dưới.
+    val bottomInset = if (landscape) navBottom + 8.dp else navBottom + 16.dp + 76.dp
+    val catalog = vm.catalog
+    val testSent = stringResource(R.string.settings_notif_sent)
+    val testDenied = stringResource(R.string.settings_notif_denied)
 
     ModalNavigationDrawer(
         drawerState = drawer,
         gesturesEnabled = (pager.currentPage == 0 && !showSettings) || drawer.isOpen,
         drawerContent = {
-            ModalDrawerSheet(drawerShape = RoundedCornerShape(topEnd = 36.dp, bottomEnd = 36.dp)) {
+            ModalDrawerSheet(
+                drawerShape = RoundedCornerShape(topEnd = 36.dp, bottomEnd = 36.dp),
+                windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start)
+            ) {
                 Column(Modifier.verticalScroll(rememberScrollState()).padding(12.dp)) {
                     Text(stringResource(R.string.app_name), Modifier.padding(start = 16.dp, top = 24.dp), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                     Text(stringResource(R.string.app_tagline), Modifier.padding(start = 16.dp, bottom = 20.dp), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
@@ -155,53 +172,72 @@ fun AppRoot(vm: MainViewModel, s: AppSettings) {
             }
         }
     ) {
-        Box(Modifier.fillMaxSize().background(cs.surface)) {
-            Column(Modifier.fillMaxSize().statusBarsPadding()) {
-                Header(
-                    title = stringResource(if (showSettings) R.string.nav_settings else TABS[pager.currentPage].title),
-                    themeMode = s.themeMode, settingsOpen = showSettings,
-                    onMenu = { scope.launch { drawer.open() } },
-                    onTheme = {
-                        val next = when (s.themeMode) { "light" -> "dark"; "dark" -> "system"; else -> "light" }
-                        vm.update { it.copy(themeMode = next) }
-                    },
-                    onSettings = { showSettings = !showSettings }
-                )
-                Box(Modifier.weight(1f)) {
-                    HorizontalPager(pager, Modifier.fillMaxSize(), key = { it }) { page ->
-                        when (page) {
-                            0 -> HomeScreen(vm.catalog, events, lang, today, bottomInset, { daySheet = it }, { detail = it }, { goTab(3) }, { message(refreshed) })
-                            1 -> CalendarScreen(vm.catalog, events, lang, today, bottomInset) { daySheet = it }
-                            2 -> VanNienScreen(vm.catalog, events, lang, today, bottomInset, { detail = it }, ::message)
-                            else -> CountdownScreen(
-                                vm.catalog, events, lang, today, bottomInset, { detail = it },
-                                { editor = EditorState(null) }, { editor = EditorState(it) }, { deleting = it }
-                            )
-                        }
-                    }
-                    // Cài đặt trượt vào từ phải; khi back dự đoán sẽ thu nhỏ và dịch theo cử chỉ.
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = showSettings,
-                        enter = slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { it / 3 } + fadeIn(),
-                        exit = slideOutHorizontally { it / 3 } + fadeOut()
-                    ) {
-                        Box(
-                            Modifier.fillMaxSize().background(cs.surface).graphicsLayer {
-                                val sc = 1f - 0.12f * backProgress
-                                scaleX = sc; scaleY = sc; translationX = backProgress * 48.dp.toPx(); alpha = 1f - 0.2f * backProgress
+        Box(
+            Modifier.fillMaxSize().background(cs.surface)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))
+        ) {
+            Row(Modifier.fillMaxSize()) {
+                if (landscape) {
+                    SideRail(
+                        selected = if (showSettings) -1 else pager.currentPage,
+                        onSelect = { if (it != pager.currentPage || showSettings) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); goTab(it) } }
+                    )
+                }
+        Column(Modifier.fillMaxHeight().weight(1f)) {
+                    Header(
+                        title = stringResource(if (showSettings) R.string.nav_settings else TABS[pager.currentPage].title),
+                        themeMode = s.themeMode, settingsOpen = showSettings,
+                        onMenu = { scope.launch { drawer.open() } },
+                        onTheme = {
+                            val next = when (s.themeMode) { "light" -> "dark"; "dark" -> "system"; else -> "light" }
+                            vm.update { it.copy(themeMode = next) }
+                        },
+                        onSettings = { showSettings = !showSettings }
+                    )
+                    Box(Modifier.weight(1f)) {
+                        HorizontalPager(pager, Modifier.fillMaxSize(), key = { it }) { page ->
+                            when (page) {
+                                0 -> HomeScreen(vm.catalog, events, lang, today, bottomInset, { daySheet = it }, { detail = it }, { goTab(3) }, { message(refreshed) })
+                                1 -> CalendarScreen(vm.catalog, events, lang, today, bottomInset) { daySheet = it }
+                                2 -> VanNienScreen(vm.catalog, events, lang, today, bottomInset, { detail = it }, ::message)
+                                else -> CountdownScreen(
+                                    vm.catalog, events, lang, today, bottomInset, { detail = it },
+                                    { editor = EditorState(null) }, { editor = EditorState(it) }, { deleting = it }
+                                )
                             }
+                        }
+                        // Cài đặt trượt vào từ phải; khi back dự đoán sẽ thu nhỏ và dịch theo cử chỉ.
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = showSettings,
+                            enter = slideInHorizontally(spring(stiffness = Spring.StiffnessMediumLow)) { it / 3 } + fadeIn(),
+                            exit = slideOutHorizontally { it / 3 } + fadeOut()
                         ) {
-                            SettingsScreen(s, { block -> vm.update(block) }, { vm.resetSettings() }, bottomInset, ::message)
+                            Box(
+                                Modifier.fillMaxSize().background(cs.surface).graphicsLayer {
+                                    val sc = 1f - 0.12f * backProgress
+                                    scaleX = sc; scaleY = sc; translationX = backProgress * 48.dp.toPx(); alpha = 1f - 0.2f * backProgress
+                                }
+                            ) {
+                                SettingsScreen(
+                                    s, { block -> vm.update(block) }, { vm.resetSettings() }, bottomInset, ::message,
+                                    onTestNotify = {
+                                        if (Reminders.show(ctx, lang, catalog, events, test = true)) message(testSent) else message(testDenied)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
-            }
+    
+                }
 
-            BottomBar(
-                selected = if (showSettings) -1 else pager.currentPage,
-                onSelect = { if (it != pager.currentPage || showSettings) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); goTab(it) } },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = navBottom + 12.dp)
-            )
+            if (!landscape) {
+                BottomBar(
+                    selected = if (showSettings) -1 else pager.currentPage,
+                    onSelect = { if (it != pager.currentPage || showSettings) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); goTab(it) } },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = navBottom + 12.dp)
+                )
+            }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 4.dp, start = 16.dp, end = 16.dp))
         }
     }
@@ -211,7 +247,8 @@ fun AppRoot(vm: MainViewModel, s: AppSettings) {
         val info = remember(d, events, lang) { buildDayInfo(d, vm.catalog, events, lang) }
         ModalBottomSheet(
             onDismissRequest = { daySheet = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = cs.surfaceContainerLow, shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+            containerColor = cs.surfaceContainerLow, shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+            contentWindowInsets = { sheetInsets }
         ) {
             DayDetailContent(
                 info, vm.catalog, lang, { h -> daySheet = null; detail = h },
@@ -297,5 +334,27 @@ private fun BottomBar(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier
                 }
             }
         }
+    }
+}
+
+/** Thanh điều hướng dọc bên trái khi xoay ngang. */
+@Composable
+private fun SideRail(selected: Int, onSelect: (Int) -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    NavigationRail(
+        modifier = Modifier.fillMaxHeight().padding(start = 8.dp, top = 8.dp, bottom = 8.dp).clip(RoundedCornerShape(32.dp)),
+        containerColor = cs.surfaceContainerHigh,
+        windowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
+    ) {
+        Spacer(Modifier.weight(1f))
+        TABS.forEachIndexed { i, t ->
+            NavigationRailItem(
+                selected = i == selected, onClick = { onSelect(i) },
+                icon = { AppIcon(t.icon, filled = i == selected) },
+                label = { Text(stringResource(t.label), maxLines = 1) },
+                alwaysShowLabel = true
+            )
+        }
+        Spacer(Modifier.weight(1f))
     }
 }

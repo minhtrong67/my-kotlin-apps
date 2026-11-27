@@ -55,7 +55,7 @@ private val ACCENTS = listOf(
 @Composable
 private fun SettingCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
                     Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -81,6 +81,14 @@ private fun SwitchRow(title: String, hint: String, checked: Boolean, onChange: (
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked, onChange)
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
     }
 }
 
@@ -144,13 +152,21 @@ fun SettingsScreen(vm: MainViewModel) {
         exportLauncher.launch(file.name)
     }
 
+    var afterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) vm.setReminder(true, settings.reminderTime) else vm.toast(R.string.reminder_denied)
+        val next = afterPermission; afterPermission = null
+        if (granted) next?.invoke() else vm.toast(R.string.reminder_denied)
+    }
+    /** Runs [action] once notifications are allowed (asks for the permission first on Android 13+). */
+    fun withNotifications(action: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) { afterPermission = action; notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) } else action()
     }
 
     val scrollState = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ---- account ----
         SettingCard(stringResource(R.string.settings_account), Icons.Rounded.Person) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -167,15 +183,12 @@ fun SettingsScreen(vm: MainViewModel) {
             }
         }
 
-        // ---- language ----
-        SettingCard(stringResource(R.string.settings_language), Icons.Rounded.Language) {
-            PillSegmented(listOf(Seg("vi", "Tiếng Việt"), Seg("en", "English")), currentLang, { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(it)) })
-        }
-
         // ---- appearance ----
         SettingCard(stringResource(R.string.settings_appearance), Icons.Rounded.Palette, action = {
             TextButton(onClick = { confirmReset = true }, contentPadding = PaddingValues(horizontal = 10.dp)) { Icon(Icons.Rounded.RestartAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.settings_reset_btn), maxLines = 1) }
         }) {
+            Label(stringResource(R.string.settings_language))
+            PillSegmented(listOf(Seg("vi", "Tiếng Việt"), Seg("en", "English")), currentLang, { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(it)) })
             Label(stringResource(R.string.settings_mode))
             PillSegmented(listOf(Seg("light", stringResource(R.string.settings_mode_light), Icons.Rounded.LightMode), Seg("dark", stringResource(R.string.settings_mode_dark), Icons.Rounded.DarkMode), Seg("system", stringResource(R.string.settings_mode_system), Icons.Rounded.BrightnessAuto)), settings.themeMode, { vm.setThemeMode(it) })
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -205,19 +218,26 @@ fun SettingsScreen(vm: MainViewModel) {
             PillSegmented(listOf(Seg("sm", stringResource(R.string.settings_font_sm)), Seg("md", stringResource(R.string.settings_font_md)), Seg("lg", stringResource(R.string.settings_font_lg))), settings.fontSize, { vm.setFontSize(it) })
         }
 
-        // ---- reminder ----
+        // ---- notifications ----
         SettingCard(stringResource(R.string.reminder_title_setting), Icons.Rounded.Notifications) {
             SwitchRow(stringResource(R.string.reminder_enable), stringResource(R.string.reminder_enable_hint), settings.reminderEnabled) { on ->
-                if (on && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                ) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                else { vm.setReminder(on, settings.reminderTime); vm.toast(if (on) R.string.reminder_on else R.string.reminder_off, settings.reminderTime) }
+                if (on) withNotifications { vm.setReminder(true, settings.reminderTime); vm.toast(R.string.reminder_on, settings.reminderTime) }
+                else { vm.setReminder(false, settings.reminderTime); vm.toast(R.string.reminder_off) }
             }
             if (settings.reminderEnabled) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(onClick = { showTime = true }, Modifier.weight(1f).height(48.dp)) { Icon(Icons.Rounded.Schedule, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(settings.reminderTime, maxLines = 1) }
                     FilledTonalButton(onClick = { vm.sendTestReminder() }, Modifier.weight(1f).height(48.dp)) { Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.reminder_test), maxLines = 1) }
                 }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SwitchRow(stringResource(R.string.report_weekly), stringResource(R.string.report_weekly_hint), settings.reportWeekly) { on ->
+                if (on) withNotifications { vm.setReports(true, settings.reportMonthly); vm.toast(R.string.report_on) }
+                else { vm.setReports(false, settings.reportMonthly); vm.toast(R.string.report_off) }
+            }
+            SwitchRow(stringResource(R.string.report_monthly), stringResource(R.string.report_monthly_hint), settings.reportMonthly) { on ->
+                if (on) withNotifications { vm.setReports(settings.reportWeekly, true); vm.toast(R.string.report_on) }
+                else { vm.setReports(settings.reportWeekly, false); vm.toast(R.string.report_off) }
             }
         }
 
@@ -234,11 +254,12 @@ fun SettingsScreen(vm: MainViewModel) {
 
         // ---- about ----
         SettingCard(stringResource(R.string.settings_about), Icons.Rounded.Info) {
-            Text("Expenser · ${stringResource(R.string.settings_version)} ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
-            Text(stringResource(R.string.settings_about_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-            Row { Text(stringResource(R.string.settings_author), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("minhtrong67", style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }
-            Row { Text(stringResource(R.string.settings_ai_support), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("Claude Sonnet 5.5", style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }
+            Text(stringResource(R.string.settings_about_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                InfoRow(stringResource(R.string.settings_version), BuildConfig.VERSION_NAME)
+                InfoRow(stringResource(R.string.settings_author), "minhtrong67")
+                InfoRow(stringResource(R.string.settings_ai_support), "Claude Sonnet 5.5")
+            }
         }
         Spacer(Modifier.height(24.dp))
     }

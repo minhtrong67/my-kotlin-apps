@@ -30,6 +30,11 @@ import java.util.Calendar
 object ReminderScheduler {
     const val CHANNEL_ID = "daily_reminder"
     const val EXTRA_ADD = "add"
+    const val EXTRA_REPORT = "report" // value of EXTRA_ADD that opens the Statistics tab
+    const val REPORT_CHANNEL_ID = "report_reminder"
+    const val WEEKLY = 1
+    const val MONTHLY = 2
+    private const val REPORT_HOUR = 8
     private const val NOTIFICATION_ID = 1001
     private const val ALARM_CODE = 7001
 
@@ -40,6 +45,75 @@ object ReminderScheduler {
                 NotificationChannel(CHANNEL_ID, context.getString(R.string.reminder_channel), NotificationManager.IMPORTANCE_DEFAULT),
             )
         }
+    }
+
+    fun createReportChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(REPORT_CHANNEL_ID, context.getString(R.string.report_channel), NotificationManager.IMPORTANCE_DEFAULT),
+            )
+        }
+    }
+
+    private fun reportIntent(context: Context, kind: Int): PendingIntent = PendingIntent.getBroadcast(
+        context, 7100 + kind, Intent(context, ReportReceiver::class.java).putExtra("kind", kind),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    /** Next report time: weekly = next Monday 08:00, monthly = next 1st 08:00. */
+    private fun nextReport(kind: Int): Long {
+        val now = System.currentTimeMillis()
+        val c = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.HOUR_OF_DAY, REPORT_HOUR); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        if (kind == WEEKLY) {
+            c.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            if (c.timeInMillis <= now + 1000) c.add(Calendar.WEEK_OF_YEAR, 1)
+        } else {
+            c.set(Calendar.DAY_OF_MONTH, 1)
+            if (c.timeInMillis <= now + 1000) c.add(Calendar.MONTH, 1)
+        }
+        return c.timeInMillis
+    }
+
+    fun scheduleReport(context: Context, kind: Int) {
+        context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextReport(kind), reportIntent(context, kind))
+    }
+
+    fun cancelReport(context: Context, kind: Int) {
+        context.getSystemService(AlarmManager::class.java).cancel(reportIntent(context, kind))
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID + kind)
+    }
+
+    fun restoreReports(context: Context, weekly: Boolean, monthly: Boolean) {
+        if (weekly) scheduleReport(context, WEEKLY) else cancelReport(context, WEEKLY)
+        if (monthly) scheduleReport(context, MONTHLY) else cancelReport(context, MONTHLY)
+    }
+
+    /** Posts a report reminder. Tapping it opens the Statistics tab. */
+    fun showReport(context: Context, kind: Int): Boolean {
+        if (!canNotify(context)) return false
+        createReportChannel(context)
+        val weekly = kind == WEEKLY
+        val title = context.getString(if (weekly) R.string.report_weekly_title else R.string.report_monthly_title)
+        val body = context.getString(if (weekly) R.string.report_weekly_body else R.string.report_monthly_body)
+        val open = PendingIntent.getActivity(
+            context, 10 + kind,
+            Intent(context, MainActivity::class.java).putExtra(EXTRA_ADD, EXTRA_REPORT).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val n = NotificationCompat.Builder(context, REPORT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(0xFF0061A4.toInt())
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        return try { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID + kind, n); true } catch (e: SecurityException) { false }
     }
 
     private fun alarmIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
@@ -103,6 +177,7 @@ object ReminderScheduler {
     suspend fun restore(context: Context) {
         val s = (context.applicationContext as ExpenserApp).settingsStore.flow.first()
         if (s.reminderEnabled) schedule(context, s.reminderTime) else cancel(context)
+        restoreReports(context, s.reportWeekly, s.reportMonthly)
     }
 }
 
@@ -116,6 +191,24 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (s.reminderEnabled) {
                     ReminderScheduler.show(context)
                     ReminderScheduler.schedule(context, s.reminderTime)
+                }
+            } finally { pending.finish() }
+        }
+    }
+}
+
+/** Fires on Monday (weekly) / the 1st (monthly): shows the report reminder and arms the next one. */
+class ReportReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val kind = intent.getIntExtra("kind", ReminderScheduler.WEEKLY)
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+            try {
+                val s = (context.applicationContext as ExpenserApp).settingsStore.flow.first()
+                val on = if (kind == ReminderScheduler.WEEKLY) s.reportWeekly else s.reportMonthly
+                if (on) {
+                    ReminderScheduler.showReport(context, kind)
+                    ReminderScheduler.scheduleReport(context, kind)
                 }
             } finally { pending.finish() }
         }

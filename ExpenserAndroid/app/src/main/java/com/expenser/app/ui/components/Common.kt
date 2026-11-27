@@ -295,18 +295,27 @@ data class Seg(val id: String, val label: String, val icon: ImageVector? = null,
 /** Pill-shaped two/three-way switch used across the web app (selected segment shows a check mark). */
 @Composable
 fun PillSegmented(options: List<Seg>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        options.forEach { o ->
-            val on = o.id == selected
-            val bg by animateColorAsState(if (on) (o.container ?: MaterialTheme.colorScheme.primary) else Color.Transparent, tween(150), label = "segBg")
-            val fg by animateColorAsState(if (on) (o.content ?: MaterialTheme.colorScheme.onPrimary) else MaterialTheme.colorScheme.onSurfaceVariant, tween(150), label = "segFg")
-            Row(
-                Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(bg).clickable { onSelect(o.id) },
-                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val icon = if (on) Icons.Rounded.Check else o.icon
-                if (icon != null) { Icon(icon, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.width(8.dp)) }
-                Text(o.label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+    BoxWithConstraints(modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(4.dp)) {
+        val n = options.size.coerceAtLeast(1)
+        val gap = 4.dp
+        val itemW = (maxWidth - gap * (n - 1)) / n
+        val idx = options.indexOfFirst { it.id == selected }.coerceAtLeast(0)
+        // The coloured pill slides to the chosen option instead of the colour popping between cells.
+        val x by animateDpAsState((itemW + gap) * idx, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMedium), label = "segX")
+        val pill by animateColorAsState(options.getOrNull(idx)?.container ?: MaterialTheme.colorScheme.primary, tween(280, easing = FastOutSlowInEasing), label = "segPill")
+        Box(Modifier.offset(x = x).width(itemW).fillMaxHeight().clip(CircleShape).background(pill))
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            options.forEach { o ->
+                val on = o.id == selected
+                val fg by animateColorAsState(if (on) (o.content ?: MaterialTheme.colorScheme.onPrimary) else MaterialTheme.colorScheme.onSurfaceVariant, tween(220), label = "segFg")
+                Row(
+                    Modifier.weight(1f).fillMaxHeight().clip(CircleShape).clickable { onSelect(o.id) },
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val icon = if (on) Icons.Rounded.Check else o.icon
+                    if (icon != null) { Icon(icon, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.width(8.dp)) }
+                    Text(o.label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                }
             }
         }
     }
@@ -329,7 +338,7 @@ fun AccordionCard(
     title: String, icon: ImageVector, expanded: Boolean, onToggle: () -> Unit,
     modifier: Modifier = Modifier, subtitle: String? = null, badge: Int = 0, content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(modifier.fillMaxWidth().animateContentSize(tween(200)), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column {
             Row(Modifier.clickable(onClick = onToggle).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
@@ -341,10 +350,15 @@ fun AccordionCard(
                     if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (badge > 0) { Badge { Text("$badge") }; Spacer(Modifier.width(8.dp)) }
-                val rot = if (expanded) 180f else 0f
+                val rot by animateFloatAsState(if (expanded) 180f else 0f, tween(320, easing = FastOutSlowInEasing), label = "accArrow")
                 Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.rotate(rot), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            AnimatedVisibility(expanded, enter = expandVertically(tween(200)), exit = shrinkVertically(tween(160))) {
+            // One animation per direction with the same easing/duration profile, so opening and closing feel identical.
+            AnimatedVisibility(
+                expanded,
+                enter = expandVertically(tween(320, easing = FastOutSlowInEasing), expandFrom = Alignment.Top) + fadeIn(tween(260, delayMillis = 40)),
+                exit = shrinkVertically(tween(320, easing = FastOutSlowInEasing), shrinkTowards = Alignment.Top) + fadeOut(tween(200)),
+            ) {
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
             }
         }
@@ -1114,24 +1128,28 @@ fun BoxScope.ScrollToTop(state: LazyListState, aboveFab: Boolean = true) {
     ScrollToTopButton(show, aboveFab) { scope.launch { smoothToTop(state) } }
 }
 
-/** Jump close to the top first (long lists), then glide the last stretch with an eased tween. */
+/** One eased glide to the top. The distance is estimated from the average item size and padded a little, so the list settles
+ *  gently against the top edge (while the easing is nearly stopped) instead of snapping or stopping abruptly. */
+private suspend fun glideToTop(scroll: androidx.compose.foundation.gestures.ScrollableState, itemsAbove: Int, avgItem: Float, offset: Int) {
+    val dist = (itemsAbove * avgItem + offset) * 1.12f + 24f
+    if (dist <= 0f) return
+    val ms = (420 + itemsAbove * 14).coerceAtMost(900)
+    scroll.animateScrollBy(-dist, tween(ms, easing = FastOutSlowInEasing))
+}
+
 suspend fun smoothToTop(state: LazyListState) {
-    if (state.firstVisibleItemIndex > 4) state.scrollToItem(4, state.firstVisibleItemScrollOffset)
     val items = state.layoutInfo.visibleItemsInfo
     val avg = if (items.isEmpty()) 300f else items.map { it.size }.average().toFloat()
-    val distance = state.firstVisibleItemIndex * avg + state.firstVisibleItemScrollOffset
-    if (distance > 0f) state.animateScrollBy(-distance, tween(520, easing = FastOutSlowInEasing))
-    if (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset != 0) state.animateScrollToItem(0)
+    glideToTop(state, state.firstVisibleItemIndex, avg, state.firstVisibleItemScrollOffset)
+    if (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset != 0) state.scrollToItem(0)
 }
 
 suspend fun smoothToTop(state: androidx.compose.foundation.lazy.grid.LazyGridState) {
-    if (state.firstVisibleItemIndex > 6) state.scrollToItem(6, state.firstVisibleItemScrollOffset)
     val items = state.layoutInfo.visibleItemsInfo
     val avg = if (items.isEmpty()) 300f else items.map { it.size.height }.average().toFloat()
-    val rows = state.firstVisibleItemIndex / state.layoutInfo.visibleItemsInfo.maxOfOrNull { it.column + 1 }.let { it ?: 1 }.coerceAtLeast(1)
-    val distance = rows * avg + state.firstVisibleItemScrollOffset
-    if (distance > 0f) state.animateScrollBy(-distance, tween(520, easing = FastOutSlowInEasing))
-    if (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset != 0) state.animateScrollToItem(0)
+    val cols = (items.maxOfOrNull { it.column } ?: 0) + 1
+    glideToTop(state, state.firstVisibleItemIndex / cols, avg, state.firstVisibleItemScrollOffset)
+    if (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset != 0) state.scrollToItem(0)
 }
 
 @Composable

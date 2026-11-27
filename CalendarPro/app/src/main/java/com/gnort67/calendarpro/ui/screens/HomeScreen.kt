@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -44,6 +47,8 @@ import com.gnort67.calendarpro.core.PersonalEvent
 import com.gnort67.calendarpro.data.HolidayCatalog
 import com.gnort67.calendarpro.ui.components.AppIcon
 import com.gnort67.calendarpro.ui.components.ScrollTopButton
+import com.gnort67.calendarpro.ui.components.isLandscape
+import com.gnort67.calendarpro.ui.components.smoothScrollToTop
 import com.gnort67.calendarpro.ui.components.ShapeBadge
 import com.gnort67.calendarpro.ui.components.holidayIconName
 import com.gnort67.calendarpro.ui.components.pressable
@@ -71,7 +76,6 @@ fun HomeScreen(
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 2 } }
 
     val info = remember(today, events, lang, tick) { buildDayInfo(today, catalog, events, lang) }
     val upcoming = remember(today, events, tick) {
@@ -79,6 +83,46 @@ fun HomeScreen(
         upcomingAll(catalog, events, now).take(8).map { it to daysLeft(it, now) }
     }
     val weekStart = today.minusDays(DateUtils.mondayIndex(today).toLong())
+    val landscape = isLandscape()
+    val rightState = rememberLazyListState()
+    val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 2 || rightState.firstVisibleItemIndex > 1 } }
+
+    // Cột trái: ngày hiện tại. Cột phải: chi tiết vạn niên + sự kiện. Dọc thì gộp thành một danh sách.
+    val leftContent: LazyListScope.() -> Unit = {
+        item(key = "hero") { DateHeroCard(info, lang) }
+        items(info.holidays, key = { "h-" + it.id }) { HolidayBanner(it, catalog, lang) { onOpenHoliday(it) } }
+        item(key = "mine") { MyEventsCard(info) }
+        item(key = "tiles") { CanChiTiles(info) }
+    }
+    val rightContent: LazyListScope.() -> Unit = {
+        item(key = "sao") { SaoNgayCard(info) }
+        item(key = "dir") { DirectionsCard(info, lang) }
+        item(key = "gio") { LuckyHoursCard(info) }
+        item(key = "up-head") {
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.home_upcoming_events), style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
+                )
+                Row(
+                    Modifier.pressable(RoundedCornerShape(20.dp), onClick = onSeeAll).padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.home_view_all), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    AppIcon("chevron_right", tint = MaterialTheme.colorScheme.primary, size = 20.dp)
+                }
+            }
+        }
+        item(key = "up-row") {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 16.dp)) {
+                items(upcoming, key = { it.first.holiday.id }) { (u, left) ->
+                    UpcomingCard(u, left, catalog, lang, today) { onOpenHoliday(u.holiday) }
+                }
+            }
+        }
+        item(key = "chay") { VegetarianSection(info) }
+    }
+    val pad = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp)
 
     PullToRefreshBox(
         isRefreshing = refreshing,
@@ -93,53 +137,33 @@ fun HomeScreen(
         },
         modifier = Modifier.fillMaxSize()
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item(key = "week") { WeekStrip(weekStart, today, lang, onOpenDay) }
-            item(key = "hero") { DateHeroCard(info, lang) }
-            items(info.holidays, key = { "h-" + it.id }) { HolidayBanner(it, catalog, lang) { onOpenHoliday(it) } }
-            item(key = "mine") { MyEventsCard(info) }
-            item(key = "tiles") { CanChiTiles(info) }
-            item(key = "sao") { SaoNgayCard(info) }
-            item(key = "dir") { DirectionsCard(info, lang) }
-            item(key = "gio") { LuckyHoursCard(info) }
-            item(key = "up-head") {
-                Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        stringResource(R.string.home_upcoming_events), style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)
-                    )
-                    Row(
-                        Modifier.pressable(RoundedCornerShape(20.dp), onClick = onSeeAll).padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(stringResource(R.string.home_view_all), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                        AppIcon("chevron_right", tint = MaterialTheme.colorScheme.primary, size = 20.dp)
-                    }
+        if (landscape) {
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { WeekStrip(weekStart, today, lang, onOpenDay, compact = true) }
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LazyColumn(Modifier.weight(1f).fillMaxHeight(), state = listState, contentPadding = PaddingValues(start = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { leftContent() }
+                    LazyColumn(Modifier.weight(1f).fillMaxHeight(), state = rightState, contentPadding = PaddingValues(end = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { rightContent() }
                 }
             }
-            item(key = "up-row") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 16.dp)) {
-                    items(upcoming, key = { it.first.holiday.id }) { (u, left) ->
-                        UpcomingCard(u, left, catalog, lang, today) { onOpenHoliday(u.holiday) }
-                    }
-                }
+        } else {
+            LazyColumn(
+                state = listState, modifier = Modifier.fillMaxSize(), contentPadding = pad,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item(key = "week") { WeekStrip(weekStart, today, lang, onOpenDay) }
+                leftContent()
+                rightContent()
             }
-            item(key = "chay") { VegetarianSection(info) }
         }
         ScrollTopButton(
-            showTop, { scope.launch { listState.animateScrollToItem(0) } },
-            Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomInset + 16.dp)
+            showTop, { scope.launch { launch { rightState.smoothScrollToTop() }; listState.smoothScrollToTop() } },
+            Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = bottomInset + 16.dp)
         )
     }
 }
 
 @Composable
-private fun WeekStrip(start: LocalDate, today: LocalDate, lang: String, onOpenDay: (LocalDate) -> Unit) {
+private fun WeekStrip(start: LocalDate, today: LocalDate, lang: String, onOpenDay: (LocalDate) -> Unit, compact: Boolean = false) {
     val labels = DateUtils.weekdaysShort(lang)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         for (i in 0 until 7) {
@@ -151,7 +175,7 @@ private fun WeekStrip(start: LocalDate, today: LocalDate, lang: String, onOpenDa
             val fg = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
             val sun = i == 6
             Column(
-                Modifier.weight(1f).height(if (isToday) 104.dp else 96.dp).pressable(shape) { onOpenDay(d) }
+                Modifier.weight(1f).height(if (compact) 76.dp else if (isToday) 104.dp else 96.dp).pressable(shape) { onOpenDay(d) }
                     .background(bg).padding(vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly
             ) {

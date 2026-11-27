@@ -2,6 +2,15 @@
 
 Bản native của web app React "Expenser". Dùng **cùng Firebase (Auth + Firestore)** với bản web nên dữ liệu đồng bộ giữa web và app.
 
+## 1.10.0
+- Icon mới phong cách Material 3 Expressive (nền cookie nhiều cánh, ví + đồng xu; có icon themed/monochrome) và file `ic_launcher-playstore.png` 512px.
+- Tên APK chuẩn: `expenser-<versionName>-<versionCode>-<buildType>.apk`.
+- Nhắc xem báo cáo hằng tuần (Thứ Hai 8:00) và hằng tháng (ngày 1, 8:00); chạm thông báo mở tab Thống kê.
+- Rút gọn toàn bộ text, màn Cài đặt gọn lại (Tài khoản · Giao diện + ngôn ngữ · Nhắc nhở · Dữ liệu · Giới thiệu).
+
+## 1.9.2
+- Nút lên đầu trang trượt một mạch, dừng nhẹ ở đỉnh; chọn tab (danh sách/lịch, chi/thu, recap/thống kê…) có viên thuốc trượt mượt; accordion mở/đóng cùng một nhịp (320ms) không còn nhanh chậm thất thường.
+
 ## 1.9.0
 - Form giao dịch điền theo thứ tự tuỳ ý (kiểm tra đầy đủ khi lưu); "Nhập nhanh" nằm trên ô số tiền, gọn hơn, tiền dạng 20K.
 - Toast mới ở phía trên, có 4 loại (thành công / lỗi / cảnh báo / thông tin), tự tắt nhanh; form ví & danh mục dạng lưới cân đối; tab Cafe recap gọn đẹp hơn.
@@ -40,7 +49,7 @@ Bản native của web app React "Expenser". Dùng **cùng Firebase (Auth + Fire
 - `.env` (đã có trong `.gitignore`) chứa `GOOGLE_SERVICES_JSON_BASE64` — Gradle tự giải mã thành `app/google-services.json` (cũng bị git bỏ qua) mỗi lần build. Mẫu: `.env.example`.
 - Ký bản release: chạy `powershell -File scripts\make-keystore.ps1` (tạo `keystore/expenser-release.jks` và ghi `KEYSTORE_*` vào `.env`, in ra SHA-1 để thêm vào Firebase). **Sao lưu keystore + .env**, mất là không thể cập nhật app.
 - Chưa có keystore thì bản release được ký bằng khóa debug (vẫn cài được, Google sign-in dùng SHA-1 debug đã đăng ký).
-- File APK: `app/build/outputs/apk/<debug|release>/Expenser-<phiên bản>-<debug|release>.apk`.
+- File APK: `app/build/outputs/apk/<debug|release>/expenser-<phiên bản>-<versionCode>-<debug|release>.apk` (vd `expenser-1.10.0-15-release.apk`).
 - Lưu ý: giá trị trong google-services.json (API key…) vẫn nằm trong APK; hãy giới hạn API key theo package + SHA-1 trên Google Cloud.
 
 ## Chạy thử
@@ -62,7 +71,7 @@ Android Studio (Ladybug 2024.2+) → mở thư mục này → Gradle sync → Ru
 - Kéo thả (nắm biểu tượng ⋮⋮) để sắp xếp Danh mục, Quán cafe, Đồ uống; ảnh quán cafe 16:9.
 - Nhãn % ngay trong biểu đồ tròn; màu thu nhập / chi tiêu đậm hơn.
 - Animation: chuyển tab trượt theo hướng vuốt, form thêm/sửa trượt lên, FAB, danh sách, ảnh hiện dần; skeleton khi tải; cache ảnh 150 MB + tải trước ảnh quán/đồ uống.
-- Bản release ký sẵn (cài được), R8 + shrink, tên APK `Expenser-<ver>-<type>.apk`.
+- Bản release ký sẵn (cài được), R8 + shrink, tên APK `expenser-<ver>-<code>-<type>.apk`.
 
 ## Tính năng (1.5)
 - Biểu đồ chỉ dùng biểu đồ tròn, có chú thích đầy đủ (màu, tên, số tiền, %); xuất báo cáo thống kê thành ảnh PNG.

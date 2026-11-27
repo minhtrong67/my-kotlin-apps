@@ -1,5 +1,7 @@
 package com.expenser.app.ui.screens
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -95,6 +97,7 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                 )
             }
             if (view == TxView.LIST) item(key = "filters") {
+                Box(Modifier.animateItem(fadeInSpec = tween(320, easing = FastOutSlowInEasing), fadeOutSpec = tween(160), placementSpec = tween(320, easing = FastOutSlowInEasing))) {
                 AccordionCard(stringResource(R.string.filters_title), Icons.Rounded.FilterList, showFilters, { showFilters = !showFilters }, badge = activeFilters) {
                     FiltersPanel(
                         categories = categories, wallets = wallets, search = search, onSearch = { search = it; limit = PAGE },
@@ -106,9 +109,10 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                         onReset = { search = ""; typeFilter = "all"; categoryFilter = null; walletFilter = null; from = monthDefault.start; to = monthDefault.fullEnd; newestFirst = true; limit = PAGE },
                     )
                 }
+                }
             }
             if (view == TxView.CALENDAR) {
-                item(key = "calendar") { CalendarView(transactions, catById, walletById, onEdit, onDelete = { deleteTarget = it }) }
+                item(key = "calendar") { Box(Modifier.animateItem(fadeInSpec = tween(320, easing = FastOutSlowInEasing), fadeOutSpec = tween(160), placementSpec = tween(320, easing = FastOutSlowInEasing))) { CalendarView(transactions, catById, walletById, onEdit, onDelete = { deleteTarget = it }) } }
             } else if (loading) {
                 item { ListSkeleton(rows = 7) }
             } else if (filtered.isEmpty()) {

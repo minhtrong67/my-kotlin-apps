@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.gnort67.calendarpro.core.PersonalEvent
@@ -20,7 +21,10 @@ data class AppSettings(
     val dailyRotation: Boolean = false,
     val language: String = "vi", // vi | en
     val fontSize: String = "vua", // nho | vua | lon
-    val fontFamily: String = "system"
+    val dynamicColor: Boolean = true, // Material You (Android 12+)
+    val notifyEnabled: Boolean = false,
+    val notifyHour: Int = 7,
+    val notifyMinute: Int = 0
 ) {
     val fontScale: Float get() = when (fontSize) { "nho" -> 0.9f; "lon" -> 1.1f; else -> 1f }
 }
@@ -32,7 +36,10 @@ class SettingsStore(private val ctx: Context) {
         val rotation = booleanPreferencesKey("daily_rotation")
         val lang = stringPreferencesKey("language")
         val size = stringPreferencesKey("font_size")
-        val font = stringPreferencesKey("font_family")
+        val dynamic = booleanPreferencesKey("dynamic_color")
+        val notify = booleanPreferencesKey("notify_enabled")
+        val notifyHour = intPreferencesKey("notify_hour")
+        val notifyMinute = intPreferencesKey("notify_minute")
         val events = stringPreferencesKey("personal_events")
     }
 
@@ -41,7 +48,9 @@ class SettingsStore(private val ctx: Context) {
         return AppSettings(
             themeMode = this[K.mode] ?: d.themeMode, colorId = this[K.color] ?: d.colorId,
             dailyRotation = this[K.rotation] ?: d.dailyRotation, language = this[K.lang] ?: d.language,
-            fontSize = this[K.size] ?: d.fontSize, fontFamily = this[K.font] ?: d.fontFamily
+            fontSize = this[K.size] ?: d.fontSize, dynamicColor = this[K.dynamic] ?: d.dynamicColor,
+            notifyEnabled = this[K.notify] ?: d.notifyEnabled, notifyHour = this[K.notifyHour] ?: d.notifyHour,
+            notifyMinute = this[K.notifyMinute] ?: d.notifyMinute
         )
     }
 
@@ -52,14 +61,14 @@ class SettingsStore(private val ctx: Context) {
         ctx.store.edit { p ->
             val n = block(p.toSettings())
             p[K.mode] = n.themeMode; p[K.color] = n.colorId; p[K.rotation] = n.dailyRotation
-            p[K.lang] = n.language; p[K.size] = n.fontSize; p[K.font] = n.fontFamily
+            p[K.lang] = n.language; p[K.size] = n.fontSize; p[K.dynamic] = n.dynamicColor
+            p[K.notify] = n.notifyEnabled; p[K.notifyHour] = n.notifyHour; p[K.notifyMinute] = n.notifyMinute
         }
     }
 
     suspend fun reset() {
         ctx.store.edit { p ->
-            listOf(K.mode, K.color, K.size, K.font).forEach { p.remove(it) }
-            p.remove(K.rotation)
+            p.remove(K.mode); p.remove(K.color); p.remove(K.size); p.remove(K.dynamic); p.remove(K.rotation)
         }
     }
 

@@ -4,10 +4,14 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -54,9 +58,11 @@ fun CountdownScreen(
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var filter by rememberSaveable { mutableStateOf("all") }
-    val listState = rememberLazyListState()
+    val landscape = isLandscape()
+    val columns = if (landscape) 2 else 1
+    val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-    val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 1 } }
+    val showTop by remember { derivedStateOf { gridState.firstVisibleItemIndex > 1 } }
 
     // Đồng hồ chạy mỗi giây — chỉ các ô đếm ngược đọc State này nên chỉ chúng được vẽ lại.
     val now = produceState(LocalDateTime.now()) { while (true) { delay(1000); value = LocalDateTime.now() } }
@@ -64,15 +70,16 @@ fun CountdownScreen(
         val n = LocalDateTime.now()
         upcomingAll(catalog, events, n).filter { filter == "all" || it.holiday.category == filter }
     }
+    val full: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState, modifier = Modifier.fillMaxSize(),
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns), state = gridState, modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomInset + 96.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item(key = "head") {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            item(key = "head", span = full) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.countdown_title), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
                     Text(
                         stringResource(if (tab == 0) R.string.countdown_desc else R.string.year_progress_subtitle),
@@ -80,14 +87,14 @@ fun CountdownScreen(
                     )
                 }
             }
-            item(key = "tabs") {
+            item(key = "tabs", span = full) {
                 SegmentedControl(
                     listOf(SegOption(stringResource(R.string.year_progress_tab_events), "hourglass_top"), SegOption(stringResource(R.string.year_progress_tab_year), "donut_large")),
                     tab, { tab = it }, height = 60.dp
                 )
             }
             if (tab == 0) {
-                item(key = "filters") {
+                item(key = "filters", span = full) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val cats = listOf("all") + HolidayLogic.CATEGORIES
                         items(cats) { c ->
@@ -101,7 +108,7 @@ fun CountdownScreen(
                     }
                 }
                 if (list.isEmpty()) {
-                    item(key = "empty") {
+                    item(key = "empty", span = full) {
                         Text(
                             stringResource(if (filter == "ca-nhan") R.string.countdown_empty_mine else R.string.countdown_empty),
                             Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -115,16 +122,16 @@ fun CountdownScreen(
                         if (ev != null) SwipeableEvent(ev, onEditEvent, onDeleteEvent, Modifier.animateItem()) { card() } else card()
                     } else Box(Modifier.animateItem()) { card() }
                 }
-                if (filter == "ca-nhan" && events.isNotEmpty()) item(key = "hint") {
+                if (filter == "ca-nhan" && events.isNotEmpty()) item(key = "hint", span = full) {
                     Text(stringResource(R.string.countdown_mine_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
                 }
             } else {
-                yearProgressItems(lang, today)
+                item(key = "yp", span = full) { YearProgressBody(lang, today, landscape) }
             }
         }
         ScrollTopButton(
-            showTop, { scope.launch { listState.animateScrollToItem(0) } },
-            Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = bottomInset + 92.dp)
+            showTop, { scope.launch { gridState.smoothScrollToTop(columns) } },
+            Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = bottomInset + 92.dp)
         )
         if (tab == 0) {
             FloatingActionButton(

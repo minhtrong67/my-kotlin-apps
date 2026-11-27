@@ -3,7 +3,7 @@
     <string name="app_name">Calendar Pro</string>
     <string name="app_tagline">Âm dương &amp; vạn niên</string>
     <string name="app_tip">Mẹo nhanh</string>
-    <string name="app_tip_text">Chạm vào một ngày bất kỳ trong Lịch để xem chi tiết âm lịch, can chi và giờ hoàng đạo.</string>
+    <string name="app_tip_text">Chạm vào một ngày trong Lịch để xem âm lịch, can chi và giờ hoàng đạo.</string>
     <string name="nav_home">Trang chủ</string>
     <string name="nav_calendar">Lịch</string>
     <string name="nav_calendar_full">Lịch âm dương</string>
@@ -13,11 +13,6 @@
     <string name="nav_countdown_full">Đếm ngược</string>
     <string name="nav_settings">Cài đặt</string>
     <string name="nav_menu">Điều hướng chính</string>
-    <string name="nav_open_menu">Mở menu điều hướng</string>
-    <string name="nav_close_menu">Đóng menu điều hướng</string>
-    <string name="header_toggle_theme">Đổi chế độ giao diện (sáng / tối / hệ thống)</string>
-    <string name="header_toggle_language">Đổi ngôn ngữ</string>
-    <string name="header_search">Tìm kiếm menu</string>
     <string name="common_loading">Đang tải...</string>
     <string name="common_close">Đóng</string>
     <string name="common_scroll_top">Lên đầu trang</string>
@@ -29,16 +24,13 @@
     <string name="common_minute">Phút</string>
     <string name="common_second">Giây</string>
     <string name="common_view_detail">Xem chi tiết</string>
-    <string name="home_subtitle">Hôm nay của bạn</string>
-    <string name="home_greeting">Xin chào 👋</string>
-    <string name="home_greeting_desc">Đây là thông tin lịch hôm nay dành cho bạn.</string>
     <string name="home_refresh">Làm mới</string>
     <string name="home_refresh_success_title">Làm mới thành công</string>
-    <string name="home_refresh_success">Đã cập nhật dữ liệu lịch mới nhất.</string>
+    <string name="home_refresh_success">Đã cập nhật.</string>
     <string name="home_upcoming_events">Sự kiện sắp tới</string>
     <string name="home_view_all">Xem tất cả</string>
     <string name="home_vegetarian_title">Ngày chay trong tháng</string>
-    <string name="home_vegetarian_subtitle">Nhị trai — Mùng Một &amp; Rằm hàng tháng âm lịch</string>
+    <string name="home_vegetarian_subtitle">Mùng Một và Rằm hằng tháng</string>
     <string name="home_first_day">Mùng Một</string>
     <string name="home_first_day_desc">Đầu tháng âm lịch</string>
     <string name="home_full_moon">Rằm</string>
@@ -61,7 +53,7 @@
     <string name="calendar_legend_mine">Sự kiện của tôi</string>
     <string name="year_progress_tab_events">Sự kiện</string>
     <string name="year_progress_tab_year">Tiến độ năm</string>
-    <string name="year_progress_subtitle">Năm nay đã trôi qua bao nhiêu phần trăm? Tiến độ tự về 0% khi sang năm mới.</string>
+    <string name="year_progress_subtitle">Năm nay đã trôi qua bao nhiêu phần trăm?</string>
     <string name="year_progress_solar">Dương lịch</string>
     <string name="year_progress_lunar">Âm lịch</string>
     <string name="year_progress_year_label" formatted="true">Năm %1$s</string>
@@ -76,8 +68,6 @@
     <string name="year_progress_months">Các tháng</string>
     <string name="year_progress_milestones">Cột mốc</string>
     <string name="year_progress_reached">Đã qua</string>
-    <string name="year_progress_new_year" formatted="true">Chào năm %1$s! Thanh tiến độ đã quay về 0%% và bắt đầu một vòng mới.</string>
-    <string name="year_progress_last_day">Hôm nay là ngày cuối cùng của năm — sắp sang năm mới!</string>
     <string name="events_new_title">Thêm sự kiện</string>
     <string name="events_edit_title">Sửa sự kiện</string>
     <string name="events_name">Tên sự kiện</string>
@@ -88,7 +78,7 @@
     <string name="events_day">Ngày</string>
     <string name="events_month">Tháng</string>
     <string name="events_year">Năm gốc (tuỳ chọn)</string>
-    <string name="events_year_hint">Dùng để hiện tuổi hoặc lần kỷ niệm, VD: năm sinh.</string>
+    <string name="events_year_hint">Dùng để tính tuổi hoặc lần kỷ niệm.</string>
     <string name="events_icon">Biểu tượng</string>
     <string name="events_save">Lưu</string>
     <string name="events_name_required">Vui lòng nhập tên sự kiện.</string>
@@ -97,7 +87,7 @@
     <string name="events_limit">Đã đạt tối đa 100 sự kiện.</string>
     <string name="events_delete_title">Xoá sự kiện?</string>
     <string name="events_delete_body" formatted="true">\"%1$s\" sẽ bị xoá khỏi thiết bị này.</string>
-    <string name="events_lunar_note">Sự kiện âm lịch sẽ tự quy đổi sang dương lịch mỗi năm.</string>
+    <string name="events_lunar_note">Ngày âm lịch tự quy đổi sang dương lịch mỗi năm.</string>
     <string name="van_nien_title">Lịch vạn niên</string>
     <string name="van_nien_subtitle">Tra cứu &amp; quy đổi ngày</string>
     <string name="van_nien_from_solar">Từ Dương lịch</string>
@@ -106,14 +96,14 @@
     <string name="van_nien_month">Tháng</string>
     <string name="van_nien_year">Năm</string>
     <string name="van_nien_submit">Xem chi tiết vạn niên</string>
-    <string name="van_nien_invalid_solar">Ngày dương lịch không hợp lệ, vui lòng kiểm tra lại.</string>
-    <string name="van_nien_invalid_lunar">Ngày âm lịch không hợp lệ, vui lòng kiểm tra lại.</string>
+    <string name="van_nien_invalid_solar">Ngày dương lịch không hợp lệ.</string>
+    <string name="van_nien_invalid_lunar">Ngày âm lịch không hợp lệ.</string>
     <string name="van_nien_invalid_title">Lỗi dữ liệu</string>
-    <string name="van_nien_converted_to_lunar">Đã quy đổi sang âm lịch thành công.</string>
-    <string name="van_nien_converted_to_solar">Đã quy đổi sang dương lịch thành công.</string>
+    <string name="van_nien_converted_to_lunar">Đã quy đổi sang âm lịch.</string>
+    <string name="van_nien_converted_to_solar">Đã quy đổi sang dương lịch.</string>
     <string name="countdown_title">Đếm ngược</string>
     <string name="countdown_subtitle">Ngày lễ nổi bật Việt Nam</string>
-    <string name="countdown_desc">Theo dõi thời gian còn lại đến các ngày lễ, kỷ niệm nổi bật. Bấm nút “Xem chi tiết” trên thẻ để xem ý nghĩa và phong tục.</string>
+    <string name="countdown_desc">Đếm ngược đến các ngày lễ và sự kiện của bạn.</string>
     <string name="countdown_filter_all">Tất cả</string>
     <string name="countdown_empty">Không có sự kiện nào trong danh mục này.</string>
     <string name="countdown_occurs_today">Diễn ra hôm nay!</string>
@@ -121,9 +111,9 @@
     <string name="countdown_event_detail">Chi tiết sự kiện</string>
     <string name="countdown_view_detail">Xem chi tiết</string>
     <string name="countdown_add_event">Thêm sự kiện</string>
-    <string name="countdown_empty_mine">Bạn chưa có sự kiện nào. Thêm sinh nhật, ngày kỷ niệm hay ngày giỗ để đếm ngược cùng các ngày lễ.</string>
-    <string name="countdown_mine_hint">Sự kiện của bạn chỉ lưu trên thiết bị này.</string>
-    <string name="holiday_detail_last_occurrence">Ngày diễn ra gần nhất</string>
+    <string name="countdown_empty_mine">Chưa có sự kiện nào. Nhấn + để thêm sinh nhật, ngày giỗ hay kỷ niệm.</string>
+    <string name="countdown_mine_hint">Vuốt thẻ: trái để xoá, phải để sửa.</string>
+    <string name="holiday_detail_last_occurrence">Sắp tới</string>
     <string name="holiday_detail_calendar_type">Loại lịch</string>
     <string name="holiday_detail_by_solar">Theo dương lịch</string>
     <string name="holiday_detail_by_lunar">Theo âm lịch</string>
@@ -134,14 +124,12 @@
     <string name="holiday_detail_days_left">Còn lại</string>
     <string name="holiday_detail_add_to_calendar">Thêm vào lịch</string>
     <string name="holiday_detail_share_image">Chia sẻ ảnh</string>
-    <string name="holiday_detail_ics_done">Đã tạo file lịch (.ics) — mở file để thêm vào ứng dụng lịch.</string>
-    <string name="holiday_detail_image_saved">Đã lưu ảnh về máy.</string>
     <string name="holiday_detail_image_failed">Không tạo được ảnh, vui lòng thử lại.</string>
     <string name="holiday_detail_share_unit">ngày nữa</string>
     <string name="holiday_detail_share_today">Hôm nay!</string>
     <string name="holiday_detail_repeats_yearly">Lặp lại hằng năm</string>
     <string name="holiday_detail_anniversary" formatted="true">Lần thứ %1$s</string>
-    <string name="holiday_detail_personal_note">Sự kiện của riêng bạn, lưu trên thiết bị này.</string>
+    <string name="holiday_detail_personal_note">Sự kiện của bạn, chỉ lưu trên máy này.</string>
     <string name="holiday_detail_edit">Sửa</string>
     <string name="holiday_detail_remove">Xoá</string>
     <string name="van_nien_detail_solar">Dương lịch</string>
@@ -165,45 +153,32 @@
     <string name="van_nien_detail_directions">Hướng xuất hành</string>
     <string name="van_nien_detail_hy_than">Hỷ thần</string>
     <string name="van_nien_detail_tai_than">Tài thần</string>
-    <string name="van_nien_detail_direction_note">Theo quan niệm dân gian, chỉ mang tính tham khảo.</string>
+    <string name="van_nien_detail_direction_note">Theo quan niệm dân gian, chỉ để tham khảo.</string>
     <string name="van_nien_detail_my_events">Sự kiện của tôi</string>
-    <string name="not_found_title">Không tìm thấy trang</string>
-    <string name="not_found_desc">Trang bạn tìm không tồn tại hoặc đã được di chuyển.</string>
-    <string name="not_found_back_home">Về trang chủ</string>
     <string name="settings_title">Cài đặt</string>
     <string name="settings_subtitle">Tuỳ chỉnh giao diện</string>
-    <string name="settings_subtitle_full">Tuỳ chỉnh giao diện theo sở thích của bạn.</string>
-    <string name="settings_theme_mode_title">Chế độ giao diện</string>
-    <string name="settings_theme_mode_subtitle">Chọn giao diện sáng, tối hoặc theo hệ thống</string>
+    <string name="settings_subtitle_full">Tuỳ chỉnh ứng dụng</string>
+    <string name="settings_theme_mode_title">Giao diện</string>
+    <string name="settings_theme_mode_subtitle">Sáng, tối hoặc theo hệ thống</string>
     <string name="settings_light">Sáng</string>
     <string name="settings_dark">Tối</string>
     <string name="settings_system">Hệ thống</string>
-    <string name="settings_color_title">Màu sắc chủ đề</string>
-    <string name="settings_color_subtitle">Chọn một trong 19 màu của Material Design</string>
-    <string name="settings_daily_rotation_title">Đổi màu ngẫu nhiên mỗi ngày</string>
+    <string name="settings_color_title">Màu chủ đề</string>
+    <string name="settings_color_subtitle">Chọn màu nhấn cho ứng dụng</string>
+    <string name="settings_daily_rotation_title">Đổi màu mỗi ngày</string>
     <string name="settings_daily_rotation_on" formatted="true">Hôm nay: %1$s</string>
-    <string name="settings_daily_rotation_off">Tự động xoay vòng qua 19 màu theo ngày</string>
-    <string name="settings_random_color_now">Đổi màu ngẫu nhiên ngay</string>
+    <string name="settings_daily_rotation_off">Tự đổi màu theo ngày</string>
+    <string name="settings_random_color_now">Chọn màu ngẫu nhiên</string>
     <string name="settings_color_changed" formatted="true">Đã đổi sang màu %1$s.</string>
     <string name="settings_language_title">Ngôn ngữ</string>
-    <string name="settings_language_subtitle">Chọn ngôn ngữ hiển thị cho toàn bộ ứng dụng</string>
-    <string name="settings_font_title">Phông chữ</string>
-    <string name="settings_font_subtitle">Chọn kiểu chữ cho toàn bộ ứng dụng (hỗ trợ đầy đủ tiếng Việt)</string>
-    <string name="settings_font_preview_sample">Hôm nay là mùng một — ngày chay, giờ hoàng đạo Tý, Dần, Mão.</string>
-    <string name="settings_font_current">Đang dùng</string>
+    <string name="settings_language_subtitle">Ngôn ngữ hiển thị</string>
     <string name="settings_font_size_title">Cỡ chữ</string>
-    <string name="settings_font_size_subtitle">Điều chỉnh kích thước chữ và giao diện toàn ứng dụng</string>
+    <string name="settings_font_size_subtitle">Phóng to hoặc thu nhỏ chữ</string>
     <string name="settings_font_size_preview">Xem trước:</string>
-    <string name="settings_font_size_preview_note">— toàn bộ chữ và khoảng cách sẽ co giãn theo cỡ đã chọn.</string>
-    <string name="settings_install_title">Cài đặt ứng dụng</string>
-    <string name="settings_install_subtitle">Cài Calendar Pro vào máy để dùng như ứng dụng thật, hoạt động cả khi ngoại tuyến</string>
-    <string name="settings_install_btn">Cài đặt ngay</string>
-    <string name="settings_installed_note">Ứng dụng đã được cài đặt trên thiết bị này.</string>
-    <string name="settings_install_success_title">Đã cài đặt</string>
-    <string name="settings_install_success">Calendar Pro đã được thêm vào màn hình chính.</string>
+    <string name="settings_font_size_preview_note">Chữ và khoảng cách đổi theo cỡ đã chọn.</string>
     <string name="settings_reset_btn">Khôi phục mặc định</string>
-    <string name="settings_reset_confirm_title">Khôi phục cài đặt mặc định?</string>
-    <string name="settings_reset_confirm_msg">Toàn bộ tuỳ chỉnh giao diện, màu sắc, phông chữ và cỡ chữ sẽ trở về mặc định ban đầu. Hành động này không thể hoàn tác.</string>
+    <string name="settings_reset_confirm_title">Khôi phục mặc định?</string>
+    <string name="settings_reset_confirm_msg">Giao diện, màu sắc và cỡ chữ sẽ trở về mặc định.</string>
     <string name="settings_reset_done_title">Cài đặt</string>
     <string name="settings_reset_done">Đã khôi phục cài đặt mặc định.</string>
     <string name="settings_size_small">Nhỏ</string>
@@ -211,17 +186,12 @@
     <string name="settings_size_large">Lớn</string>
     <string name="settings_current_label">Đang dùng</string>
     <string name="settings_about_title">Giới thiệu</string>
-    <string name="settings_about_desc">Calendar Pro — ứng dụng tra cứu lịch âm dương, lịch vạn niên và đếm ngược ngày lễ Việt Nam. Phiên bản 1.0.0.</string>
+    <string name="settings_about_desc">Lịch âm dương, vạn niên và đếm ngược ngày lễ Việt Nam. Phiên bản 1.1.0.</string>
     <string name="settings_credits_heading">Đứng sau Calendar Pro</string>
     <string name="settings_credits_author_role">Tác giả · Thiết kế &amp; phát triển</string>
     <string name="settings_credits_ai_name">Claude AI</string>
-    <string name="settings_credits_ai_role">Trợ lý AI của Anthropic · Đồng hành thiết kế, viết mã và tài liệu</string>
-    <string name="settings_credits_thanks">Được tạo nên từ sự kết hợp giữa ý tưởng của con người và sức mạnh của AI.</string>
-    <string name="command_palette_placeholder">Tìm kiếm menu...</string>
-    <string name="command_palette_no_results">Không tìm thấy kết quả phù hợp</string>
-    <string name="command_palette_hint">điều hướng</string>
-    <string name="command_palette_select_hint">chọn</string>
-    <string name="command_palette_close_hint">đóng</string>
+    <string name="settings_credits_ai_role">Trợ lý AI của Anthropic · Đồng hành thiết kế và viết mã</string>
+    <string name="settings_credits_thanks">Kết hợp ý tưởng của con người và sức mạnh của AI.</string>
     <string name="category_quoc_le">Quốc lễ</string>
     <string name="category_truyen_thong">Truyền thống</string>
     <string name="category_ky_niem">Kỷ niệm</string>
@@ -229,6 +199,27 @@
     <string name="category_ton_giao">Tôn giáo</string>
     <string name="category_ca_nhan">Của tôi</string>
     <string name="no_calendar_app">Không tìm thấy ứng dụng Lịch trên máy.</string>
-    <string name="settings_font_note_prefix">Phông chữ</string>
     <string name="common_undo">Hoàn tác</string>
+    <string name="settings_material_you_title">Material You</string>
+    <string name="settings_material_you_subtitle">Lấy màu theo hình nền của máy</string>
+    <string name="settings_notif_title">Thông báo</string>
+    <string name="settings_notif_subtitle">Nhắc ngày âm lịch và sự kiện mỗi sáng</string>
+    <string name="settings_notif_daily">Nhắc hằng ngày</string>
+    <string name="settings_notif_on_at" formatted="true">Mỗi ngày lúc %1$s</string>
+    <string name="settings_notif_off">Đang tắt</string>
+    <string name="settings_notif_time">Giờ nhắc</string>
+    <string name="settings_notif_test">Gửi thử</string>
+    <string name="settings_notif_sent">Đã gửi thông báo thử.</string>
+    <string name="settings_notif_denied">Thông báo đang bị chặn. Hãy bật trong cài đặt hệ thống.</string>
+    <string name="settings_notif_open">Mở cài đặt</string>
+    <string name="notif_channel_name">Nhắc hằng ngày</string>
+    <string name="notif_channel_desc">Âm lịch, ngày lễ và sự kiện của hôm nay</string>
+    <string name="notif_title" formatted="true">Hôm nay %1$s/%2$s âm lịch</string>
+    <string name="notif_star_good" formatted="true">Ngày hoàng đạo · sao %1$s</string>
+    <string name="notif_star_bad" formatted="true">Ngày hắc đạo · sao %1$s</string>
+    <string name="notif_chay">Ngày chay</string>
+    <string name="notif_tomorrow" formatted="true">Mai: %1$s</string>
+    <string name="notif_test_title">Calendar Pro</string>
+    <string name="notif_test_body">Thông báo hoạt động tốt.</string>
+    <string name="cd_scroll_top">Lên đầu trang</string>
 </resources>

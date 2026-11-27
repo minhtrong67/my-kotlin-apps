@@ -18,6 +18,8 @@ data class AppSettings(
     val fontSize: String = "md", // sm | md | lg
     val reminderEnabled: Boolean = false,
     val reminderTime: String = "06:00",
+    val reportWeekly: Boolean = false,
+    val reportMonthly: Boolean = false,
     val seeded: Boolean = false,
 )
 
@@ -29,6 +31,8 @@ class SettingsStore(private val context: Context) {
         val fontSize = stringPreferencesKey("fontSize")
         val reminderEnabled = booleanPreferencesKey("reminderEnabled")
         val reminderTime = stringPreferencesKey("reminderTime")
+        val reportWeekly = booleanPreferencesKey("reportWeekly")
+        val reportMonthly = booleanPreferencesKey("reportMonthly")
         val seeded = booleanPreferencesKey("seeded")
     }
 
@@ -41,6 +45,8 @@ class SettingsStore(private val context: Context) {
             fontSize = p[K.fontSize] ?: d.fontSize,
             reminderEnabled = p[K.reminderEnabled] ?: d.reminderEnabled,
             reminderTime = p[K.reminderTime] ?: d.reminderTime,
+            reportWeekly = p[K.reportWeekly] ?: d.reportWeekly,
+            reportMonthly = p[K.reportMonthly] ?: d.reportMonthly,
             seeded = p[K.seeded] ?: d.seeded,
         )
     }
@@ -56,6 +62,10 @@ class SettingsStore(private val context: Context) {
     suspend fun setReminder(enabled: Boolean, time: String) = edit {
         it[K.reminderEnabled] = enabled
         it[K.reminderTime] = time
+    }
+    suspend fun setReports(weekly: Boolean, monthly: Boolean) = edit {
+        it[K.reportWeekly] = weekly
+        it[K.reportMonthly] = monthly
     }
     suspend fun markSeeded() = edit { it[K.seeded] = true }
 

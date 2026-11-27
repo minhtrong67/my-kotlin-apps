@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -58,6 +59,7 @@ import com.gnort67.calendarpro.core.LunarCalendar
 import com.gnort67.calendarpro.core.PersonalEvent
 import com.gnort67.calendarpro.data.HolidayCatalog
 import com.gnort67.calendarpro.ui.components.AppIcon
+import com.gnort67.calendarpro.ui.components.isLandscape
 import com.gnort67.calendarpro.ui.components.pressable
 import com.gnort67.calendarpro.ui.shapes.ExpressiveShapes
 import com.gnort67.calendarpro.ui.theme.extra
@@ -88,6 +90,7 @@ fun CalendarScreen(
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     var picker by remember { mutableStateOf(false) }
+    val landscape = isLandscape()
 
     // Rung nhẹ mỗi khi vuốt sang tháng khác
     LaunchedEffect(pager) {
@@ -100,7 +103,7 @@ fun CalendarScreen(
     val monthTitle = if (lang == "en") "${DateUtils.MONTH_NAMES_EN[ym.monthValue - 1]}\n${ym.year}" else "Tháng ${ym.monthValue}\n${ym.year}"
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = bottomInset + 96.dp)) {
+        val header: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Row(
@@ -132,6 +135,8 @@ fun CalendarScreen(
                 }
             }
 
+        }
+        val gridCard: @Composable () -> Unit = {
             Surface(
                 Modifier.fillMaxWidth().padding(top = 20.dp), shape = RoundedCornerShape(36.dp),
                 color = MaterialTheme.colorScheme.surfaceContainer
@@ -156,6 +161,8 @@ fun CalendarScreen(
                 }
             }
 
+        }
+        val legend: @Composable () -> Unit = {
             FlowRow(
                 Modifier.fillMaxWidth().padding(top = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -167,6 +174,20 @@ fun CalendarScreen(
                 LegendChip(stringResource(R.string.calendar_legend_holiday), Color.Transparent, ex.holiday, outlined = true)
                 LegendChip(stringResource(R.string.calendar_legend_sunday), Color.Transparent, null, textColor = MaterialTheme.colorScheme.error, outlined = false)
                 if (events.isNotEmpty()) LegendChip(stringResource(R.string.calendar_legend_mine), MaterialTheme.colorScheme.secondaryContainer, null)
+            }
+        }
+        if (landscape) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.weight(0.8f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = bottomInset + 24.dp)) {
+                    header(); legend()
+                }
+                Column(Modifier.weight(1.4f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = bottomInset + 24.dp)) {
+                    gridCard()
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = bottomInset + 96.dp)) {
+                header(); gridCard(); legend()
             }
         }
 
@@ -269,7 +290,7 @@ private fun DayCell(c: CellData, isToday: Boolean, sunday: Boolean, modifier: Mo
         else -> cs.onSurface
     }
     val alpha = if (c.inMonth) 1f else 0.38f
-    Box(modifier.aspectRatio(0.86f).padding(1.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.aspectRatio(if (isLandscape()) 1.4f else 0.86f).padding(1.dp), contentAlignment = Alignment.Center) {
         Box(
             Modifier.fillMaxSize().clip(shape).background(bg).pressable(shape, onClick = onClick),
             contentAlignment = Alignment.Center

@@ -73,6 +73,7 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
                 repo?.seedIfNeeded(id, english)
                 val s = store.flow.first()
                 if (s.reminderEnabled) ReminderScheduler.schedule(app, s.reminderTime)
+                ReminderScheduler.restoreReports(app, s.reportWeekly, s.reportMonthly)
             }
         }
         viewModelScope.launch { container.writeErrors.collect { toast(R.string.write_error) } }
@@ -179,6 +180,11 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     fun setReminder(enabled: Boolean, time: String) = viewModelScope.launch {
         store.setReminder(enabled, time)
         if (enabled) ReminderScheduler.schedule(app, time) else ReminderScheduler.cancel(app)
+    }
+
+    fun setReports(weekly: Boolean, monthly: Boolean) = viewModelScope.launch {
+        store.setReports(weekly, monthly)
+        ReminderScheduler.restoreReports(app, weekly, monthly)
     }
 
     fun sendTestReminder() { if (!ReminderScheduler.show(app)) toast(R.string.reminder_denied) }

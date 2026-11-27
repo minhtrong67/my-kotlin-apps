@@ -53,7 +53,8 @@ fun HolidayDetailSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = cs.surfaceContainerLow, shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+        containerColor = cs.surfaceContainerLow, shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+        contentWindowInsets = { sheetInsets }
     ) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp),
@@ -189,7 +190,8 @@ fun EventFormSheet(initial: PersonalEvent?, onDismiss: () -> Unit, onSave: (Pers
 
     ModalBottomSheet(
         onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = cs.surfaceContainerLow, shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp)
+        containerColor = cs.surfaceContainerLow, shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+        contentWindowInsets = { sheetInsets }
     ) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding().padding(horizontal = 20.dp).padding(bottom = 24.dp),

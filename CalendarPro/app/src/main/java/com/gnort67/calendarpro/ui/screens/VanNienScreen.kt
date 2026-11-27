@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -44,8 +45,10 @@ fun VanNienScreen(
     var shown by remember { mutableStateOf(today) }
     val info = remember(shown, events, lang) { buildDayInfo(shown, catalog, events, lang) }
     val listState = rememberLazyListState()
+    val rightState = rememberLazyListState()
+    val landscape = isLandscape()
     val scope = rememberCoroutineScope()
-    val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 600 } }
     val invalidSolar = stringResource(R.string.van_nien_invalid_solar)
     val invalidLunar = stringResource(R.string.van_nien_invalid_lunar)
     val toLunarOk = stringResource(R.string.van_nien_converted_to_lunar)
@@ -63,15 +66,10 @@ fun VanNienScreen(
             if (d == null || back == null || back.day != day || back.month != month || back.year != year) { onMessage(invalidLunar); return }
             shown = d; onMessage(toSolarOk)
         }
-        scope.launch { listState.animateScrollToItem(1) }
+        scope.launch { if (landscape) rightState.animateScrollToItem(0) else listState.animateScrollToItem(1) }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState, modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+    val leftItems: LazyListScope.() -> Unit = {
             item(key = "title") {
                 Column(Modifier.padding(top = 4.dp)) {
                     Text(stringResource(R.string.van_nien_title), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
@@ -101,13 +99,34 @@ fun VanNienScreen(
                     }
                 }
             }
+    }
+    val rightItems: LazyListScope.() -> Unit = {
             item(key = "result-" + shown.toString()) {
                 DayDetailContent(info, catalog, lang, onOpenHoliday, Modifier.animateItem())
             }
+    }
+    Box(Modifier.fillMaxSize()) {
+        if (landscape) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyColumn(
+                    Modifier.weight(1f).fillMaxHeight(), state = listState,
+                    contentPadding = PaddingValues(start = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) { leftItems() }
+                LazyColumn(
+                    Modifier.weight(1.2f).fillMaxHeight(), state = rightState,
+                    contentPadding = PaddingValues(end = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) { rightItems() }
+            }
+        } else {
+            LazyColumn(
+                state = listState, modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomInset + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) { leftItems(); rightItems() }
         }
         ScrollTopButton(
-            showTop, { scope.launch { listState.animateScrollToItem(0) } },
-            Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomInset + 16.dp)
+            showTop, { scope.launch { listState.smoothScrollToTop() } },
+            Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = bottomInset + 16.dp)
         )
     }
 }
