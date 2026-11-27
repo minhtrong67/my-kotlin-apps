@@ -25,6 +25,7 @@ import com.expenser.app.util.*
 @Composable
 fun WalletsScreen(vm: MainViewModel) {
     val wallets by vm.wallets.collectAsStateWithLifecycle()
+    val loading by vm.loading.collectAsStateWithLifecycle()
     val transactions by vm.transactions.collectAsStateWithLifecycle()
     var editor by remember { mutableStateOf<WalletEditorState?>(null) }
     var deleteTarget by remember { mutableStateOf<Wallet?>(null) }
@@ -48,7 +49,8 @@ fun WalletsScreen(vm: MainViewModel) {
                         }
                     })
             }
-            if (wallets.isEmpty()) item { EmptyState(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.wallet_empty), action = stringResource(R.string.wallet_add_first) to { editor = WalletEditorState(null) }) }
+            if (wallets.isEmpty() && loading) item { ListSkeleton(rows = 4) }
+            else if (wallets.isEmpty()) item { EmptyState(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.wallet_empty), action = stringResource(R.string.wallet_add_first) to { editor = WalletEditorState(null) }) }
             if (wallets.isNotEmpty()) item { SwipeHint() }
             items(wallets, key = { it.id }) { w ->
                 SwipeRow(onEdit = { editor = WalletEditorState(w) }, onDelete = { deleteTarget = w }, shape = RoundedCornerShape(24.dp), modifier = Modifier.animateItem()) {
@@ -107,9 +109,7 @@ private fun WalletEditor(state: WalletEditorState, all: List<Wallet>, onDismiss:
             supportingText = { if (submitted && err != null) Text(err) }, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth())
         if (editing == null) MoneyField(balance, { balance = it }, stringResource(R.string.wallet_initial_balance), suggestions = false)
         Text(stringResource(R.string.wallet_icon), style = MaterialTheme.typography.titleSmall)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            WALLET_ICON_KEYS.forEach { k -> FilterChip(selected = icon == k, onClick = { icon = k }, label = { Icon(walletIcon(k), null, Modifier.size(20.dp)) }) }
-        }
+        IconGridPicker(WALLET_ICON_KEYS, icon, { icon = it })
         Text(stringResource(R.string.common_color), style = MaterialTheme.typography.titleSmall)
         ColorPicker(color, { color = it }, CATEGORY_COLORS)
     }

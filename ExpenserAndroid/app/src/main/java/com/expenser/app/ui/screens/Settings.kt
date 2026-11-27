@@ -101,7 +101,6 @@ fun SettingsScreen(vm: MainViewModel) {
     var confirmReset by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
-    var dataOpen by rememberSaveable { mutableStateOf(false) }
 
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags().takeIf { it.isNotBlank() }?.substringBefore('-')
         ?: context.resources.configuration.locales[0].language.let { if (it == "en") "en" else "vi" }
@@ -112,8 +111,6 @@ fun SettingsScreen(vm: MainViewModel) {
         mapOf(TxType.INCOME to stringResource(R.string.export_type_income), TxType.EXPENSE to stringResource(R.string.export_type_expense), TxType.TRANSFER to stringResource(R.string.tx_transfer)),
     )
     var pendingExport by remember { mutableStateOf<ExportFile?>(null) }
-    var pendingImport by remember { mutableStateOf<Entity?>(null) } // null + importAll flag below = everything
-    var importAll by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
         val file = pendingExport; pendingExport = null
         if (uri == null || file == null) return@rememberLauncherForActivityResult
@@ -128,8 +125,9 @@ fun SettingsScreen(vm: MainViewModel) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             try {
-                val text = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { String(it.readBytes(), Charsets.UTF_8) } ?: "" }
-                if (importAll) vm.importAll(text) else pendingImport?.let { vm.importEntity(it, text) }
+                val bytes = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0) }
+                val name = withContext(Dispatchers.IO) { runCatching { context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() } ?: ""
+                vm.importBytes(bytes, name)
             } catch (e: Exception) { vm.toast(R.string.import_error) }
         }
     }
@@ -145,19 +143,10 @@ fun SettingsScreen(vm: MainViewModel) {
         pendingExport = file
         exportLauncher.launch(file.name)
     }
-    fun startImport(entity: Entity?) { importAll = entity == null; pendingImport = entity; importLauncher.launch(arrayOf("*/*")) }
 
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) vm.setReminder(true, settings.reminderTime) else vm.toast(R.string.reminder_denied)
     }
-
-    val entities = listOf(
-        EntityInfo(Entity.TRANSACTIONS, R.string.nav_transactions, Icons.AutoMirrored.Rounded.ReceiptLong) to txs.size,
-        EntityInfo(Entity.CATEGORIES, R.string.nav_categories, Icons.Rounded.Category) to cats.size,
-        EntityInfo(Entity.WALLETS, R.string.nav_wallets, Icons.Rounded.AccountBalanceWallet) to wals.size,
-        EntityInfo(Entity.SHOPS, R.string.nav_cafe_shops, Icons.Rounded.Storefront) to shops.size,
-        EntityInfo(Entity.DRINKS, R.string.nav_cafe_drinks, Icons.Rounded.Coffee) to drinks.size,
-    )
 
     val scrollState = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
@@ -194,15 +183,21 @@ fun SettingsScreen(vm: MainViewModel) {
             }
             if (!settings.dynamicColor) {
                 Label(stringResource(R.string.settings_color))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ACCENTS.forEach { (value, swatch) ->
-                        val on = settings.accent.equals(value, ignoreCase = true)
-                        Box(
-                            Modifier.size(40.dp).clip(CircleShape).background(Color(android.graphics.Color.parseColor(swatch)))
-                                .then(if (on) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                                .clickable { vm.setAccent(value) },
-                            contentAlignment = Alignment.Center,
-                        ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+                // 6 columns x 3 rows = 18 swatches, so every row is completely filled.
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ACCENTS.chunked(6).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            row.forEach { (value, swatch) ->
+                                val on = settings.accent.equals(value, ignoreCase = true)
+                                Box(
+                                    Modifier.weight(1f).aspectRatio(1f).clip(CircleShape).background(Color(android.graphics.Color.parseColor(swatch)))
+                                        .then(if (on) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                                        .clickable { vm.setAccent(value) },
+                                    contentAlignment = Alignment.Center,
+                                ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                            }
+                            repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
                     }
                 }
             }
@@ -226,35 +221,14 @@ fun SettingsScreen(vm: MainViewModel) {
             }
         }
 
-        // ---- data (the only accordion) ----
-        AccordionCard(stringResource(R.string.settings_data), Icons.Rounded.Storage, dataOpen, { dataOpen = !dataOpen }, subtitle = stringResource(R.string.data_subtitle)) {
-            entities.forEach { (info, count) ->
-                var menu by remember { mutableStateOf(false) }
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(info.icon, null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(info.label), style = MaterialTheme.typography.bodyLarge)
-                        Text(stringResource(R.string.data_count, count), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Box {
-                        FilledTonalButton(onClick = { menu = true }, Modifier.height(40.dp), contentPadding = PaddingValues(horizontal = 12.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.settings_export)) }
-                        DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text("CSV") }, { menu = false; export(info.entity, false) })
-                            DropdownMenuItem({ Text("JSON") }, { menu = false; export(info.entity, true) })
-                        }
-                    }
-                    Spacer(Modifier.width(6.dp))
-                    OutlinedButton(onClick = { startImport(info.entity) }, Modifier.height(40.dp), contentPadding = PaddingValues(horizontal = 12.dp)) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.settings_import)) }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+        // ---- data: one card for everything ----
+        SettingCard(stringResource(R.string.settings_data), Icons.Rounded.Storage) {
+            Text(stringResource(R.string.data_summary, txs.size, cats.size, wals.size, shops.size, drinks.size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = { export(null, true) }, Modifier.weight(1f).height(52.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.data_export_all_json), maxLines = 1) }
+                FilledTonalButton(onClick = { export(null, false) }, Modifier.weight(1f).height(52.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.data_export_all_csv), maxLines = 1) }
             }
-            Label(stringResource(R.string.data_all))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { export(null, true) }, Modifier.weight(1f).height(48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.data_export_all_json), maxLines = 1) }
-                Button(onClick = { export(null, false) }, Modifier.weight(1f).height(48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.data_export_all_csv), maxLines = 1) }
-            }
-            OutlinedButton(onClick = { startImport(null) }, Modifier.fillMaxWidth().height(48.dp)) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.data_import_all)) }
+            OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.data_import_all)) }
             Text(stringResource(R.string.settings_import_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 

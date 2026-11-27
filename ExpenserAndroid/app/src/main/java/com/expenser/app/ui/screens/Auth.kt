@@ -100,9 +100,10 @@ fun LoginScreen(vm: MainViewModel) {
             drawCircle(Color.White.copy(alpha = 0.10f), radius = size.width * 0.55f, center = Offset(size.width * 0.95f, size.height * 0.02f))
             drawCircle(Color.White.copy(alpha = 0.07f), radius = size.width * 0.38f, center = Offset(size.width * 0.05f, size.height * 0.34f))
         }
-        Column(Modifier.fillMaxSize()) {
-            // Hero
-            Column(Modifier.weight(1f).fillMaxWidth().statusBarsPadding().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        val wide = maxWidth > maxHeight
+        @Composable
+        fun HeroPane(modifier: Modifier) {
+            Column(modifier.statusBarsPadding().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 AnimatedVisibility(shown, enter = fadeIn(tween(600)) + slideInVertically(tween(600)) { it / 6 }) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Surface(Modifier.size(84.dp), shape = RoundedCornerShape(28.dp), color = Color.White, shadowElevation = 12.dp) {
@@ -112,14 +113,22 @@ fun LoginScreen(vm: MainViewModel) {
                         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.login_subtitle), style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f), textAlign = TextAlign.Center)
-                        if (!compact) { Spacer(Modifier.height(28.dp)); PreviewCard(Modifier.fillMaxWidth(0.82f)) }
+                        if (!compact && !wide) { Spacer(Modifier.height(28.dp)); PreviewCard(Modifier.fillMaxWidth(0.82f)) }
                     }
                 }
             }
-            // Bottom sheet
-            AnimatedVisibility(shown, enter = fadeIn(tween(500, 150)) + slideInVertically(tween(550, 100)) { it / 3 }) {
-                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp), color = cs.surface, shadowElevation = 16.dp) {
-                    Column(Modifier.navigationBarsPadding().padding(horizontal = 28.dp).padding(top = 28.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        }
+        @Composable
+        fun SheetPane(modifier: Modifier) {
+            AnimatedVisibility(shown, modifier = modifier, enter = fadeIn(tween(500, 150)) + slideInVertically(tween(550, 100)) { it / 3 }) {
+                Surface(
+                    Modifier.fillMaxWidth(), shadowElevation = 16.dp, color = cs.surface,
+                    shape = if (wide) RoundedCornerShape(topStart = 36.dp, bottomStart = 36.dp) else RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+                ) {
+                    Column(
+                        Modifier.then(if (wide) Modifier.fillMaxHeight().verticalScroll(rememberScrollState()) else Modifier).navigationBarsPadding().padding(horizontal = 28.dp).padding(top = 28.dp, bottom = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                    ) {
                         Text(stringResource(R.string.login_welcome), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
                         Text(stringResource(R.string.login_welcome_sub), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, textAlign = TextAlign.Center)
@@ -154,6 +163,8 @@ fun LoginScreen(vm: MainViewModel) {
                 }
             }
         }
+        if (wide) Row(Modifier.fillMaxSize()) { HeroPane(Modifier.weight(1f).fillMaxHeight()); SheetPane(Modifier.weight(1f).fillMaxHeight()) }
+        else Column(Modifier.fillMaxSize()) { HeroPane(Modifier.weight(1f).fillMaxWidth()); SheetPane(Modifier.fillMaxWidth()) }
     }
 }
 

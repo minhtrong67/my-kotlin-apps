@@ -81,6 +81,7 @@ fun CafeScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     val shops by vm.shops.collectAsStateWithLifecycle()
     val drinks by vm.drinks.collectAsStateWithLifecycle()
     val logs by vm.logs.collectAsStateWithLifecycle()
+    val cafeLoadingState by vm.cafeLoading.collectAsStateWithLifecycle()
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 })
     val tabScope = rememberCoroutineScope()
 
@@ -97,15 +98,20 @@ fun CafeScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        PillSegmented(
-            listOf(Seg("0", stringResource(R.string.cafe_tab_transactions), Icons.AutoMirrored.Rounded.ReceiptLong), Seg("1", stringResource(R.string.cafe_tab_stats), Icons.Rounded.BarChart)),
-            pagerState.currentPage.toString(), { tabScope.launch { pagerState.animateScrollToPage(it.toInt()) } }, Modifier.padding(16.dp, 8.dp, 16.dp, 0.dp),
-        )
+        Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
+            Column {
+                PillSegmented(
+                    listOf(Seg("0", stringResource(R.string.cafe_tab_transactions), Icons.AutoMirrored.Rounded.ReceiptLong), Seg("1", stringResource(R.string.cafe_tab_stats), Icons.Rounded.BarChart)),
+                    pagerState.currentPage.toString(), { tabScope.launch { pagerState.animateScrollToPage(it.toInt(), animationSpec = androidx.compose.animation.core.tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing)) } }, Modifier.padding(16.dp, 8.dp, 16.dp, 10.dp),
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            }
+        }
         // Swiping drags the neighbouring tab into view; letting go past halfway settles on it.
         androidx.compose.foundation.pager.HorizontalPager(pagerState, Modifier.weight(1f).fillMaxWidth(), key = { it }) { t ->
             when {
                 cafeIds.isEmpty() -> EmptyState(Icons.Rounded.LocalCafe, stringResource(R.string.cafe_no_category))
-                t == 0 -> CafeList(items, shops, drinks, onEdit)
+                t == 0 -> CafeList(items, shops, drinks, cafeLoadingState, onEdit)
                 else -> CafeStats(items)
             }
         }
@@ -126,7 +132,7 @@ private const val CAFE_PAGE = 20
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CafeList(all: List<CafeItem>, shops: List<CafeShop>, drinks: List<CafeDrink>, onEdit: (Tx) -> Unit) {
+private fun CafeList(all: List<CafeItem>, shops: List<CafeShop>, drinks: List<CafeDrink>, cafeLoading: Boolean, onEdit: (Tx) -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
     var session by rememberSaveable { mutableStateOf("all") }
     var shopId by rememberSaveable { mutableStateOf("all") }
@@ -176,7 +182,7 @@ private fun CafeList(all: List<CafeItem>, shops: List<CafeShop>, drinks: List<Ca
             }
         }
         if (filtered.isEmpty()) {
-            item { EmptyState(Icons.Rounded.LocalCafe, stringResource(if (all.isEmpty()) R.string.cafe_empty else R.string.tx_no_match), action = if (all.isNotEmpty()) stringResource(R.string.filters_reset) to reset else null) }
+            if (cafeLoading) item { ListSkeleton(rows = 5) } else item { EmptyState(Icons.Rounded.LocalCafe, stringResource(if (all.isEmpty()) R.string.cafe_empty else R.string.tx_no_match), action = if (all.isNotEmpty()) stringResource(R.string.filters_reset) to reset else null) }
         } else {
             item(key = "count") { Text("${stringResource(R.string.cafe_moment_count, filtered.size)} · ${Format.money(total)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp)) }
             items(visible, key = { it.tx.id }) { item ->
@@ -329,6 +335,7 @@ private fun sessionName(key: String): String = sessionLabel(Session.valueOf(key)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CafeShopsScreen(vm: MainViewModel) {
+    val cafeLoading by vm.cafeLoading.collectAsStateWithLifecycle()
     val shops by vm.shops.collectAsStateWithLifecycle()
     val logs by vm.logs.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -356,7 +363,8 @@ fun CafeShopsScreen(vm: MainViewModel) {
         Crossfade(compact, animationSpec = tween(240), label = "shopView") { isCompact ->
         LazyColumn(Modifier.fillMaxSize(), state = if (isCompact) compactState else cardState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp)) {
             if (list.isNotEmpty()) item { SwipeHint() }
-            if (list.isEmpty()) item { EmptyState(Icons.Rounded.Storefront, if (search.isBlank()) stringResource(R.string.cafe_shop_empty) else stringResource(R.string.cafe_no_match, search)) }
+            if (list.isEmpty() && cafeLoading) item { ListSkeleton(rows = 4) }
+            else if (list.isEmpty()) item { EmptyState(Icons.Rounded.Storefront, if (search.isBlank()) stringResource(R.string.cafe_shop_empty) else stringResource(R.string.cafe_no_match, search)) }
             items(shown, key = { it.id }) { s ->
                 SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp), modifier = reorderable(reorder, s.id)) {
                     if (isCompact) ShopCompactRow(
@@ -504,6 +512,7 @@ private fun ShopEditor(state: ShopEditorState, all: List<CafeShop>, vm: MainView
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CafeDrinksScreen(vm: MainViewModel) {
+    val cafeLoading by vm.cafeLoading.collectAsStateWithLifecycle()
     val drinks by vm.drinks.collectAsStateWithLifecycle()
     val logs by vm.logs.collectAsStateWithLifecycle()
     var editor by remember { mutableStateOf<DrinkEditorState?>(null) }
@@ -534,9 +543,10 @@ fun CafeDrinksScreen(vm: MainViewModel) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             Crossfade(grid, animationSpec = tween(240), label = "drinkView") { g ->
             if (g) {
-                if (list.isEmpty()) EmptyState(Icons.Rounded.Coffee, emptyText)
+                if (list.isEmpty() && cafeLoading) ListSkeleton(Modifier.padding(16.dp), rows = 5)
+                else if (list.isEmpty()) EmptyState(Icons.Rounded.Coffee, emptyText)
                 else LazyVerticalGrid(
-                    GridCells.Fixed(2), state = gridState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp),
+                    GridCells.Adaptive(160.dp), state = gridState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     gridItems(list, key = { it.id }) { d ->
@@ -545,7 +555,7 @@ fun CafeDrinksScreen(vm: MainViewModel) {
                 }
             } else {
                 LazyColumn(state = listState, contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 104.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (list.isEmpty()) item { EmptyState(Icons.Rounded.Coffee, emptyText) } else item { SwipeHint() }
+                    if (list.isEmpty() && cafeLoading) item { ListSkeleton(rows = 5) } else if (list.isEmpty()) item { EmptyState(Icons.Rounded.Coffee, emptyText) } else item { SwipeHint() }
                     items(shown, key = { it.id }) { d ->
                         SwipeRow(onEdit = { editor = DrinkEditorState(d) }, onDelete = { deleteTarget = d }, modifier = reorderable(reorder, d.id)) {
                             Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {

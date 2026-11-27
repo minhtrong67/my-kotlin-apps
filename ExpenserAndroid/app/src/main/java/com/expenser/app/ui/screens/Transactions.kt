@@ -273,7 +273,10 @@ private fun CalendarView(transactions: List<Tx>, catById: Map<String, Category>,
                     if (te > 0) Text("-" + Format.compactMoney(te), style = MaterialTheme.typography.labelLarge, color = colors.expense)
                 }
                 HorizontalDivider()
-                if (list.isEmpty()) EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(R.string.calendar_no_tx))
+                var ready by remember(sel) { mutableStateOf(false) }
+                LaunchedEffect(sel) { kotlinx.coroutines.delay(100); ready = true }
+                if (!ready) ListSkeleton(Modifier.padding(16.dp), rows = list.size.coerceIn(1, 3))
+                else if (list.isEmpty()) EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, stringResource(R.string.calendar_no_tx))
                 else {
                     // View-only: no swipe actions here.
                     LazyColumn(Modifier.heightIn(max = 460.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

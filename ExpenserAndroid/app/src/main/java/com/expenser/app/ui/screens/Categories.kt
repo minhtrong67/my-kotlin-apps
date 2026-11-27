@@ -28,6 +28,7 @@ import com.expenser.app.util.*
 @Composable
 fun CategoriesScreen(vm: MainViewModel) {
     val categories by vm.categories.collectAsStateWithLifecycle()
+    val loading by vm.loading.collectAsStateWithLifecycle()
     val transactions by vm.transactions.collectAsStateWithLifecycle()
     var type by rememberSaveable { mutableStateOf(TxType.EXPENSE) }
     var search by rememberSaveable { mutableStateOf("") }
@@ -55,7 +56,8 @@ fun CategoriesScreen(vm: MainViewModel) {
             }
             item { SearchField(search, { search = it }, stringResource(R.string.cat_search)) }
             if (list.isNotEmpty()) item { SwipeHint() }
-            if (list.isEmpty()) item { EmptyState(Icons.Rounded.Category, if (search.isBlank()) stringResource(R.string.cat_empty) else stringResource(R.string.cat_no_match, search)) }
+            if (list.isEmpty() && loading) item { ListSkeleton(rows = 6) }
+            else if (list.isEmpty()) item { EmptyState(Icons.Rounded.Category, if (search.isBlank()) stringResource(R.string.cat_empty) else stringResource(R.string.cat_no_match, search)) }
             items(shown, key = { it.id }) { c ->
                 SwipeRow(onEdit = { editor = CategoryEditorState(c, c.type) }, onDelete = { deleteTarget = c }, modifier = reorderable(reorder, c.id)) {
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {

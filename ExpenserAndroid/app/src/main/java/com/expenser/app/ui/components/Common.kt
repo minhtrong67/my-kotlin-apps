@@ -1,5 +1,10 @@
 package com.expenser.app.ui.components
 
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -211,6 +216,22 @@ fun DashboardSkeleton(modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun StatsSkeleton(modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxSize().padding(16.dp, 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SkeletonBox(Modifier.fillMaxWidth().height(96.dp), RoundedCornerShape(24.dp))
+        repeat(2) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SkeletonBox(Modifier.weight(1f).height(104.dp), RoundedCornerShape(22.dp))
+                SkeletonBox(Modifier.weight(1f).height(104.dp), RoundedCornerShape(22.dp))
+            }
+        }
+        SkeletonBox(Modifier.fillMaxWidth().height(48.dp), RoundedCornerShape(24.dp))
+        SkeletonBox(Modifier.fillMaxWidth().height(280.dp), RoundedCornerShape(24.dp))
+        ListSkeleton(rows = 3)
+    }
+}
+
+@Composable
 fun SectionCard(title: String?, modifier: Modifier = Modifier, subtitle: String? = null, action: (@Composable () -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.padding(20.dp)) {
@@ -242,13 +263,22 @@ fun IconAvatar(icon: ImageVector, color: Color, size: Dp = 44.dp) {
 fun ConfirmDialog(text: String, confirmLabel: String = stringResource(R.string.common_delete), onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.DeleteOutline, null) },
-        title = { Text(stringResource(R.string.common_confirm)) },
-        text = { Text(text) },
+        modifier = Modifier.fillMaxWidth(0.92f),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        shape = RoundedCornerShape(28.dp),
+        icon = { Icon(Icons.Rounded.DeleteOutline, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.error) },
+        title = { Text(stringResource(R.string.common_confirm), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
+        text = { Text(text, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
+        // Both actions share one row and one width/height.
         confirmButton = {
-            TextButton(onClick = { onConfirm(); onDismiss() }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(confirmLabel) }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onDismiss, Modifier.weight(1f).height(52.dp)) { Text(stringResource(R.string.common_cancel), style = MaterialTheme.typography.labelLarge) }
+                Button(
+                    onClick = { onConfirm(); onDismiss() }, Modifier.weight(1f).height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError),
+                ) { Text(confirmLabel, style = MaterialTheme.typography.labelLarge, maxLines = 1) }
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
     )
 }
 
@@ -265,7 +295,7 @@ data class Seg(val id: String, val label: String, val icon: ImageVector? = null,
 /** Pill-shaped two/three-way switch used across the web app (selected segment shows a check mark). */
 @Composable
 fun PillSegmented(options: List<Seg>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().height(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+    Row(modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         options.forEach { o ->
             val on = o.id == selected
             val bg by animateColorAsState(if (on) (o.container ?: MaterialTheme.colorScheme.primary) else Color.Transparent, tween(150), label = "segBg")
@@ -375,8 +405,8 @@ fun FormHost(state: FormHostState) {
         key(entry.id) {
             AnimatedVisibility(
                 visibleState = entry.visible, modifier = Modifier.fillMaxSize(),
-                enter = slideInVertically(tween(320, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(220)),
-                exit = slideOutVertically(tween(240, easing = FastOutSlowInEasing)) { it / 5 } + fadeOut(tween(180)),
+                enter = slideInVertically(tween(420, easing = FastOutSlowInEasing)) { it / 5 } + fadeIn(tween(300)),
+                exit = slideOutVertically(tween(320, easing = FastOutSlowInEasing)) { it / 6 } + fadeOut(tween(240)),
             ) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
                     Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { entry.content.value() }
@@ -402,12 +432,14 @@ fun FormScreen(title: String, confirmLabel: String, onClose: () -> Unit, onConfi
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 windowInsets = WindowInsets(0),
             )
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                content()
-                Spacer(Modifier.height(16.dp))
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                Column(Modifier.widthIn(max = 640.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    content()
+                    Spacer(Modifier.height(16.dp))
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.widthIn(max = 640.dp).align(Alignment.CenterHorizontally).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = onClose, Modifier.weight(1f).height(52.dp)) { Text(stringResource(R.string.common_cancel)) }
                 Spacer(Modifier.width(12.dp))
                 Button(onClick = onConfirm, enabled = confirmEnabled, modifier = Modifier.weight(1f).height(52.dp)) {
@@ -579,19 +611,43 @@ fun SimpleDatePicker(millis: Long, onPick: (Long) -> Unit, onDismiss: () -> Unit
     ) { DatePicker(state) }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** Colour swatches in an evenly spaced grid (7 per row, every cell the same size). */
 @Composable
-fun ColorPicker(selected: String, onSelect: (String) -> Unit, colors: List<String>) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        colors.forEach { hex ->
-            val on = hex.equals(selected, ignoreCase = true)
-            val ring by animateDpAsState(if (on) 3.dp else 0.dp, label = "ring")
-            Box(
-                Modifier.size(38.dp).clip(CircleShape).background(hex.toColor())
-                    .border(ring, MaterialTheme.colorScheme.onSurface, CircleShape)
-                    .clickable { onSelect(hex) },
-                contentAlignment = Alignment.Center,
-            ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+fun ColorPicker(selected: String, onSelect: (String) -> Unit, colors: List<String>, columns: Int = 7) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        colors.chunked(columns).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { hex ->
+                    val on = hex.equals(selected, ignoreCase = true)
+                    val ring by animateDpAsState(if (on) 3.dp else 0.dp, label = "ring")
+                    Box(
+                        Modifier.weight(1f).aspectRatio(1f).clip(CircleShape).background(hex.toColor())
+                            .border(ring, MaterialTheme.colorScheme.onSurface, CircleShape)
+                            .clickable { onSelect(hex) },
+                        contentAlignment = Alignment.Center,
+                    ) { if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+                }
+                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** Icon choices (wallet icons) as an evenly spaced grid of tiles. */
+@Composable
+fun IconGridPicker(keys: List<String>, selected: String, onSelect: (String) -> Unit, columns: Int = 5) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        keys.chunked(columns).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { k ->
+                    val on = k == selected
+                    val bg by animateColorAsState(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh, label = "iconBg")
+                    Box(Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(16.dp)).background(bg).clickable { onSelect(k) }, contentAlignment = Alignment.Center) {
+                        Icon(walletIcon(k), null, Modifier.size(24.dp), tint = if (on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+            }
         }
     }
 }
@@ -608,11 +664,14 @@ fun EmojiPicker(selected: String, onSelect: (String) -> Unit) {
         }
         EMOJI_GROUPS.forEachIndexed { i, (_, list) ->
             Text(names.getOrElse(i) { "" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-            FlowRow {
-                list.forEach { e ->
-                    val on = e == selected
-                    val bg by animateColorAsState(if (on) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, label = "emojiBg")
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(bg).clickable { onSelect(e) }, contentAlignment = Alignment.Center) { Text(e, fontSize = 22.sp) }
+            list.chunked(6).forEach { row ->
+                Row(Modifier.fillMaxWidth()) {
+                    row.forEach { e ->
+                        val on = e == selected
+                        val bg by animateColorAsState(if (on) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, label = "emojiBg")
+                        Box(Modifier.weight(1f).height(46.dp).padding(2.dp).clip(RoundedCornerShape(14.dp)).background(bg).clickable { onSelect(e) }, contentAlignment = Alignment.Center) { Text(e, fontSize = 22.sp) }
+                    }
+                    repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
@@ -837,10 +896,20 @@ fun ImageLightbox(items: List<LightboxItem>, startIndex: Int, onDismiss: () -> U
                 LaunchedEffect(pager.currentPage) { if (pager.currentPage != page) { scale = 1f; offset = Offset.Zero } }
                 Box(
                     Modifier.fillMaxSize().pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(1f, 4f)
-                            offset = if (scale > 1f) offset + pan else Offset.Zero
-                            zoomed = scale > 1f
+                        // Pinch / pan only when zoomed in or with two fingers; a single finger at 1x is left alone so the pager can swipe.
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            do {
+                                val ev = awaitPointerEvent()
+                                val multi = ev.changes.size >= 2
+                                if (multi || scale > 1f) {
+                                    val zoom = ev.calculateZoom(); val pan = ev.calculatePan()
+                                    scale = (scale * zoom).coerceIn(1f, 4f)
+                                    offset = if (scale > 1f) offset + pan else Offset.Zero
+                                    zoomed = scale > 1f
+                                    ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                                }
+                            } while (ev.changes.any { it.pressed })
                         }
                     }.pointerInput(Unit) {
                         detectTapGestures(onDoubleTap = { if (scale > 1f) { scale = 1f; offset = Offset.Zero } else scale = 2.5f; zoomed = scale > 1f }, onTap = { })

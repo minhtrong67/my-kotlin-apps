@@ -31,7 +31,7 @@ if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.8.2"
+val appVersionName = "1.9.1"
 // APK files are named Expenser-<version>-<buildType>.apk
 base.archivesName.set("Expenser-$appVersionName")
 
@@ -43,7 +43,7 @@ android {
         applicationId = "com.expenser.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
+        versionCode = 13
         versionName = appVersionName
         buildConfigField("String", "IMGBB_API_KEY", "\"${envVar("IMGBB_API_KEY") ?: ""}\"")
     }

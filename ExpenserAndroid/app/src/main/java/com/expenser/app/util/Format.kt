@@ -32,6 +32,17 @@ object Format {
             "Tháng ${c.get(java.util.Calendar.MONTH) + 1}/${c.get(java.util.Calendar.YEAR)}"
         } else fmt("MMMM yyyy", ms)
 
+    /** 20K / 1.5M / 2B — the shortest readable amount, used on small chips. */
+    fun shortK(n: Long): String {
+        fun trim(v: Double): String = if (v == v.toLong().toDouble()) v.toLong().toString() else String.format(Locale.US, "%.1f", v)
+        return when {
+            n >= 1_000_000_000 -> trim(n / 1_000_000_000.0) + "B"
+            n >= 1_000_000 -> trim(n / 1_000_000.0) + "M"
+            n >= 1_000 -> trim(n / 1_000.0) + "K"
+            else -> n.toString()
+        }
+    }
+
     /** 1,5tr / 200k (vi) or 1.5M / 200K (en) — for compact chart labels. */
     fun compactMoney(n: Long): String {
         val abs = kotlin.math.abs(n)

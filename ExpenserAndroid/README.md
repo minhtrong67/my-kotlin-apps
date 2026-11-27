@@ -2,6 +2,15 @@
 
 Bản native của web app React "Expenser". Dùng **cùng Firebase (Auth + Firestore)** với bản web nên dữ liệu đồng bộ giữa web và app.
 
+## 1.9.0
+- Form giao dịch điền theo thứ tự tuỳ ý (kiểm tra đầy đủ khi lưu); "Nhập nhanh" nằm trên ô số tiền, gọn hơn, tiền dạng 20K.
+- Toast mới ở phía trên, có 4 loại (thành công / lỗi / cảnh báo / thông tin), tự tắt nhanh; form ví & danh mục dạng lưới cân đối; tab Cafe recap gọn đẹp hơn.
+- Lightbox vuốt ngang xem ảnh được; hỗ trợ màn hình ngang (thanh điều hướng dạng rail, sidebar cuộn được, đăng nhập 2 cột); thông báo nhắc nhở ngắn gọn.
+
+## 1.8.3
+- Vuốt trái → phải ở tab Tổng quan mở sidebar; Cài đặt gộp một mục Xuất / nhập toàn bộ dữ liệu (JSON, CSV zip, CSV lẻ); lưới màu nhấn 6x3.
+- "Nhập nhanh" 2 hàng cuộn ngang cùng lúc; skeleton cho Thống kê, Ví, Danh mục, Cafe và các sheet; animation form/điều hướng/sheet chậm và mượt hơn; hộp xác nhận lớn hơn, 2 nút bằng nhau.
+
 ## 1.8.2
 - Sửa lỗi form giao dịch báo thiếu quán/đồ uống dù đã chọn (nút Lưu giờ luôn kiểm tra theo dữ liệu mới nhất); hai nút Hủy/Lưu bằng nhau.
 - Ghi nhớ kiểu xem (card/list, lưới, danh sách/lịch) cho từng màn hình; "Nhập nhanh" nhỏ gọn hơn; đổi màu 2 thẻ top danh mục.

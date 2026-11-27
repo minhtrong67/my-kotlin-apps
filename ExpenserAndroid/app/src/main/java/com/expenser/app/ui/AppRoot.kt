@@ -1,5 +1,12 @@
 package com.expenser.app.ui
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -98,7 +105,6 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
     // The four bottom tabs live in one pager so a slow swipe drags the next screen into view.
     val pager = rememberPagerState(pageCount = { BOTTOM.size })
     val route = if (navRoute == ROUTE_TABS) BOTTOM[pager.currentPage].route else navRoute
-    val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val drawer = rememberDrawerState(DrawerValue.Closed)
@@ -118,12 +124,19 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         }
     }
 
-    LaunchedEffect(Unit) { vm.messages.collect { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(context.getString(it.res, *it.args.toTypedArray())) } }
+    var toast by remember { mutableStateOf<ToastData?>(null) }
+    LaunchedEffect(Unit) {
+        vm.messages.collect { m ->
+            val text = m.text ?: context.getString(m.res, *m.args.toTypedArray())
+            val kind = m.kind ?: runCatching { toastKindFor(context.resources.getResourceEntryName(m.res)) }.getOrDefault(ToastKind.INFO)
+            toast = ToastData(text, kind)
+        }
+    }
     LaunchedEffect(launchAdd) {
         if (launchAdd != null) { form = TxFormRequest(initialType = if (launchAdd == TxType.INCOME) TxType.INCOME else TxType.EXPENSE); onLaunchAddHandled() }
     }
     BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }
-    BackHandler(!drawer.isOpen && navRoute == ROUTE_TABS && pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0) } }
+    BackHandler(!drawer.isOpen && navRoute == ROUTE_TABS && pager.currentPage != 0) { scope.launch { pager.animateScrollToPage(0, animationSpec = tween(360, easing = FastOutSlowInEasing)) } }
 
     fun go(r: String) {
         scope.launch { drawer.close() }
@@ -131,7 +144,7 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         val tab = BOTTOM.indexOfFirst { it.route == r }
         if (tab >= 0) {
             if (navRoute != ROUTE_TABS) { nav.popBackStack(ROUTE_TABS, false); scope.launch { pager.scrollToPage(tab) } }
-            else scope.launch { pager.animateScrollToPage(tab) }
+            else scope.launch { pager.animateScrollToPage(tab, animationSpec = tween(360, easing = FastOutSlowInEasing)) }
         } else nav.navigate(r) { popUpTo(ROUTE_TABS); launchSingleTop = true }
     }
 
@@ -152,6 +165,7 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         }
     }
 
+    val landscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val title = DRAWER.firstOrNull { it.route == route }?.label ?: R.string.app_name
     val showFab = route == ROUTE_DASHBOARD || route == ROUTE_TRANSACTIONS || (route == ROUTE_CAFE && cafeId != null)
 
@@ -165,7 +179,7 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
             ModalDrawerSheet(drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp), drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.fillMaxHeight().statusBarsPadding()) {
                     Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 28.dp, top = 24.dp, bottom = 16.dp))
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         DRAWER.forEach { d ->
                             NavigationDrawerItem(
                                 label = { Text(stringResource(d.label)) }, icon = { Icon(d.icon, null) },
@@ -192,7 +206,6 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         },
     ) {
         Scaffold(
-            snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(title), fontWeight = FontWeight.Medium) },
@@ -212,7 +225,7 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
                 )
             },
             bottomBar = {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+              if (!landscape) NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                     BOTTOM.forEach { t ->
                         NavigationBarItem(selected = route == t.route, onClick = { go(t.route) }, icon = { Icon(t.icon, null) }, label = { Text(stringResource(t.label)) })
                     }
@@ -221,15 +234,42 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
             containerColor = MaterialTheme.colorScheme.surface,
         ) { padding ->
             Box(Modifier.padding(padding).fillMaxSize()) {
+            Row(Modifier.fillMaxSize()) {
+            if (landscape) NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                Spacer(Modifier.weight(1f))
+                BOTTOM.forEach { t ->
+                    NavigationRailItem(selected = route == t.route, onClick = { go(t.route) }, icon = { Icon(t.icon, null) }, label = { Text(stringResource(t.label)) })
+                }
+                Spacer(Modifier.weight(1f))
+            }
+            Box(Modifier.weight(1f).fillMaxSize()) {
                 NavHost(
                     nav, startDestination = ROUTE_TABS,
-                    enterTransition = { fadeIn(tween(220)) + scaleIn(tween(240, easing = FastOutSlowInEasing), initialScale = 0.96f) },
-                    exitTransition = { fadeOut(tween(140)) },
-                    popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(240, easing = FastOutSlowInEasing), initialScale = 0.96f) },
-                    popExitTransition = { fadeOut(tween(140)) },
+                    enterTransition = { fadeIn(tween(300, easing = FastOutSlowInEasing)) + scaleIn(tween(320, easing = FastOutSlowInEasing), initialScale = 0.96f) },
+                    exitTransition = { fadeOut(tween(200)) },
+                    popEnterTransition = { fadeIn(tween(300, easing = FastOutSlowInEasing)) + scaleIn(tween(320, easing = FastOutSlowInEasing), initialScale = 0.96f) },
+                    popExitTransition = { fadeOut(tween(200)) },
                 ) {
                     composable(ROUTE_TABS) {
-                        HorizontalPager(pager, Modifier.fillMaxSize().nestedScroll(drawerPull), key = { BOTTOM[it].route }) { page ->
+                        HorizontalPager(pager, Modifier.fillMaxSize().nestedScroll(drawerPull).pointerInput(pager, drawer) {
+                            // Swipe left-to-right anywhere on the Overview tab -> open the sidebar.
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                if (pager.currentPage != 0 || drawer.isOpen) return@awaitEachGesture
+                                var dx = 0f; var dy = 0f; var decided = false; var horizontal = false
+                                val slop = viewConfiguration.touchSlop
+                                val trigger = 56.dp.toPx()
+                                while (true) {
+                                    val ev = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                    val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!ch.pressed) break
+                                    val d = ch.positionChange(); dx += d.x; dy += d.y
+                                    if (!decided && (kotlin.math.abs(dx) > slop || kotlin.math.abs(dy) > slop)) { decided = true; horizontal = dx > 0f && dx > kotlin.math.abs(dy) * 1.3f }
+                                    if (decided && !horizontal) break
+                                    if (horizontal && dx > trigger) { scope.launch { drawer.open() }; break }
+                                }
+                            }
+                        }, key = { BOTTOM[it].route }) { page ->
                             when (BOTTOM[page].route) {
                                 ROUTE_DASHBOARD -> DashboardScreen(vm, onAdd = { form = TxFormRequest() }, onEdit = { form = TxFormRequest(editing = it) }, onViewAll = { go(ROUTE_TRANSACTIONS) })
                                 ROUTE_TRANSACTIONS -> TransactionsScreen(vm, onEdit = { form = TxFormRequest(editing = it) })
@@ -244,18 +284,21 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
                     composable(ROUTE_CAFE_SHOPS) { CafeShopsScreen(vm) }
                     composable(ROUTE_CAFE_DRINKS) { CafeDrinksScreen(vm) }
                 }
-                AnimatedVisibility(
-                    showFab, modifier = Modifier.align(Alignment.BottomEnd),
-                    enter = scaleIn(tween(220, delayMillis = 120), initialScale = 0.6f) + fadeIn(tween(200, delayMillis = 120)),
-                    exit = scaleOut(tween(140), targetScale = 0.6f) + fadeOut(tween(100)),
-                ) {
-                    ScreenFab(onClick = { form = TxFormRequest(initialCategoryId = if (route == ROUTE_CAFE) cafeId else null) })
-                }
+            }
+            }
+            AnimatedVisibility(
+                showFab, modifier = Modifier.align(Alignment.BottomEnd),
+                enter = scaleIn(tween(220, delayMillis = 120), initialScale = 0.6f) + fadeIn(tween(200, delayMillis = 120)),
+                exit = scaleOut(tween(140), targetScale = 0.6f) + fadeOut(tween(100)),
+            ) {
+                ScreenFab(onClick = { form = TxFormRequest(initialCategoryId = if (route == ROUTE_CAFE) cafeId else null) })
+            }
             }
         }
     }
 
     FormHost(formHost)
+    Box(Modifier.fillMaxSize()) { AppToastHost(toast) { id -> if (toast?.id == id) toast = null } }
     }
 
     if (palette) CommandPalette(onDismiss = { palette = false }, onPick = { palette = false; go(it) })

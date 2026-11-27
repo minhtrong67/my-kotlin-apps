@@ -268,7 +268,7 @@
     <string name="settings_reset_confirm">Đặt lại giao diện, màu chủ đề và cỡ chữ về mặc định?</string>
     <string name="settings_reset_done">Đã khôi phục cài đặt mặc định</string>
     <string name="settings_data">Dữ liệu</string>
-    <string name="settings_import_hint">Nhập CSV hoặc JSON do Expenser xuất. Mục đã tồn tại (trùng tên) sẽ được bỏ qua; giao dịch CSV cần các cột Ngày, Giờ, Loại, Danh mục, Ví, Số tiền, Ghi chú.</string>
+    <string name="settings_import_hint">Xuất / nhập toàn bộ dữ liệu (giao dịch, danh mục, ví, quán, đồ uống). CSV được xuất thành file .zip. Khi nhập có thể chọn file JSON, .zip CSV hoặc một file CSV; mục đã tồn tại (trùng tên) sẽ được bỏ qua.</string>
     <string name="settings_export">Xuất</string>
     <string name="settings_import">Nhập</string>
     <string name="settings_exported">Đã xuất dữ liệu</string>
@@ -287,7 +287,7 @@
     <string name="reminder_time_saved">Đã đổi giờ nhắc thành %1$s</string>
     <string name="reminder_denied">Thông báo đang bị chặn. Hãy cho phép thông báo trong cài đặt hệ thống.</string>
     <string name="reminder_channel">Nhắc nhở hàng ngày</string>
-    <string name="reminder_title">Expenser · Đến giờ ghi chép rồi 💸</string>
+    <string name="reminder_title">Ghi chép chi tiêu hôm nay 💸</string>
     <string name="reminder_add_expense">Thêm chi tiêu</string>
     <string name="reminder_add_income">Thêm thu nhập</string>
     <string-array name="weekdays_short">
@@ -312,10 +312,9 @@
         <item>Khác</item>
     </string-array>
     <string-array name="reminder_bodies">
-        <item>Hôm nay bạn đã chi gì chưa? Ghi lại chỉ mất vài giây.</item>
-        <item>Một thói quen nhỏ mỗi ngày giúp ví của bạn khỏe hơn.</item>
-        <item>Đừng để khoản chi nào “trốn” khỏi sổ của bạn nhé!</item>
-        <item>Chạm để thêm giao dịch đầu tiên của hôm nay.</item>
+        <item>Bạn đã chi gì hôm nay? Ghi lại chỉ vài giây.</item>
+        <item>Chạm để thêm giao dịch đầu tiên hôm nay.</item>
+        <item>Ghi nhanh kẻo quên khoản chi nào nhé!</item>
     </string-array>
     <string name="common_logout">Đăng xuất</string>
     <string name="common_search">Tìm kiếm</string>
@@ -338,9 +337,9 @@
     <string name="data_subtitle">Xuất / nhập CSV, JSON cho từng mục hoặc tất cả</string>
     <string name="data_count">%d mục</string>
     <string name="data_all">Tất cả dữ liệu</string>
-    <string name="data_export_all_json">Xuất tất cả (JSON)</string>
-    <string name="data_export_all_csv">Xuất tất cả (CSV)</string>
-    <string name="data_import_all">Nhập tất cả (JSON)</string>
+    <string name="data_export_all_json">Xuất JSON</string>
+    <string name="data_export_all_csv">Xuất CSV</string>
+    <string name="data_import_all">Nhập dữ liệu (JSON / CSV)</string>
     <string name="cafe_copy_map">Sao chép liên kết bản đồ</string>
     <string name="cafe_map_copied">Đã sao chép liên kết</string>
     <string name="cafe_add_map">Thêm liên kết bản đồ</string>
@@ -380,4 +379,5 @@
     <string name="settings_author">Tác giả</string>
     <string name="settings_ai_support">AI hỗ trợ</string>
     <string name="pick_search">Tìm kiếm</string>
+    <string name="data_summary">%1$d giao dịch · %2$d danh mục · %3$d ví · %4$d quán · %5$d đồ uống</string>
 </resources>

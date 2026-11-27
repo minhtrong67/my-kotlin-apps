@@ -16,7 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-data class UiMessage(@StringRes val res: Int, val args: List<Any> = emptyList())
+data class UiMessage(@StringRes val res: Int, val args: List<Any> = emptyList(), val text: String? = null, val kind: com.expenser.app.ui.components.ToastKind? = null)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(private val app: Application) : AndroidViewModel(app) {
@@ -54,9 +54,14 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     val loading = combine(rawTx, rawCat, rawWal) { a, b, c -> a == null || b == null || c == null }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
+    /** True until the first snapshot of shops, drinks and cafe logs has arrived. */
+    val cafeLoading = combine(rawShops, rawDrinks, rawLogs) { a, b, c -> a == null || b == null || c == null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     private val _messages = MutableSharedFlow<UiMessage>(extraBufferCapacity = 8)
     val messages = _messages.asSharedFlow()
     fun toast(@StringRes res: Int, vararg args: Any) { _messages.tryEmit(UiMessage(res, args.toList())) }
+    fun toastText(text: String, kind: com.expenser.app.ui.components.ToastKind) { _messages.tryEmit(UiMessage(0, text = text, kind = kind)) }
 
     val signingIn = MutableStateFlow(false)
     val loginError = MutableStateFlow<String?>(null)
@@ -245,6 +250,35 @@ class MainViewModel(private val app: Application) : AndroidViewModel(app) {
     }
 
     /** Imports every entity found in an "export all" JSON file (wallets and categories first so transactions can link to them). */
+    /** Import a file picked by the user: our JSON export, our CSV zip, or one CSV file (entity guessed from its name / columns). */
+    fun importBytes(bytes: ByteArray, fileName: String) {
+        if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+            val parts = mutableMapOf<Entity, String>()
+            java.util.zip.ZipInputStream(bytes.inputStream()).use { z ->
+                var e = z.nextEntry
+                while (e != null) {
+                    val n = e.name.lowercase()
+                    Entity.entries.firstOrNull { n.contains(it.key.lowercase()) }?.let { parts[it] = String(z.readBytes(), Charsets.UTF_8) }
+                    e = z.nextEntry
+                }
+            }
+            if (parts.isEmpty()) { toast(R.string.import_error); return }
+            viewModelScope.launch {
+                listOf(Entity.WALLETS, Entity.CATEGORIES, Entity.SHOPS, Entity.DRINKS).forEach { en -> parts[en]?.let { importEntity(en, it) } }
+                kotlinx.coroutines.delay(800)
+                parts[Entity.TRANSACTIONS]?.let { importEntity(Entity.TRANSACTIONS, it) }
+            }
+            return
+        }
+        val text = String(bytes, Charsets.UTF_8)
+        if (DataIo.isJson(text)) { importAll(text); return }
+        val n = fileName.lowercase()
+        val head = text.lineSequence().firstOrNull().orEmpty().lowercase()
+        val entity = Entity.entries.firstOrNull { n.contains(it.key.lowercase()) }
+            ?: if (head.contains("amount") || head.contains("số tiền")) Entity.TRANSACTIONS else null
+        if (entity == null) toast(R.string.import_error) else importEntity(entity, text)
+    }
+
     fun importAll(text: String) {
         if (!DataIo.isJson(text)) { toast(R.string.import_error); return }
         viewModelScope.launch {

@@ -268,7 +268,7 @@
     <string name="settings_reset_confirm">Reset appearance, accent color and text size to defaults?</string>
     <string name="settings_reset_done">Defaults restored</string>
     <string name="settings_data">Data</string>
-    <string name="settings_import_hint">Import CSV or JSON exported by Expenser. Items that already exist (same name) are skipped; transaction CSVs need the columns Date, Time, Type, Category, Wallet, Amount, Note.</string>
+    <string name="settings_import_hint">Export / import all your data (transactions, categories, wallets, shops, drinks). CSV is exported as a .zip. You can import a JSON file, a CSV .zip or a single CSV file; existing items (same name) are skipped.</string>
     <string name="settings_export">Export</string>
     <string name="settings_import">Import</string>
     <string name="settings_exported">Data exported</string>
@@ -287,7 +287,7 @@
     <string name="reminder_time_saved">Reminder time set to %1$s</string>
     <string name="reminder_denied">Notifications are blocked. Allow them in system settings.</string>
     <string name="reminder_channel">Daily reminder</string>
-    <string name="reminder_title">Expenser · Time to log your spending 💸</string>
+    <string name="reminder_title">Log today’s spending 💸</string>
     <string name="reminder_add_expense">Add expense</string>
     <string name="reminder_add_income">Add income</string>
     <string-array name="weekdays_short">
@@ -312,10 +312,9 @@
         <item>Other</item>
     </string-array>
     <string-array name="reminder_bodies">
-        <item>Spent anything today? Logging takes a few seconds.</item>
-        <item>A small daily habit keeps your wallet healthy.</item>
-        <item>Don’t let any expense slip past your ledger!</item>
+        <item>Spent anything today? Log it in seconds.</item>
         <item>Tap to add today’s first transaction.</item>
+        <item>Log it now before you forget!</item>
     </string-array>
     <string name="common_logout">Sign out</string>
     <string name="common_search">Search</string>
@@ -338,9 +337,9 @@
     <string name="data_subtitle">Export / import CSV or JSON per item, or everything</string>
     <string name="data_count">%d items</string>
     <string name="data_all">All data</string>
-    <string name="data_export_all_json">Export all (JSON)</string>
-    <string name="data_export_all_csv">Export all (CSV)</string>
-    <string name="data_import_all">Import all (JSON)</string>
+    <string name="data_export_all_json">Export JSON</string>
+    <string name="data_export_all_csv">Export CSV</string>
+    <string name="data_import_all">Import data (JSON / CSV)</string>
     <string name="cafe_copy_map">Copy map link</string>
     <string name="cafe_map_copied">Link copied</string>
     <string name="cafe_add_map">Add map link</string>
@@ -380,4 +379,5 @@
     <string name="settings_author">Author</string>
     <string name="settings_ai_support">AI support</string>
     <string name="pick_search">Search</string>
+    <string name="data_summary">%1$d transactions · %2$d categories · %3$d wallets · %4$d shops · %5$d drinks</string>
 </resources>

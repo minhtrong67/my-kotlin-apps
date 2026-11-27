@@ -39,11 +39,13 @@ private data class CatRow(val id: String, val category: Category?, val value: Lo
 @Composable
 fun StatisticsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
     val transactions by vm.transactions.collectAsStateWithLifecycle()
+    val loading by vm.loading.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
     val wallets by vm.wallets.collectAsStateWithLifecycle()
     val catById = remember(categories) { categories.associateBy { it.id } }
     val walletById = remember(wallets) { wallets.associateBy { it.id } }
 
+    if (loading) { StatsSkeleton(); return }
     var range by rememberSaveable { mutableStateOf(Range.MONTH) }
     var anchor by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
     var sheetCategory by remember { mutableStateOf<CatRow?>(null) }

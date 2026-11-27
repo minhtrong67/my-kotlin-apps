@@ -68,26 +68,23 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
     // Default wallet = first one.
     LaunchedEffect(wallets) { if (walletId == null && wallets.isNotEmpty()) walletId = wallets.first().id }
 
-    val typeCategories = categories.filter { it.type == type }
-    val selectedCategory = categories.firstOrNull { it.id == categoryId }
-    val showCafe = type == TxType.EXPENSE && isCafeCategory(selectedCategory)
-
-    val amountValue = amount.toLongOrNull() ?: 0L
-    val errAmount = when { amountValue <= 0 -> stringResource(R.string.validation_amount_positive); amountValue > 999_999_999_999L -> stringResource(R.string.validation_amount_large); else -> null }
-    val errCategory = if (typeCategories.none { it.id == categoryId }) stringResource(R.string.validation_category_required) else null
-    val errWallet = if (wallets.none { it.id == walletId }) stringResource(R.string.validation_wallet_required) else null
-    val errDate = if (date > endOfDay(System.currentTimeMillis())) stringResource(R.string.validation_date_future) else null
-    val errNote = if (note.length > 200) stringResource(R.string.validation_note_max) else null
-    val errShop = if (showCafe && shopId == null) stringResource(R.string.validation_shop_required) else null
-    val errDrink = if (showCafe && drinkId == null) stringResource(R.string.validation_drink_required) else null
-    val valid = listOf(errAmount, errCategory, errWallet, errDate, errNote, errShop, errDrink).all { it == null }
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-    // Strings are constant per locale, so they are safe to capture in the click handler.
+    // Strings are constant per locale, so they are safe to capture anywhere.
     val msgAmount = stringResource(R.string.validation_amount_positive); val msgAmountBig = stringResource(R.string.validation_amount_large)
     val msgCategory = stringResource(R.string.validation_category_required); val msgWallet = stringResource(R.string.validation_wallet_required)
     val msgDate = stringResource(R.string.validation_date_future); val msgNote = stringResource(R.string.validation_note_max)
     val msgShop = stringResource(R.string.validation_shop_required); val msgDrink = stringResource(R.string.validation_drink_required)
+
+    // Everything derived from form state is a State, so the form body always reads the latest values (fields can be filled in any order).
+    val typeCategories by remember { derivedStateOf { categories.filter { it.type == type } } }
+    val selectedCategory by remember { derivedStateOf { categories.firstOrNull { it.id == categoryId && it.type == type } } }
+    val showCafe by remember { derivedStateOf { type == TxType.EXPENSE && isCafeCategory(selectedCategory) } }
+    val errAmount by remember { derivedStateOf { val v = amount.toLongOrNull() ?: 0L; if (v <= 0) msgAmount else if (v > 999_999_999_999L) msgAmountBig else null } }
+    val errCategory by remember { derivedStateOf { if (selectedCategory == null) msgCategory else null } }
+    val errWallet by remember { derivedStateOf { if (wallets.none { it.id == walletId }) msgWallet else null } }
+    val errDate by remember { derivedStateOf { if (date > endOfDay(System.currentTimeMillis())) msgDate else null } }
+    val errNote by remember { derivedStateOf { if (note.length > 200) msgNote else null } }
+    val errShop by remember { derivedStateOf { if (showCafe && shopId == null) msgShop else null } }
+    val errDrink by remember { derivedStateOf { if (showCafe && drinkId == null) msgDrink else null } }
 
     // The save handler re-reads every piece of state at the moment of the tap, so it can never act on an out-of-date composition.
     fun submit() {
@@ -107,7 +104,7 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
             cafe && drinkId == null -> msgDrink
             else -> null
         }
-        if (problem != null) { android.widget.Toast.makeText(context, problem, android.widget.Toast.LENGTH_SHORT).show(); return }
+        if (problem != null) { vm.toastText(problem, com.expenser.app.ui.components.ToastKind.WARNING); return }
         saving = true
         vm.saveTransaction(
             editing,
@@ -132,8 +129,6 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
             type, { if (type != it) { type = it; categoryId = null } },
         )
 
-        MoneyField(amount, { amount = it }, stringResource(R.string.tx_amount), error = if (submitted) errAmount else null)
-
         // Quick pick: past (category, amount) pairs of this type, most used first. Typing an amount narrows them to matching amounts.
         val pairs = remember(history, categories, type) {
             val catIds = categories.filter { it.type == type }.map { it.id }.toSet()
@@ -142,23 +137,35 @@ fun TransactionFormDialog(request: TxFormRequest, vm: MainViewModel, onDismiss: 
                 .entries.sortedWith(compareByDescending<Map.Entry<Pair<String, Long>, List<Tx>>> { it.value.size }.thenByDescending { e -> e.value.maxOf { it.date } })
                 .map { it.key }
         }
-        val quick = remember(pairs, amount) { (if (amount.isEmpty()) pairs else pairs.filter { it.second.toString().startsWith(amount) }).take(if (amount.isEmpty()) 15 else 20) }
+        val quick = remember(pairs, amount) { (if (amount.isEmpty()) pairs else pairs.filter { it.second.toString().startsWith(amount) }).take(if (amount.isEmpty()) 24 else 30) }
         if (editing == null && quick.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.tx_quick_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    quick.forEach { (catId, amt) ->
-                        val cat = categories.firstOrNull { it.id == catId } ?: return@forEach
-                        Surface(
-                            onClick = { categoryId = catId; amount = amt.toString(); date = System.currentTimeMillis() },
-                            shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                        ) {
-                            Text("${cat.emoji} ${cat.name} · ${Format.money(amt)}", Modifier.padding(horizontal = 10.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                // Two rows that scroll together sideways (pairs are dealt alternately to the top and bottom row).
+                val chips = quick.mapNotNull { (catId, amt) -> categories.firstOrNull { it.id == catId }?.let { Triple(catId, amt, it) } }
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides androidx.compose.ui.unit.Dp.Unspecified) {
+                Row(Modifier.horizontalScroll(rememberScrollState())) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(chips.filterIndexed { i, _ -> i % 2 == 0 }, chips.filterIndexed { i, _ -> i % 2 == 1 }).forEach { rowChips ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                rowChips.forEach { (catId, amt, cat) ->
+                                    Surface(
+                                        onClick = { categoryId = catId; amount = amt.toString(); date = System.currentTimeMillis() },
+                                        shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                    ) {
+                                        Text("${cat.emoji} ${cat.name} · ${Format.shortK(amt)}", Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+                }
             }
         }
+
+
+        MoneyField(amount, { amount = it }, stringResource(R.string.tx_amount), error = if (submitted) errAmount else null)
 
         SelectField(
             stringResource(R.string.tx_category), selectedCategory?.takeIf { it.type == type }?.name ?: "", { sheet = "category" },

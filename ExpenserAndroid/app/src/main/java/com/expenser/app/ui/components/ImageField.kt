@@ -151,10 +151,13 @@ fun MediaChoiceSheet(
                 stringResource(if (grid) R.string.view_list else R.string.view_grid), { grid = !grid },
             )
         }
-        Crossfade(grid, animationSpec = tween(220), label = "pickView") { g ->
+        var ready by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { kotlinx.coroutines.delay(120); ready = true }
+        if (!ready) ListSkeleton(Modifier.padding(16.dp, 4.dp, 16.dp, 24.dp), rows = 4)
+        else Crossfade(grid, animationSpec = tween(240), label = "pickView") { g ->
             if (g) {
                 LazyVerticalGrid(
-                    GridCells.Fixed(2), Modifier.fillMaxWidth().heightIn(max = 520.dp),
+                    GridCells.Adaptive(160.dp), Modifier.fillMaxWidth().heightIn(max = 520.dp),
                     contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     gridItems(shown, key = { it.id }) { it2 ->
