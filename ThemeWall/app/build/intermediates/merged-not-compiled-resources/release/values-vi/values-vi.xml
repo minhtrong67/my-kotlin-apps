@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2">
+<resources xmlns:android="http://schemas.android.com/apk/res/android" xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2" xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string msgid="5976598919945601918" name="abc_action_bar_home_description">"Chỉ đường về nhà"</string>
     <string msgid="8388173803310557296" name="abc_action_bar_up_description">"Di chuyển lên"</string>
     <string msgid="3937310113216875497" name="abc_action_menu_overflow_description">"Tùy chọn khác"</string>
@@ -28,14 +28,17 @@
     <string msgid="9055268688411532828" name="abc_shareactionprovider_share_with_application">"Chia sẻ với <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
     <string msgid="1656852541809559762" name="abc_toolbar_collapse_description">"Thu gọn"</string>
     <string name="about">Giới thiệu</string>
-    <string name="about_text">Phiên bản 1.3 · Chọn một ảnh cho giao diện sáng và một ảnh cho giao diện tối. Ứng dụng giữ một dịch vụ nền nhỏ để phát hiện việc đổi giao diện. Hãy tắt tối ưu pin cho ứng dụng nếu máy tự tắt dịch vụ.</string>
+    <string name="about_version">Phiên bản %1$s</string>
+    <string msgid="8719607706653693137" name="androidx_compose_foundation_autofill">"Tự động điền"</string>
+    <string msgid="1150566100598813236" name="androidx_compose_ui_autofill">"Tự động điền"</string>
     <string name="app_name">ThemeWall</string>
-    <string name="appearance">Giao diện</string>
     <string name="apply_now">Áp dụng</string>
-    <string name="apply_to">Áp dụng hình nền cho</string>
-    <string name="auto_switch">Tự động đổi hình nền</string>
-    <string name="auto_switch_desc">Đổi hình nền mỗi khi hệ thống chuyển giao diện sáng/tối</string>
-    <string name="behavior">Hoạt động</string>
+    <string name="apply_to">Áp dụng cho</string>
+    <string name="author">Tác giả</string>
+    <string name="author_desc">minhtrong67 trên GitHub</string>
+    <string name="auto_switch">Tự động đổi</string>
+    <string name="auto_switch_desc">Đổi hình nền theo chế độ sáng/tối</string>
+    <string name="background">Chạy nền</string>
     <string msgid="881409763997275156" name="call_notification_answer_action">"Trả lời"</string>
     <string msgid="8793775615905189152" name="call_notification_answer_video_action">"Video"</string>
     <string msgid="3229508546291798546" name="call_notification_decline_action">"Từ chối"</string>
@@ -43,6 +46,7 @@
     <string msgid="6107532579223922871" name="call_notification_incoming_text">"Cuộc gọi đến"</string>
     <string msgid="8623827134497363134" name="call_notification_ongoing_text">"Cuộc gọi đang thực hiện"</string>
     <string msgid="59049573811482460" name="call_notification_screening_text">"Đang sàng lọc cuộc gọi đến"</string>
+    <string name="cancel">Huỷ</string>
     <string name="cd_preview_dark">Xem trước hình nền tối</string>
     <string name="cd_preview_light">Xem trước hình nền sáng</string>
     <string name="change">Đổi ảnh</string>
@@ -50,31 +54,45 @@
     <string name="close">Đóng</string>
     <string msgid="406453423630273620" name="close_drawer">"Đóng trình đơn điều hướng"</string>
     <string msgid="7573152094250666567" name="close_sheet">"Đóng trang tính"</string>
-    <string name="crop_hint">Kéo để di chuyển, chụm để phóng to</string>
-    <string name="crop_title">Cắt hình nền</string>
+    <string name="create">Tạo</string>
+    <string name="crop_hint">Kéo để di chuyển · chụm hoặc chạm đúp để phóng to</string>
+    <string name="crop_title">Cắt ảnh</string>
+    <string name="custom_times">Giờ tuỳ chỉnh</string>
+    <string name="custom_times_desc">Đổi theo giờ thay vì giao diện hệ thống</string>
+    <string name="dark_from">Chế độ tối từ</string>
     <string name="dark_wallpaper">Tối</string>
     <string msgid="8038256446254964252" name="default_error_message">"Giá trị nhập không hợp lệ"</string>
     <string msgid="6312721426453364202" name="default_popup_window_title">"Cửa sổ bật lên"</string>
-    <string name="dim_desc">Giảm độ sáng ảnh ở chế độ tối để biểu tượng và chữ dễ nhìn hơn</string>
-    <string name="dim_label">Làm tối hình nền tối · %1$d%%</string>
+    <string name="default_set">Mặc định</string>
+    <string name="delete">Xoá</string>
+    <string name="delete_set_text">Ảnh trong bộ sẽ bị xoá.</string>
+    <string name="delete_set_title">Xoá bộ ảnh này?</string>
+    <string name="dim_desc">Giúp biểu tượng và chữ dễ nhìn hơn</string>
+    <string name="dim_label">Làm tối ảnh chế độ tối</string>
+    <string name="dim_value">%1$d%%</string>
     <string name="dismiss">Bỏ qua</string>
     <string msgid="1890207353314751437" name="dropdown_menu">"Trình đơn thả xuống"</string>
     <string name="dynamic_color">Màu động</string>
-    <string name="dynamic_color_desc">Màu Material You theo hình nền hệ thống (Android 12+)</string>
+    <string name="dynamic_color_desc">Dùng màu từ hình nền hệ thống</string>
+    <string name="home_hint">Chọn ảnh sáng và ảnh tối để bắt đầu.</string>
     <string msgid="6827826412747255547" name="in_progress">"Đang thực hiện"</string>
     <string msgid="7933458017204019916" name="indeterminate">"Đã kiểm tra một phần"</string>
-    <string name="killed_text">Đặt Pin ở chế độ Không hạn chế và gỡ ThemeWall khỏi Ứng dụng ngủ để hình nền tiếp tục tự đổi.</string>
-    <string name="killed_title">Dịch vụ nền đã bị dừng</string>
+    <string name="keep_alive">Giữ app chạy nền</string>
+    <string name="keep_alive_desc">Pin → Không hạn chế</string>
+    <string name="killed_text">Đặt Pin ở mức Không hạn chế và gỡ ThemeWall khỏi Ứng dụng ngủ.</string>
+    <string name="killed_title">Dịch vụ đã dừng</string>
     <string name="lang_en">English</string>
     <string name="lang_system">Hệ thống</string>
     <string name="lang_vi">Tiếng Việt</string>
     <string name="language">Ngôn ngữ</string>
+    <string name="light_from">Chế độ sáng từ</string>
     <string name="light_wallpaper">Sáng</string>
     <string msgid="2988463736136100848" name="m3c_bottom_sheet_collapse_description">"Thu gọn bảng dưới cùng"</string>
     <string msgid="1555567894577437024" name="m3c_bottom_sheet_dismiss_description">"Đóng bảng dưới cùng"</string>
     <string msgid="8403354765404029791" name="m3c_bottom_sheet_drag_handle_description">"Nút kéo"</string>
     <string msgid="6670819569745899763" name="m3c_bottom_sheet_expand_description">"Mở rộng bảng dưới cùng"</string>
     <string msgid="3010635850035863127" name="m3c_bottom_sheet_pane_title">"Bảng dưới cùng"</string>
+    <string msgid="3990875819916144919" name="m3c_button_group_more_options">"Tuỳ chọn khác"</string>
     <string msgid="8166741421776570875" name="m3c_date_input_headline">"Ngày đã nhập"</string>
     <string msgid="229313757840775812" name="m3c_date_input_headline_description">"Ngày đã nhập: %1$s"</string>
     <string msgid="6116910750161463197" name="m3c_date_input_invalid_for_pattern">"Ngày không khớp với định dạng dự kiến: %1$s"</string>
@@ -90,11 +108,11 @@
     <string msgid="7813882352367152251" name="m3c_date_picker_scroll_to_earlier_years">"Cuộn để hiện những năm trước"</string>
     <string msgid="5727367015496556177" name="m3c_date_picker_scroll_to_later_years">"Cuộn để hiện những năm sau"</string>
     <string msgid="1804346892470238807" name="m3c_date_picker_switch_to_calendar_mode">"Chuyển sang chế độ nhập lịch"</string>
-    <string msgid="395627960681594326" name="m3c_date_picker_switch_to_day_selection">"Vuốt để chọn một năm hoặc nhấn để chuyển lại về chọn một ngày"</string>
+    <string msgid="6328798869762130418" name="m3c_date_picker_switch_to_day_selection">"Kích hoạt để thay đổi ngày và tháng"</string>
     <string msgid="2219746470065162704" name="m3c_date_picker_switch_to_input_mode">"Chuyển sang chế độ nhập văn bản"</string>
     <string msgid="7142101321095356500" name="m3c_date_picker_switch_to_next_month">"Chuyển sang tháng tiếp theo"</string>
     <string msgid="228438865139394590" name="m3c_date_picker_switch_to_previous_month">"Chuyển về tháng trước"</string>
-    <string msgid="791651718641787594" name="m3c_date_picker_switch_to_year_selection">"Chuyển sang chọn năm"</string>
+    <string msgid="1627411828238538995" name="m3c_date_picker_switch_to_year_selection">"Kích hoạt để thay đổi năm"</string>
     <string msgid="7430790972741451689" name="m3c_date_picker_title">"Chọn ngày"</string>
     <string msgid="3199387177749801575" name="m3c_date_picker_today_description">"Hôm nay"</string>
     <string msgid="2068382232816991922" name="m3c_date_picker_year_picker_pane_title">"Bộ chọn năm hiển thị"</string>
@@ -110,59 +128,87 @@
     <string msgid="3177828188723359358" name="m3c_dropdown_menu_collapsed">"Đã thu gọn"</string>
     <string msgid="2360841780724299882" name="m3c_dropdown_menu_expanded">"Đã mở rộng"</string>
     <string msgid="8687821690726149911" name="m3c_dropdown_menu_toggle">"Bật/tắt trình đơn thả xuống"</string>
+    <string msgid="6072492480528318635" name="m3c_floating_toolbar_collapse">"Thu gọn thanh công cụ"</string>
+    <string msgid="6880757017246780255" name="m3c_floating_toolbar_expand">"Mở rộng thanh công cụ"</string>
+    <string msgid="5546418917311349543" name="m3c_floating_toolbar_more_options">"Lựa chọn khác"</string>
     <string msgid="6152806324422087846" name="m3c_search_bar_search">"Tìm kiếm"</string>
     <string msgid="6152755701819882931" name="m3c_snackbar_dismiss">"Đóng"</string>
+    <string msgid="3868801555855510515" name="m3c_snackbar_pane_title">"Cảnh báo"</string>
     <string msgid="7655536806087401899" name="m3c_suggestions_available">"Các đề xuất ở bên dưới"</string>
+    <string msgid="409352516511718051" name="m3c_time_input_dialog_title">"Nhập thời gian"</string>
     <string msgid="2786685010796619560" name="m3c_time_picker_am">"SA"</string>
+    <string msgid="7412665527536641863" name="m3c_time_picker_dialog_title">"Chọn thời gian"</string>
     <string msgid="2349193472625211372" name="m3c_time_picker_hour">"Giờ"</string>
     <string msgid="9179527532316922345" name="m3c_time_picker_hour_24h_suffix">"%1$d giờ"</string>
+    <string msgid="1097071570318581307" name="m3c_time_picker_hour_error">"Số giờ phải từ 1 đến 12"</string>
+    <string msgid="7720688108712561777" name="m3c_time_picker_hour_error_24h">"Số giờ phải từ 0 đến 23"</string>
     <string msgid="8876759303332837035" name="m3c_time_picker_hour_selection">"Chọn giờ"</string>
     <string msgid="3458167507790628988" name="m3c_time_picker_hour_suffix">"%1$d giờ"</string>
     <string msgid="6973808109666874069" name="m3c_time_picker_hour_text_field">"nhập giờ"</string>
     <string msgid="4313071914266462005" name="m3c_time_picker_minute">"Phút"</string>
+    <string msgid="8576727470211431214" name="m3c_time_picker_minute_error">"Số phút phải từ 0 đến 59"</string>
     <string msgid="4699133535056739733" name="m3c_time_picker_minute_selection">"Chọn phút"</string>
     <string msgid="5064177921781937179" name="m3c_time_picker_minute_suffix">"%1$d phút"</string>
     <string msgid="7661234488295443182" name="m3c_time_picker_minute_text_field">"nhập phút"</string>
     <string msgid="5865171949528594571" name="m3c_time_picker_period_toggle_description">"Chọn SA hoặc CH"</string>
     <string msgid="6616362054113087709" name="m3c_time_picker_pm">"CH"</string>
+    <string msgid="4323189593686596153" name="m3c_time_picker_toggle_keyboard">"Chuyển sang chế độ nhập văn bản"</string>
+    <string msgid="207258581847097723" name="m3c_time_picker_toggle_scroll">"Chuyển sang chế độ cuộn"</string>
+    <string msgid="1380272826693645088" name="m3c_time_picker_toggle_touch">"Chuyển sang chế độ đồng hồ"</string>
+    <string msgid="2459257441039462682" name="m3c_time_scroll_dialog_title">"Chọn thời gian"</string>
     <string msgid="1805687647081129904" name="m3c_tooltip_long_press_label">"Hiện chú giải công cụ"</string>
     <string msgid="5460405025248574620" name="m3c_tooltip_pane_description">"Chú giải công cụ"</string>
+    <string msgid="6564222473543418073" name="m3c_wide_navigation_rail_close_rail">"Đóng dải điều hướng"</string>
+    <string msgid="8350283435461615411" name="m3c_wide_navigation_rail_pane_title">"Dải điều hướng"</string>
     <string name="mode_dark">tối</string>
     <string name="mode_light">sáng</string>
-    <string name="msg_applied">Đã áp dụng hình nền</string>
-    <string name="msg_failed">Không thể áp dụng hình nền</string>
-    <string name="msg_imported">Đã lưu ảnh</string>
+    <string name="more_options">Tuỳ chọn</string>
+    <string name="msg_failed">Không đặt được hình nền</string>
     <string name="nav_home">Trang chủ</string>
     <string name="nav_schedule">Lịch</string>
+    <string name="nav_sets">Bộ ảnh</string>
     <string name="nav_settings">Cài đặt</string>
     <string msgid="542007171693138492" name="navigation_menu">"Trình đơn điều hướng"</string>
+    <string name="new_set">Bộ mới</string>
     <string msgid="6610465462668679431" name="not_selected">"Chưa chọn"</string>
     <string name="notif_channel">Theo dõi giao diện</string>
     <string name="notif_text">Đang theo dõi chế độ sáng/tối</string>
-    <string name="notif_title">Đang tự động đổi hình nền</string>
-    <string name="open_app_info">Mở thông tin ứng dụng</string>
+    <string name="notif_title">ThemeWall đang chạy</string>
+    <string name="open_app_info">Thông tin app</string>
     <string msgid="5941395253238309765" name="range_end">"Điểm kết thúc phạm vi"</string>
     <string msgid="7097486360902471446" name="range_start">"Điểm bắt đầu phạm vi"</string>
+    <string name="rename">Đổi tên</string>
     <string name="save">Lưu</string>
-    <string name="schedule_desc">Dùng ảnh khác nhau cho sáng, chiều, tối và đêm</string>
-    <string name="schedule_note">Khung trống sẽ dùng ảnh chính ở Trang chủ. Cần bật tự động đổi.</string>
-    <string name="schedule_title">Hình nền theo giờ trong ngày</string>
+    <string name="schedule_desc">Ảnh riêng cho từng buổi trong ngày</string>
+    <string name="schedule_for">Bộ ảnh: %1$s</string>
+    <string name="schedule_note">Ô trống dùng ảnh chính. Cần bật Tự động đổi.</string>
+    <string name="schedule_title">Theo buổi trong ngày</string>
     <string msgid="6264217191555673260" name="search_menu_title">"Tìm kiếm"</string>
+    <string name="section_modes">Giờ sáng &amp; tối</string>
+    <string name="section_slots">Ảnh theo buổi</string>
     <string msgid="6043586758067023" name="selected">"Đã chọn"</string>
-    <string name="service_active">Dịch vụ đang chạy</string>
-    <string name="service_active_at">Dịch vụ đang chạy · áp dụng lúc %1$s</string>
-    <string name="service_stopped">Dịch vụ đang dừng</string>
+    <string name="service_active">Đang chạy</string>
+    <string name="service_active_at">Đang chạy · áp dụng lúc %1$s</string>
+    <string name="service_stopped">Đã dừng</string>
+    <string name="set_in_use">Đang dùng</string>
+    <string name="set_incomplete">Thiếu ảnh sáng hoặc tối</string>
+    <string name="set_name">Tên bộ ảnh</string>
+    <string name="set_tap">Chạm để dùng</string>
+    <string name="settings_appearance">Giao diện</string>
     <string name="slot_afternoon">Chiều</string>
     <string name="slot_evening">Tối</string>
     <string name="slot_morning">Sáng</string>
     <string name="slot_night">Đêm</string>
-    <string name="start_on_boot">Chạy khi khởi động máy</string>
-    <string name="start_on_boot_desc">Tiếp tục tự động đổi hình nền sau khi khởi động lại</string>
+    <string msgid="2792228137354697160" name="snackbar_pane_title">"Cảnh báo"</string>
+    <string name="source_code">Mã nguồn</string>
+    <string name="source_code_desc">github.com/minhtrong67/my-kotlin-apps</string>
+    <string name="start_on_boot">Chạy khi bật máy</string>
+    <string name="start_on_boot_desc">Tự tiếp tục sau khi khởi động lại</string>
     <string msgid="4139871816613051306" name="state_empty">"Trống"</string>
     <string msgid="5834637030682409883" name="state_off">"Đang tắt"</string>
     <string msgid="1490883874751719580" name="state_on">"Đang bật"</string>
     <string msgid="6277540029070332960" name="status_bar_notification_info_overflow">"999+"</string>
-    <string name="status_now">Hệ thống đang ở chế độ %1$s</string>
+    <string name="status_now">Hiện tại: chế độ %1$s</string>
     <string msgid="2561197295334830845" name="switch_role">"Chuyển"</string>
     <string msgid="1672349317127674378" name="tab">"Thẻ"</string>
     <string name="target_both">Cả hai</string>
@@ -171,11 +217,10 @@
     <string msgid="5946805113151406391" name="template_percent">"<ns1:g id="PERCENTAGE">%1$d</ns1:g>%%."</string>
     <string name="theme_dark">Tối</string>
     <string name="theme_light">Sáng</string>
-    <string name="theme_mode">Giao diện ứng dụng</string>
+    <string name="theme_mode">Chủ đề</string>
     <string name="theme_system">Hệ thống</string>
-    <string name="tip_text">Mở thông tin ứng dụng → Pin → Không hạn chế. Đồng thời gỡ app khỏi danh sách Ứng dụng ngủ trong Cài đặt → Pin → Giới hạn sử dụng nền.</string>
-    <string name="tip_title">Giữ app chạy nền (Samsung)</string>
     <string msgid="3765533235322692011" name="tooltip_description">"chú thích"</string>
     <string msgid="3124740595719787496" name="tooltip_label">"hiện chú thích"</string>
+    <string name="top_subtitle">%1$s · chế độ %2$s</string>
     <string name="wallpaper_section">Hình nền</string>
 </resources>

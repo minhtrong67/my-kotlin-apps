@@ -31,8 +31,8 @@ if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.12.0"
-val appVersionCode = 18
+val appVersionName = "1.12.2"
+val appVersionCode = 20
 // APK naming convention: expenser-<versionName>-<versionCode>-<buildType>.apk (e.g. expenser-1.10.0-15-release.apk)
 base.archivesName.set("expenser-$appVersionName-$appVersionCode")
 

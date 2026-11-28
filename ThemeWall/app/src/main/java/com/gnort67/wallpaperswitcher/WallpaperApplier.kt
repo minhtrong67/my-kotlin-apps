@@ -17,8 +17,12 @@ object WallpaperApplier {
     /** Slot 0 = main image, 1..4 = morning / afternoon / evening / night. */
     private val BOUNDS = intArrayOf(6, 12, 18, 22)
 
-    fun file(ctx: Context, dark: Boolean, slot: Int = 0) =
-        File(ctx.filesDir, "wp_${if (dark) "d" else "l"}_$slot.jpg")
+    fun file(ctx: Context, setId: String, dark: Boolean, slot: Int = 0) =
+        File(ctx.filesDir, "wp_${setId}_${if (dark) "d" else "l"}_$slot.jpg")
+
+    fun deleteSet(ctx: Context, setId: String) {
+        ctx.filesDir.listFiles { f -> f.name.startsWith("wp_${setId}_") }?.forEach { it.delete() }
+    }
 
     fun isSystemDark(): Boolean =
         Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
@@ -29,28 +33,59 @@ object WallpaperApplier {
         return when { h < 6 -> 4; h < 12 -> 1; h < 18 -> 2; h < 22 -> 3; else -> 4 }
     }
 
-    fun nextBoundary(): Long {
+    fun minutesNow(): Int {
         val c = Calendar.getInstance()
-        val now = c.timeInMillis
-        c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
-        for (h in BOUNDS) {
-            c.set(Calendar.HOUR_OF_DAY, h)
-            if (c.timeInMillis > now) return c.timeInMillis
+        return c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE)
+    }
+
+    /** Dark from [darkFrom] until [lightFrom] (both minutes after midnight, wraps over midnight). */
+    fun isDarkAt(lightFrom: Int, darkFrom: Int, m: Int): Boolean = when {
+        lightFrom == darkFrom -> false
+        darkFrom > lightFrom -> m >= darkFrom || m < lightFrom
+        else -> m >= darkFrom && m < lightFrom
+    }
+
+    /** Effective mode: system theme, or the user's own clock times. */
+    fun isDarkNow(ctx: Context): Boolean {
+        val p = Prefs.get(ctx)
+        return if (p.modeSource == 1) isDarkAt(p.lightFrom, p.darkFrom, minutesNow()) else isSystemDark()
+    }
+
+    fun needsAlarm(ctx: Context): Boolean {
+        val p = Prefs.get(ctx)
+        return p.scheduleEnabled || p.modeSource == 1
+    }
+
+    /** Next moment (time-of-day slot edge or custom light/dark time) at which the wallpaper may change. */
+    fun nextBoundary(ctx: Context): Long {
+        val p = Prefs.get(ctx)
+        val marks = buildList {
+            if (p.scheduleEnabled) BOUNDS.forEach { add(it * 60) }
+            if (p.modeSource == 1) { add(p.lightFrom); add(p.darkFrom) }
         }
-        c.add(Calendar.DAY_OF_YEAR, 1)
-        c.set(Calendar.HOUR_OF_DAY, BOUNDS[0])
-        return c.timeInMillis
+        val now = System.currentTimeMillis()
+        var best = Long.MAX_VALUE
+        for (m in marks) {
+            val c = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, m / 60); set(Calendar.MINUTE, m % 60)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            if (c.timeInMillis <= now) c.add(Calendar.DAY_OF_YEAR, 1)
+            best = minOf(best, c.timeInMillis)
+        }
+        return best
     }
 
     fun stateKey(ctx: Context, dark: Boolean): Int =
         (if (dark) 10 else 0) + (if (Prefs.get(ctx).scheduleEnabled) currentSlot() else 0)
 
     private fun resolve(ctx: Context, dark: Boolean): File? {
-        if (Prefs.get(ctx).scheduleEnabled) {
-            val s = file(ctx, dark, currentSlot())
+        val p = Prefs.get(ctx)
+        if (p.scheduleEnabled) {
+            val s = file(ctx, p.activeId, dark, currentSlot())
             if (s.exists()) return s
         }
-        return file(ctx, dark, 0).takeIf { it.exists() }
+        return file(ctx, p.activeId, dark, 0).takeIf { it.exists() }
     }
 
     @Synchronized

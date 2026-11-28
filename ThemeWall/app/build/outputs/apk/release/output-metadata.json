@@ -11,9 +11,9 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 4,
-      "versionName": "1.3",
-      "outputFile": "ThemeWall-release.apk"
+      "versionCode": 10500,
+      "versionName": "1.5.0",
+      "outputFile": "ThemeWall-v1.5.0-release.apk"
     }
   ],
   "elementType": "File",
@@ -22,14 +22,14 @@
       "minApi": 28,
       "maxApi": 30,
       "baselineProfiles": [
-        "baselineProfiles/1/ThemeWall-release.dm"
+        "baselineProfiles/1/ThemeWall-v1.5.0-release.dm"
       ]
     },
     {
       "minApi": 31,
       "maxApi": 2147483647,
       "baselineProfiles": [
-        "baselineProfiles/0/ThemeWall-release.dm"
+        "baselineProfiles/0/ThemeWall-v1.5.0-release.dm"
       ]
     }
   ],

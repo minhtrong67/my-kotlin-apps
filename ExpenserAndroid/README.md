@@ -102,7 +102,7 @@ Tạo keystore: `powershell -File scripts\make-keystore.ps1` — **hãy sao lưu
 .\gradlew.bat assembleDebug      # bản debug
 .\gradlew.bat assembleRelease    # bản release (R8 + shrink, đã ký)
 ```
-Tên file APK theo quy ước `expenser-<versionName>-<versionCode>-<buildType>.apk`, ví dụ `app/build/outputs/apk/release/expenser-1.12.0-18-release.apk`. Hãy thử hiệu năng trên bản **release** (bản debug của Compose chậm hơn rõ rệt).
+Tên file APK theo quy ước `expenser-<versionName>-<versionCode>-<buildType>.apk`, ví dụ `app/build/outputs/apk/release/expenser-1.12.2-20-release.apk`. Hãy thử hiệu năng trên bản **release** (bản debug của Compose chậm hơn rõ rệt).
 
 ## Cấu trúc dự án
 ```
@@ -127,6 +127,8 @@ Tương thích hoàn toàn với bản web: `users/{uid}/transactions | categori
 - Icon adaptive 108dp (nền xanh + hình cookie nhiều cánh, ví và đồng xu), có lớp monochrome cho themed icon.
 
 ## Lịch sử phiên bản
+- **1.12.2** — Số dư còn lại của ngày hiển thị đầy đủ như các dòng giao dịch (vd `+3.000 ₫`) thay vì dạng rút gọn `3k`.
+- **1.12.1** — Tiêu đề từng ngày trong danh sách giao dịch (và sheet của lịch) hiển thị số dư còn lại của ngày (thu − chi) thay vì tách thu / chi.
 - **1.12.0** — Nâng cấp lên Compose Material 3 1.4 (BOM 2025.09.00), Kotlin 2.2.20, AGP 8.13, Gradle 8.13, compileSdk 36; giữ phong cách Expressive bằng token chuyển động lò xo, shape và typography tự định nghĩa (các API Expressive chính thức chỉ có từ Material 3 1.5).
 - **1.11.1** — Áp dụng motion scheme Expressive (spring spatial / effects) cho FAB và thanh phân đoạn; cặp nút Xuất JSON / CSV dạng button group nối liền.
 - **1.11.0** — Form quán cafe: đánh giá nằm dưới tên quán; dạng thẻ bỏ kéo thả, dạng danh sách hiển thị đủ thông tin + nút mở Google Maps; logo trong sidebar; link GitHub trong phần Giới thiệu; tinh chỉnh M3 Expressive (shape, typography, spring); viết lại README.

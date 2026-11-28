@@ -9,6 +9,7 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -43,7 +44,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-class CropJob(val uri: Uri, val dark: Boolean, val slot: Int)
+class CropJob(val uri: Uri, val setId: String, val dark: Boolean, val slot: Int)
 
 private fun screenSize(ctx: Context): Pair<Int, Int> {
     val wm = ctx.getSystemService(WindowManager::class.java)
@@ -97,7 +98,7 @@ private class CropState(val iw: Int, val ih: Int, val aspect: Float, val pad: Fl
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CropScreen(job: CropJob, onFinish: (Boolean) -> Unit, onCancel: () -> Unit) {
     val ctx = LocalContext.current
@@ -121,6 +122,7 @@ fun CropScreen(job: CropJob, onFinish: (Boolean) -> Unit, onCancel: () -> Unit) 
                 },
                 actions = {
                     Button(
+                        shapes = ButtonDefaults.shapes(),
                         onClick = {
                             val s = st ?: return@Button
                             val src = b ?: return@Button
@@ -128,7 +130,7 @@ fun CropScreen(job: CropJob, onFinish: (Boolean) -> Unit, onCancel: () -> Unit) 
                             saving = true
                             scope.launch {
                                 val ok = withContext(Dispatchers.IO) {
-                                    ImageTools.cropAndSave(src, r, sw, sh, WallpaperApplier.file(ctx, job.dark, job.slot))
+                                    ImageTools.cropAndSave(src, r, sw, sh, WallpaperApplier.file(ctx, job.setId, job.dark, job.slot))
                                 }
                                 onFinish(ok)
                             }
@@ -142,13 +144,18 @@ fun CropScreen(job: CropJob, onFinish: (Boolean) -> Unit, onCancel: () -> Unit) 
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                if (b == null || st == null) CircularProgressIndicator()
+                if (b == null || st == null) LoadingIndicator()
                 else {
                     val img = remember(b) { b.asImageBitmap() }
                     Canvas(
                         Modifier.fillMaxSize()
                             .onSizeChanged { st.bw = it.width.toFloat(); st.bh = it.height.toFloat(); st.clamp() }
                             .pointerInput(st) { detectTransformGestures { c, pan, zoom, _ -> st.transform(c, pan, zoom) } }
+                            .pointerInput(st) {
+                                detectTapGestures(onDoubleTap = { c ->
+                                    st.transform(c, Offset.Zero, if (st.k > 1.5f) 1f / st.k else 2.5f / st.k)
+                                })
+                            }
                     ) {
                         if (st.bw <= 0f) return@Canvas
                         val fw = st.frameW(); val fh = st.frameH()

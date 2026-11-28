@@ -85,15 +85,15 @@ class ThemeWatcherService : Service() {
     /** Inexact alarm (no special permission) for the next time-of-day boundary. */
     private fun scheduleAlarm(p: Prefs) {
         val am = getSystemService(AlarmManager::class.java)
-        if (p.scheduleEnabled) {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, WallpaperApplier.nextBoundary(), slotIntent())
+        if (WallpaperApplier.needsAlarm(this)) {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, WallpaperApplier.nextBoundary(this), slotIntent())
         } else am.cancel(slotIntent())
     }
 
     private fun sync() {
         val p = Prefs.get(this)
         scheduleAlarm(p)
-        val dark = WallpaperApplier.isSystemDark()
+        val dark = WallpaperApplier.isDarkNow(this)
         val key = WallpaperApplier.stateKey(this, dark)
         if (p.lastApplied == key) return
         scope.launch {

@@ -132,8 +132,9 @@ fun TransactionsScreen(vm: MainViewModel, onEdit: (Tx) -> Unit) {
                         val de = dayItems.filter { it.type == TxType.EXPENSE }.sumOf { it.amount }
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(Format.dayHeader(dayItems.first().date), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (di > 0) Text("+" + Format.compactMoney(di), style = MaterialTheme.typography.labelMedium, color = inc.income, modifier = Modifier.padding(end = 8.dp))
-                            if (de > 0) Text("-" + Format.compactMoney(de), style = MaterialTheme.typography.labelMedium, color = com.expenser.app.ui.theme.LocalIncomeColors.current.expense)
+                            // Net amount left for the day (income - expense).
+                            val net = di - de
+                            if (di > 0 || de > 0) Text((if (net >= 0) "+" else "-") + Format.money(kotlin.math.abs(net)), style = MaterialTheme.typography.labelLarge, color = if (net >= 0) inc.income else com.expenser.app.ui.theme.LocalIncomeColors.current.expense, modifier = Modifier.padding(end = 4.dp))
                         }
                     }
                     items(dayItems, key = { it.id }) { tx ->
@@ -273,8 +274,8 @@ private fun CalendarView(transactions: List<Tx>, catById: Map<String, Category>,
                 val te = list.filter { it.type == TxType.EXPENSE }.sumOf { it.amount }
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(Format.dayHeader(sel), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                    if (ti > 0) Text("+" + Format.compactMoney(ti), style = MaterialTheme.typography.labelLarge, color = colors.income, modifier = Modifier.padding(end = 10.dp))
-                    if (te > 0) Text("-" + Format.compactMoney(te), style = MaterialTheme.typography.labelLarge, color = colors.expense)
+                    val dayNet = ti - te
+                    if (ti > 0 || te > 0) Text((if (dayNet >= 0) "+" else "-") + Format.money(kotlin.math.abs(dayNet)), style = MaterialTheme.typography.labelLarge, color = if (dayNet >= 0) colors.income else colors.expense)
                 }
                 HorizontalDivider()
                 var ready by remember(sel) { mutableStateOf(false) }
