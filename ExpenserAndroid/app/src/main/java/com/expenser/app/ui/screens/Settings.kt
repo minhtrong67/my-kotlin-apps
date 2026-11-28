@@ -105,6 +105,7 @@ fun SettingsScreen(vm: MainViewModel) {
     val shops by vm.shops.collectAsStateWithLifecycle()
     val drinks by vm.drinks.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     val scope = rememberCoroutineScope()
     var confirmReset by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -244,9 +245,9 @@ fun SettingsScreen(vm: MainViewModel) {
         // ---- data: one card for everything ----
         SettingCard(stringResource(R.string.settings_data), Icons.Rounded.Storage) {
             Text(stringResource(R.string.data_summary, txs.size, cats.size, wals.size, shops.size, drinks.size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilledTonalButton(onClick = { export(null, true) }, Modifier.weight(1f).height(52.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.data_export_all_json), maxLines = 1) }
-                FilledTonalButton(onClick = { export(null, false) }, Modifier.weight(1f).height(52.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.data_export_all_csv), maxLines = 1) }
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                FilledTonalButton(onClick = { export(null, true) }, Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp, topEnd = 8.dp, bottomEnd = 8.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.data_export_all_json), maxLines = 1) }
+                FilledTonalButton(onClick = { export(null, false) }, Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = 26.dp, bottomEnd = 26.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.FileUpload, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.data_export_all_csv), maxLines = 1) }
             }
             OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Rounded.FileDownload, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.data_import_all)) }
             Text(stringResource(R.string.settings_import_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -259,6 +260,11 @@ fun SettingsScreen(vm: MainViewModel) {
                 InfoRow(stringResource(R.string.settings_version), BuildConfig.VERSION_NAME)
                 InfoRow(stringResource(R.string.settings_author), "minhtrong67")
                 InfoRow(stringResource(R.string.settings_ai_support), "Claude Sonnet 5.5")
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = { runCatching { uriHandler.openUri("https://github.com/minhtrong67/my-kotlin-apps") } }, Modifier.weight(1f).height(48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.Code, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.settings_source_code), maxLines = 1) }
+                OutlinedButton(onClick = { runCatching { uriHandler.openUri("https://github.com/minhtrong67") } }, Modifier.weight(1f).height(48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) { Icon(Icons.Rounded.Person, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.settings_author_github), maxLines = 1) }
             }
         }
         Spacer(Modifier.height(24.dp))

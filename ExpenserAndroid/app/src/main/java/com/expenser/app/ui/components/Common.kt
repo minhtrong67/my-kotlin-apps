@@ -285,9 +285,15 @@ fun ConfirmDialog(text: String, confirmLabel: String = stringResource(R.string.c
 /** Web-style floating action button: a rounded-square primary container with a plus. */
 @Composable
 fun ScreenFab(onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector = Icons.Rounded.Add) {
-    FloatingActionButton(onClick = onClick, modifier = modifier.padding(16.dp), containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, shape = RoundedCornerShape(18.dp)) {
-        Icon(icon, null)
-    }
+    // M3 Expressive: a larger rounded-square FAB that springs smaller while pressed.
+    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.9f else 1f, com.expenser.app.ui.theme.Motion.spatialFast(), label = "fabPress")
+    FloatingActionButton(
+        onClick = onClick, interactionSource = source,
+        modifier = modifier.padding(16.dp).size(64.dp).graphicsLayer { scaleX = scale; scaleY = scale },
+        containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, shape = RoundedCornerShape(22.dp),
+    ) { Icon(icon, null, Modifier.size(28.dp)) }
 }
 
 data class Seg(val id: String, val label: String, val icon: ImageVector? = null, val container: Color? = null, val content: Color? = null)
@@ -301,20 +307,20 @@ fun PillSegmented(options: List<Seg>, selected: String, onSelect: (String) -> Un
         val itemW = (maxWidth - gap * (n - 1)) / n
         val idx = options.indexOfFirst { it.id == selected }.coerceAtLeast(0)
         // The coloured pill slides to the chosen option instead of the colour popping between cells.
-        val x by animateDpAsState((itemW + gap) * idx, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMedium), label = "segX")
-        val pill by animateColorAsState(options.getOrNull(idx)?.container ?: MaterialTheme.colorScheme.primary, tween(280, easing = FastOutSlowInEasing), label = "segPill")
+        val x by animateDpAsState((itemW + gap) * idx, com.expenser.app.ui.theme.Motion.spatialDefault(), label = "segX")
+        val pill by animateColorAsState(options.getOrNull(idx)?.container ?: MaterialTheme.colorScheme.primary, com.expenser.app.ui.theme.Motion.effectsDefault(), label = "segPill")
         Box(Modifier.offset(x = x).width(itemW).fillMaxHeight().clip(CircleShape).background(pill))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
             options.forEach { o ->
                 val on = o.id == selected
-                val fg by animateColorAsState(if (on) (o.content ?: MaterialTheme.colorScheme.onPrimary) else MaterialTheme.colorScheme.onSurfaceVariant, tween(220), label = "segFg")
+                val fg by animateColorAsState(if (on) (o.content ?: MaterialTheme.colorScheme.onPrimary) else MaterialTheme.colorScheme.onSurfaceVariant, com.expenser.app.ui.theme.Motion.effectsDefault(), label = "segFg")
                 Row(
                     Modifier.weight(1f).fillMaxHeight().clip(CircleShape).clickable { onSelect(o.id) },
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val icon = if (on) Icons.Rounded.Check else o.icon
                     if (icon != null) { Icon(icon, null, Modifier.size(18.dp), tint = fg); Spacer(Modifier.width(8.dp)) }
-                    Text(o.label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    Text(o.label, color = fg, style = MaterialTheme.typography.labelLarge, fontWeight = if (on) androidx.compose.ui.text.font.FontWeight.Bold else null, maxLines = 1)
                 }
             }
         }
@@ -1115,7 +1121,7 @@ fun BoxScope.ScrollToTopButton(visible: Boolean, aboveFab: Boolean = true, onCli
         enter = scaleIn(tween(180), initialScale = 0.6f) + fadeIn(tween(160)), exit = scaleOut(tween(120), targetScale = 0.6f) + fadeOut(tween(100)),
     ) {
         SmallFloatingActionButton(
-            onClick = onClick, modifier = Modifier.padding(start = 16.dp, end = 20.dp, top = 16.dp, bottom = if (aboveFab) 92.dp else 20.dp).size(48.dp),
+            onClick = onClick, modifier = Modifier.padding(start = 16.dp, end = 20.dp, top = 16.dp, bottom = if (aboveFab) 100.dp else 20.dp).size(48.dp),
             containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ) { Icon(Icons.Rounded.KeyboardArrowUp, stringResource(R.string.scroll_top), Modifier.size(28.dp)) }
     }

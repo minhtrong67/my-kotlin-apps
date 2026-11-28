@@ -1,93 +1,142 @@
-# Expenser — Android (Kotlin + Jetpack Compose, Material 3)
+<div align="center">
 
-Bản native của web app React "Expenser". Dùng **cùng Firebase (Auth + Firestore)** với bản web nên dữ liệu đồng bộ giữa web và app.
+<img src="app/src/main/ic_launcher-playstore.png" width="120" alt="Expenser logo" />
 
-## 1.10.0
-- Icon mới phong cách Material 3 Expressive (nền cookie nhiều cánh, ví + đồng xu; có icon themed/monochrome) và file `ic_launcher-playstore.png` 512px.
-- Tên APK chuẩn: `expenser-<versionName>-<versionCode>-<buildType>.apk`.
-- Nhắc xem báo cáo hằng tuần (Thứ Hai 8:00) và hằng tháng (ngày 1, 8:00); chạm thông báo mở tab Thống kê.
-- Rút gọn toàn bộ text, màn Cài đặt gọn lại (Tài khoản · Giao diện + ngôn ngữ · Nhắc nhở · Dữ liệu · Giới thiệu).
+# Expenser for Android
 
-## 1.9.2
-- Nút lên đầu trang trượt một mạch, dừng nhẹ ở đỉnh; chọn tab (danh sách/lịch, chi/thu, recap/thống kê…) có viên thuốc trượt mượt; accordion mở/đóng cùng một nhịp (320ms) không còn nhanh chậm thất thường.
+**Ứng dụng quản lý thu chi cá nhân — Kotlin · Jetpack Compose · Material 3 Expressive**
 
-## 1.9.0
-- Form giao dịch điền theo thứ tự tuỳ ý (kiểm tra đầy đủ khi lưu); "Nhập nhanh" nằm trên ô số tiền, gọn hơn, tiền dạng 20K.
-- Toast mới ở phía trên, có 4 loại (thành công / lỗi / cảnh báo / thông tin), tự tắt nhanh; form ví & danh mục dạng lưới cân đối; tab Cafe recap gọn đẹp hơn.
-- Lightbox vuốt ngang xem ảnh được; hỗ trợ màn hình ngang (thanh điều hướng dạng rail, sidebar cuộn được, đăng nhập 2 cột); thông báo nhắc nhở ngắn gọn.
+[![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white)](#yêu-cầu)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.2-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
 
-## 1.8.3
-- Vuốt trái → phải ở tab Tổng quan mở sidebar; Cài đặt gộp một mục Xuất / nhập toàn bộ dữ liệu (JSON, CSV zip, CSV lẻ); lưới màu nhấn 6x3.
-- "Nhập nhanh" 2 hàng cuộn ngang cùng lúc; skeleton cho Thống kê, Ví, Danh mục, Cafe và các sheet; animation form/điều hướng/sheet chậm và mượt hơn; hộp xác nhận lớn hơn, 2 nút bằng nhau.
+</div>
 
-## 1.8.2
-- Sửa lỗi form giao dịch báo thiếu quán/đồ uống dù đã chọn (nút Lưu giờ luôn kiểm tra theo dữ liệu mới nhất); hai nút Hủy/Lưu bằng nhau.
-- Ghi nhớ kiểu xem (card/list, lưới, danh sách/lịch) cho từng màn hình; "Nhập nhanh" nhỏ gọn hơn; đổi màu 2 thẻ top danh mục.
+Expenser là bản native của web app React cùng tên. Ứng dụng dùng **chung Firebase (Authentication + Firestore)** với bản web nên dữ liệu đồng bộ hai chiều, hoạt động **offline-first** và đăng nhập bằng Google.
 
-## 1.8.1
-- Form giao dịch: báo lỗi rõ khi không lưu được; "Nhập nhanh" lọc theo số tiền đang gõ; chọn quán / đồ uống bằng sheet có ảnh, tìm kiếm và đổi list/lưới.
-- Lightbox vuốt ngang thay cho nút trước/sau; nút lên đầu trang nằm bên phải (trên nút thêm), to hơn.
-- Ảnh báo cáo tỉ lệ dọc 9:16; thẻ thống kê hiển thị danh mục chi / thu nhiều nhất; lưới đồ uống ảnh vuông 1:1; thêm thông tin tác giả.
+> Mã nguồn: <https://github.com/minhtrong67/my-kotlin-apps> · Tác giả: [@minhtrong67](https://github.com/minhtrong67)
 
-## 1.8.0
-- Ảnh trong form quán / đồ uống / giao dịch cafe: chọn ảnh từ máy, tự nén và tải lên imgbb (cần `IMGBB_API_KEY` trong `.env`).
-- Form giao dịch: hàng "Nhập nhanh" gợi ý danh mục + số tiền đã dùng nhiều; chọn xong ngày giờ tự lấy giờ hiện tại.
-- Lịch giao dịch: sheet theo ngày chỉ để xem; ô ngày xanh khi tổng ngày dương, đỏ khi âm.
-- Quán cafe: placeholder ngắn hơn, đổi card/list và lưới/list mượt hơn (Crossfade).
-- Nút lên đầu trang cuộn mượt.
-- Ảnh báo cáo thống kê thiết kế lại (tổng thu/chi, top danh mục, biểu đồ tròn + thẻ số liệu).
-- Màn đăng nhập thiết kế lại.
+## Mục lục
+- [Tính năng](#tính-năng)
+- [Công nghệ](#công-nghệ)
+- [Yêu cầu](#yêu-cầu)
+- [Bắt đầu nhanh](#bắt-đầu-nhanh)
+- [Thiết lập Firebase](#thiết-lập-firebase)
+- [Cấu hình `.env`](#cấu-hình-env)
+- [Build & phát hành](#build--phát-hành)
+- [Cấu trúc dự án](#cấu-trúc-dự-án)
+- [Mô hình dữ liệu](#mô-hình-dữ-liệu)
+- [Thiết kế giao diện](#thiết-kế-giao-diện)
+- [Lịch sử phiên bản](#lịch-sử-phiên-bản)
+- [Lưu ý](#lưu-ý)
 
-## Thiết lập Firebase (bắt buộc, làm 1 lần)
-1. Firebase Console → dự án **của bản web** → *Project settings* → *Add app* → Android, package name: `com.expenser.app`.
-2. Lấy SHA-1 của khóa debug: `./gradlew signingReport` (hoặc Android Studio → Gradle → app → Tasks → android → signingReport). Dán SHA-1 vào mục *SHA certificate fingerprints* của app vừa thêm. (Khi phát hành thêm SHA-1 của khóa release / Play App Signing.)
-3. Authentication → Sign-in method → bật **Google**.
-4. Tải **google-services.json** (sau khi đã thêm SHA-1) và đặt vào `app/google-services.json`, rồi chạy `powershell -File scripts\make-env.ps1` để chuyển nội dung vào `.env` (xem phần *Bảo mật bằng .env*). Sau đó có thể xóa file JSON.
-5. Sync Gradle → Run. Không có cấu hình này app sẽ hiện màn "Chưa cấu hình Firebase".
+## Tính năng
 
-## Bảo mật bằng .env
-- `.env` (đã có trong `.gitignore`) chứa `GOOGLE_SERVICES_JSON_BASE64` — Gradle tự giải mã thành `app/google-services.json` (cũng bị git bỏ qua) mỗi lần build. Mẫu: `.env.example`.
-- Ký bản release: chạy `powershell -File scripts\make-keystore.ps1` (tạo `keystore/expenser-release.jks` và ghi `KEYSTORE_*` vào `.env`, in ra SHA-1 để thêm vào Firebase). **Sao lưu keystore + .env**, mất là không thể cập nhật app.
-- Chưa có keystore thì bản release được ký bằng khóa debug (vẫn cài được, Google sign-in dùng SHA-1 debug đã đăng ký).
-- File APK: `app/build/outputs/apk/<debug|release>/expenser-<phiên bản>-<versionCode>-<debug|release>.apk` (vd `expenser-1.10.0-15-release.apk`).
-- Lưu ý: giá trị trong google-services.json (API key…) vẫn nằm trong APK; hãy giới hạn API key theo package + SHA-1 trên Google Cloud.
+**Thu chi**
+- Thêm / sửa / xóa giao dịch (thu, chi, chuyển khoản giữa ví); vuốt phải để sửa, vuốt trái để xóa.
+- Form thông minh: điền theo thứ tự tùy ý, *Nhập nhanh* gợi ý danh mục + số tiền hay dùng (hiển thị dạng 20K).
+- Danh sách và lịch (ô ngày tô màu theo tổng thu chi), bộ lọc theo loại, danh mục, ví, khoảng ngày, từ khóa.
+- Quản lý **ví** và **danh mục** (emoji, màu, kéo thả sắp xếp).
 
-## Chạy thử
-Android Studio (Ladybug 2024.2+) → mở thư mục này → Gradle sync → Run (API 26+).
+**Thống kê & báo cáo**
+- Tổng quan tháng, biểu đồ tròn thu / chi theo danh mục với chú thích đầy đủ, top danh mục chi / thu nhiều nhất.
+- Xem theo ngày, tuần, tháng, năm, tất cả; xuất báo cáo thành **ảnh PNG 9:16**.
 
-## Giao diện
-- Giống bản web mobile: thanh trên (menu / tìm trang / đổi chế độ sáng-tối), drawer đủ mục, thanh dưới 4 mục (Tổng quan, Giao dịch, Thống kê, Cài đặt), nút FAB theo từng màn, form toàn màn hình, vuốt sửa/xóa, bộ lọc thu gọn, cài đặt dạng accordion.
-- Màu chủ đạo: **Material 3 baseline blue** (#0061A4); có thể đổi màu nhấn hoặc dùng Material You (Android 12+).
-- Icon adaptive Material 3 (108dp, vùng an toàn 66dp, có lớp monochrome cho themed icon) + splash screen.
+**Cafe recap**
+- Ghi lại từng ly cafe: quán, đồ uống, buổi trong ngày, ảnh, đánh giá sao.
+- Quán cafe có dạng thẻ lớn (xem ảnh) và dạng danh sách (đầy đủ thông tin, nút **Mở Google Maps**, kéo thả sắp xếp); đồ uống dạng lưới / danh sách.
+- Thống kê cafe theo tuần / tháng / năm; xem ảnh toàn màn hình (lightbox vuốt, zoom).
+- Tải ảnh từ máy, tự nén và đẩy lên imgbb.
 
-## Tính năng mới (1.7)
-- Vuốt chuyển tab dạng pager: kéo từ từ thấy màn kế bên, thả quá nửa thì chuyển; vuốt phải ở Tổng quan mở sidebar.
-- Giao dịch chỉ vuốt để sửa / xóa (không tap); lịch tô màu theo mức chi, chạm ngày mở sheet danh sách; chú thích "vuốt để sửa / xóa".
-- Nút "lên đầu trang" ở các danh sách dài; Đồ uống có dạng lưới / danh sách; Quán cafe có dạng thẻ / danh sách gọn (kéo thả).
-- Biểu đồ: bảng màu 16 màu khác nhau, xanh / đỏ cố định đậm (không phụ thuộc Material You); thẻ thống kê bằng nhau.
-- Thông báo nhắc nhở dùng AlarmManager (tự đặt lại sau khi khởi động lại máy / cập nhật app), icon thông báo riêng.
+**Nhắc nhở**
+- Nhắc ghi chép hằng ngày (chọn giờ), nhắc xem **báo cáo tuần** (Thứ Hai 8:00) và **báo cáo tháng** (ngày 1, 8:00). Chạm thông báo để mở đúng màn hình; tự đặt lại sau khi khởi động lại máy.
 
-## Tính năng (1.6)
-- Kéo thả (nắm biểu tượng ⋮⋮) để sắp xếp Danh mục, Quán cafe, Đồ uống; ảnh quán cafe 16:9.
-- Nhãn % ngay trong biểu đồ tròn; màu thu nhập / chi tiêu đậm hơn.
-- Animation: chuyển tab trượt theo hướng vuốt, form thêm/sửa trượt lên, FAB, danh sách, ảnh hiện dần; skeleton khi tải; cache ảnh 150 MB + tải trước ảnh quán/đồ uống.
-- Bản release ký sẵn (cài được), R8 + shrink, tên APK `expenser-<ver>-<code>-<type>.apk`.
+**Cài đặt & dữ liệu**
+- Tiếng Việt / English, sáng / tối / theo hệ thống, **Material You**, màu nhấn tùy chọn, 3 cỡ chữ.
+- Xuất / nhập toàn bộ dữ liệu: JSON, CSV (nén `.zip`) hoặc từng file CSV.
+- Hỗ trợ màn hình ngang (navigation rail), vuốt chuyển tab, vuốt phải mở sidebar.
 
-## Tính năng (1.5)
-- Biểu đồ chỉ dùng biểu đồ tròn, có chú thích đầy đủ (màu, tên, số tiền, %); xuất báo cáo thống kê thành ảnh PNG.
-- Cài đặt gọn: Tài khoản, Ngôn ngữ, Giao diện, Nhắc nhở, Dữ liệu (accordion), Giới thiệu.
-- Dữ liệu: xuất / nhập CSV hoặc JSON cho từng mục (giao dịch, danh mục, ví, quán cafe, đồ uống) và xuất tất cả (JSON, hoặc CSV nén .zip), nhập tất cả từ JSON.
-- Cafe recap giống bản web (bộ lọc có dropdown, thẻ ảnh 16:9, buổi trong ngày), thẻ Quán cafe có mở bản đồ / sao chép liên kết / ảnh lỗi có placeholder.
-- Image lightbox: chạm ảnh để xem phóng to, vuốt hoặc dùng mũi tên để chuyển ảnh trước / sau, nhấn đúp để zoom.
-- Vuốt ngang để chuyển tab (thanh dưới, Cafe recap / Thống kê).
+## Công nghệ
+| Lớp | Thư viện |
+|---|---|
+| UI | Jetpack Compose, Material 3 (Expressive), Navigation Compose, Coil |
+| Dữ liệu | Firebase Auth, Cloud Firestore (offline), DataStore |
+| Đăng nhập | Credential Manager + Google Identity |
+| Nền | Coroutines / Flow, AlarmManager (nhắc nhở) |
+| Build | Gradle (Kotlin DSL), AGP 8.13, R8, minSdk 26 · targetSdk 35 |
 
-## Dữ liệu (tương thích web)
-`users/{uid}/transactions | categories | wallets | cafeShops | cafeDrinks | cafeLogs`. Ghi dữ liệu theo kiểu offline-first (không chờ server), số dư ví cập nhật bằng `FieldValue.increment`.
+## Yêu cầu
+- Android Studio Narwhal (2025.1) trở lên, JDK 17.
+- Thiết bị / giả lập Android 8.0 (API 26) trở lên.
+- Một dự án Firebase (dùng chung với bản web).
 
-## Khác biệt so với bản web
-- Không có Landing, xuất PDF/Excel/PNG, upload ảnh (ảnh cafe nhập bằng link URL).
-- Nhập/xuất CSV cùng cột với web; báo cáo thống kê xuất CSV theo kỳ.
-- Nhắc nhở hàng ngày dùng WorkManager.
+## Bắt đầu nhanh
+```bash
+git clone https://github.com/minhtrong67/my-kotlin-apps.git
+cd my-kotlin-apps/ExpenserAndroid     # thư mục chứa gradlew
+```
+1. Làm theo [Thiết lập Firebase](#thiết-lập-firebase) và [Cấu hình `.env`](#cấu-hình-env).
+2. Mở thư mục bằng Android Studio → *Gradle Sync* → *Run*.
+3. Không có cấu hình Firebase, app hiển thị màn hình hướng dẫn thiết lập.
+
+## Thiết lập Firebase
+1. Firebase Console → dự án của bản web → *Project settings* → *Add app* → Android, package `com.expenser.app`.
+2. Lấy SHA-1: `./gradlew signingReport`, dán vào *SHA certificate fingerprints* (thêm cả SHA-1 khóa release / Play App Signing khi phát hành).
+3. *Authentication → Sign-in method* → bật **Google**.
+4. Tải `google-services.json` vào `app/`, rồi chạy `powershell -File scripts\make-env.ps1` để chuyển vào `.env`.
+
+## Cấu hình `.env`
+Sao chép `.env.example` thành `.env` (đã được git bỏ qua). Biến môi trường thật luôn ưu tiên hơn file.
+
+| Biến | Mô tả |
+|---|---|
+| `GOOGLE_SERVICES_JSON_BASE64` | Nội dung `google-services.json` dạng Base64; Gradle tự giải mã khi build |
+| `KEYSTORE_FILE` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` | Khóa ký bản release (chưa có thì ký bằng khóa debug) |
+| `IMGBB_API_KEY` | Khóa [imgbb](https://api.imgbb.com/) để tải ảnh từ máy lên |
+
+Tạo keystore: `powershell -File scripts\make-keystore.ps1` — **hãy sao lưu keystore và `.env`**, mất chúng sẽ không thể cập nhật app.
+
+## Build & phát hành
+```powershell
+.\gradlew.bat assembleDebug      # bản debug
+.\gradlew.bat assembleRelease    # bản release (R8 + shrink, đã ký)
+```
+Tên file APK theo quy ước `expenser-<versionName>-<versionCode>-<buildType>.apk`, ví dụ `app/build/outputs/apk/release/expenser-1.12.0-18-release.apk`. Hãy thử hiệu năng trên bản **release** (bản debug của Compose chậm hơn rõ rệt).
+
+## Cấu trúc dự án
+```
+ExpenserAndroid/
+├─ app/src/main/
+│  ├─ java/com/expenser/app/
+│  │  ├─ data/        Models, Repository (Firestore), SettingsStore, import/export
+│  │  ├─ reminder/    ReminderScheduler, receivers (nhắc hằng ngày, báo cáo, boot)
+│  │  ├─ ui/          AppRoot (điều hướng), MainViewModel, theme, components, screens
+│  │  └─ util/        Format, Periods, ảnh báo cáo, upload ảnh…
+│  └─ res/            strings (vi/en), icon adaptive, drawable
+├─ scripts/           make-env.ps1, make-keystore.ps1
+└─ .env.example
+```
+
+## Mô hình dữ liệu
+Tương thích hoàn toàn với bản web: `users/{uid}/transactions | categories | wallets | cafeShops | cafeDrinks | cafeLogs`. Ghi theo kiểu offline-first (không chờ server); số dư ví cập nhật bằng `FieldValue.increment`.
+
+## Thiết kế giao diện
+- Màu chủ đạo **Material 3 blue**, hỗ trợ màu nhấn tùy chọn và Material You.
+- Phong cách **Material 3 Expressive**: góc bo lớn và đa dạng, kiểu chữ nhấn mạnh, chuyển động lò xo (spring) cho FAB, thanh phân đoạn và các thành phần tương tác.
+- Icon adaptive 108dp (nền xanh + hình cookie nhiều cánh, ví và đồng xu), có lớp monochrome cho themed icon.
+
+## Lịch sử phiên bản
+- **1.12.0** — Nâng cấp lên Compose Material 3 1.4 (BOM 2025.09.00), Kotlin 2.2.20, AGP 8.13, Gradle 8.13, compileSdk 36; giữ phong cách Expressive bằng token chuyển động lò xo, shape và typography tự định nghĩa (các API Expressive chính thức chỉ có từ Material 3 1.5).
+- **1.11.1** — Áp dụng motion scheme Expressive (spring spatial / effects) cho FAB và thanh phân đoạn; cặp nút Xuất JSON / CSV dạng button group nối liền.
+- **1.11.0** — Form quán cafe: đánh giá nằm dưới tên quán; dạng thẻ bỏ kéo thả, dạng danh sách hiển thị đủ thông tin + nút mở Google Maps; logo trong sidebar; link GitHub trong phần Giới thiệu; tinh chỉnh M3 Expressive (shape, typography, spring); viết lại README.
+- **1.10.0** — Icon M3 Expressive, tên APK chuẩn, nhắc báo cáo tuần / tháng, rút gọn toàn bộ văn bản, gọn lại màn Cài đặt.
+- **1.9.x** — Animation mượt hơn (cuộn lên đầu, tab, accordion), sửa build, form giao dịch, toast, màn ngang.
+- **1.8.x** — Upload ảnh imgbb, nhập nhanh, lịch giao dịch, báo cáo ảnh 9:16, màn đăng nhập mới.
+- **1.5 – 1.7** — Biểu đồ tròn, xuất / nhập dữ liệu, lightbox, kéo thả sắp xếp, vuốt chuyển tab, nhắc nhở.
 
 ## Lưu ý
-Code chưa được biên dịch trong môi trường tạo (không có Android SDK). Nếu Gradle báo lỗi nhỏ, gửi log để chỉnh tiếp.
+Mã nguồn được tạo trong môi trường không có Android SDK nên chưa được biên dịch tại chỗ; nếu Gradle báo lỗi, hãy mở issue hoặc gửi log để chỉnh tiếp.
+
+## Tác giả
+**minhtrong67** — [github.com/minhtrong67](https://github.com/minhtrong67) · hỗ trợ bởi Claude Sonnet 5.5.

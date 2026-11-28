@@ -393,4 +393,6 @@
     <string name="report_off">Đã tắt nhắc xem báo cáo</string>
     <string name="settings_general">Chung</string>
     <string name="settings_notifications">Thông báo</string>
+    <string name="settings_source_code">Mã nguồn</string>
+    <string name="settings_author_github">GitHub tác giả</string>
 </resources>

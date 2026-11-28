@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -183,7 +184,11 @@ private fun MainShell(vm: MainViewModel, launchAdd: String?, onLaunchAddHandled:
         drawerContent = {
             ModalDrawerSheet(drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp), drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.fillMaxHeight().statusBarsPadding()) {
-                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 28.dp, top = 24.dp, bottom = 16.dp))
+                    Row(Modifier.padding(start = 24.dp, top = 24.dp, bottom = 16.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.foundation.Image(painterResource(R.drawable.ic_logo), null, Modifier.size(44.dp))
+                        Spacer(Modifier.width(14.dp))
+                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         DRAWER.forEach { d ->
                             NavigationDrawerItem(

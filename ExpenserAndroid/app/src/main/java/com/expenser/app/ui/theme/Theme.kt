@@ -110,13 +110,26 @@ fun schemeFromSeed(seed: Color, dark: Boolean): ColorScheme {
     }
 }
 
+// M3 Expressive: rounder, more varied corner radii (up to 48dp).
 private val ExpenserShapes = Shapes(
-    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-    small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-    medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(40.dp),
 )
+
+/** M3 Expressive type: the baseline scale with heavier "emphasized" weights on headlines, titles and labels. */
+private val ExpressiveTypography = with(androidx.compose.material3.Typography()) {
+    val bold = androidx.compose.ui.text.font.FontWeight.Bold
+    val semi = androidx.compose.ui.text.font.FontWeight.SemiBold
+    copy(
+        displayLarge = displayLarge.copy(fontWeight = bold), displayMedium = displayMedium.copy(fontWeight = bold), displaySmall = displaySmall.copy(fontWeight = bold),
+        headlineLarge = headlineLarge.copy(fontWeight = bold), headlineMedium = headlineMedium.copy(fontWeight = bold), headlineSmall = headlineSmall.copy(fontWeight = bold),
+        titleLarge = titleLarge.copy(fontWeight = bold), titleMedium = titleMedium.copy(fontWeight = semi), titleSmall = titleSmall.copy(fontWeight = semi),
+        labelLarge = labelLarge.copy(fontWeight = semi), labelMedium = labelMedium.copy(fontWeight = semi),
+    )
+}
 
 @Composable
 fun ExpenserTheme(settings: AppSettings, content: @Composable () -> Unit) {
@@ -144,7 +157,7 @@ fun ExpenserTheme(settings: AppSettings, content: @Composable () -> Unit) {
         LocalIncomeColors provides income,
         LocalDensity provides Density(base.density, base.fontScale * scale),
     ) {
-        MaterialTheme(colorScheme = scheme, shapes = ExpenserShapes, content = content)
+        MaterialTheme(colorScheme = scheme, shapes = ExpenserShapes, typography = ExpressiveTypography, content = content)
     }
 }
 

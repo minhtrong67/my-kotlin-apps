@@ -366,7 +366,7 @@ fun CafeShopsScreen(vm: MainViewModel) {
             if (list.isEmpty() && cafeLoading) item { ListSkeleton(rows = 4) }
             else if (list.isEmpty()) item { EmptyState(Icons.Rounded.Storefront, if (search.isBlank()) stringResource(R.string.cafe_shop_empty) else stringResource(R.string.cafe_no_match, search)) }
             items(shown, key = { it.id }) { s ->
-                SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp), modifier = reorderable(reorder, s.id)) {
+                SwipeRow(onEdit = { editor = ShopEditorState(s) }, onDelete = { deleteTarget = s }, shape = RoundedCornerShape(24.dp), modifier = if (isCompact) reorderable(reorder, s.id) else Modifier) {
                     if (isCompact) ShopCompactRow(
                         s, usage[s.id] ?: 0,
                         onImage = if (s.imageUrl.isNotBlank()) ({
@@ -374,6 +374,9 @@ fun CafeShopsScreen(vm: MainViewModel) {
                             viewer = withImg.map { LightboxItem(it.imageUrl, it.name) } to withImg.indexOfFirst { it.id == s.id }.coerceAtLeast(0)
                         }) else null,
                         handle = if (search.isBlank()) ({ DragHandle(reorder, s.id) }) else null,
+                        onMap = if (s.mapUrl.isNotBlank()) ({
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(normalizeUrl(s.mapUrl))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { vm.toast(R.string.cafe_map_open_error) }
+                        }) else null,
                     ) else Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Column {
                             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).then(if (s.imageUrl.isNotBlank()) Modifier.clickable {
@@ -424,7 +427,6 @@ fun CafeShopsScreen(vm: MainViewModel) {
                                     } else {
                                         TextButton(onClick = { editor = ShopEditorState(s) }, Modifier.weight(1f)) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.cafe_add_map)) }
                                     }
-                                    if (search.isBlank()) DragHandle(reorder, s.id)
                                 }
                             }
                         }
@@ -444,28 +446,37 @@ fun CafeShopsScreen(vm: MainViewModel) {
 
 data class ShopEditorState(val editing: CafeShop?)
 
-/** Slim horizontal card used by the list view (easier to drag-sort than the tall photo card). */
+/** List view row: shows every field in full (no truncation) and is the only layout that can be drag-sorted. */
 @Composable
-private fun ShopCompactRow(s: CafeShop, visits: Int, onImage: (() -> Unit)?, handle: (@Composable () -> Unit)?) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Row(Modifier.fillMaxWidth().padding(start = 10.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)).then(if (onImage != null) Modifier.clickable(onClick = onImage) else Modifier)) {
-                RemoteImage(s.imageUrl, Modifier.fillMaxSize(), Icons.Rounded.Storefront)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(s.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (s.rating > 0) {
-                        Icon(Icons.Rounded.Star, null, Modifier.size(14.dp), tint = Color(0xFFF59E0B)); Spacer(Modifier.width(2.dp))
-                        Text("${s.rating}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("  ·  ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text(stringResource(R.string.cafe_visits, visits), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun ShopCompactRow(s: CafeShop, visits: Int, onImage: (() -> Unit)?, handle: (@Composable () -> Unit)?, onMap: (() -> Unit)?) {
+    Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Box(Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)).then(if (onImage != null) Modifier.clickable(onClick = onImage) else Modifier)) {
+                    RemoteImage(s.imageUrl, Modifier.fillMaxSize(), Icons.Rounded.Storefront)
                 }
-                if (s.address.isNotBlank()) Text(s.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(s.name, style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (s.rating > 0) {
+                            repeat(5) { i -> Icon(if (i < s.rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, Modifier.size(15.dp), tint = if (i < s.rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) }
+                            Text("  ·  ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Rounded.LocalCafe, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.cafe_visits, visits), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                handle?.invoke()
             }
-            handle?.invoke()
+            if (s.address.isNotBlank()) Row(Modifier.padding(top = 10.dp, end = 8.dp), verticalAlignment = Alignment.Top) {
+                Icon(Icons.Rounded.LocationOn, null, Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp))
+                Text(s.address, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (s.description.isNotBlank()) Text(s.description, Modifier.padding(top = 6.dp, end = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onMap != null) FilledTonalButton(onClick = onMap, Modifier.padding(top = 10.dp, end = 8.dp).fillMaxWidth().height(44.dp)) {
+                Icon(Icons.Rounded.Map, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.cafe_open_map))
+            }
         }
     }
 }
@@ -496,12 +507,14 @@ private fun ShopEditor(state: ShopEditorState, all: List<CafeShop>, vm: MainView
         run {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.cafe_shop_name)) }, singleLine = true, isError = submitted && err != null, supportingText = { if (submitted && err != null) Text(err) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.cafe_rating), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                    (1..5).forEach { i -> IconButton(onClick = { rating = if (rating == i) 0 else i }, Modifier.size(40.dp)) { Icon(if (i <= rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, stringResource(R.string.cafe_stars_n, i), Modifier.size(28.dp), tint = if (i <= rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) } }
+                }
                 OutlinedTextField(address, { address = it.take(200) }, label = { Text(stringResource(R.string.cafe_address)) }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(mapUrl, { mapUrl = it }, label = { Text(stringResource(R.string.cafe_map_url)) }, supportingText = { Text(if (submitted && mapErr != null) mapErr else stringResource(R.string.cafe_map_url_hint)) }, isError = submitted && mapErr != null, singleLine = true, modifier = Modifier.fillMaxWidth())
                 ImageUploadField(imageUrl, { imageUrl = it }, Modifier.fillMaxWidth(), onBusyChange = { uploading = it })
                 OutlinedTextField(description, { description = it.take(500) }, label = { Text(stringResource(R.string.cafe_description)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
-                Text(stringResource(R.string.cafe_rating), style = MaterialTheme.typography.titleSmall)
-                Row { (1..5).forEach { i -> IconButton(onClick = { rating = if (rating == i) 0 else i }) { Icon(if (i <= rating) Icons.Rounded.Star else Icons.Rounded.StarBorder, stringResource(R.string.cafe_stars_n, i), tint = if (i <= rating) Color(0xFFF59E0B) else MaterialTheme.colorScheme.outline) } } }
             }
         }
     }

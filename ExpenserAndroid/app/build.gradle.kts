@@ -31,14 +31,16 @@ if (googleServicesFile.exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
-val appVersionName = "1.10.0"
-val appVersionCode = 15
+val appVersionName = "1.12.0"
+val appVersionCode = 18
 // APK naming convention: expenser-<versionName>-<versionCode>-<buildType>.apk (e.g. expenser-1.10.0-15-release.apk)
 base.archivesName.set("expenser-$appVersionName-$appVersionCode")
 
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+
 android {
     namespace = "com.expenser.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.expenser.app"
@@ -73,13 +75,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    val composeBom = platform("androidx.compose:compose-bom:2025.09.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")

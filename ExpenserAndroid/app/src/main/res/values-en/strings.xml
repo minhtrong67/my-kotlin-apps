@@ -393,4 +393,6 @@
     <string name="report_off">Report reminders off</string>
     <string name="settings_general">General</string>
     <string name="settings_notifications">Notifications</string>
+    <string name="settings_source_code">Source code</string>
+    <string name="settings_author_github">Author’s GitHub</string>
 </resources>
