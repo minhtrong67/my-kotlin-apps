@@ -180,6 +180,17 @@ object DataTransfer {
 
     // ---------------- import: parse ----------------
 
+    /** A lone CSV doesn't say what it contains: recognise it by its column names. */
+    private fun detectDataset(rows: List<Row>): Dataset? {
+        val keys = rows.firstOrNull()?.keys ?: return null
+        return when {
+            "mood" in keys && "date" in keys -> Dataset.Entries
+            "key" in keys && ("emoji" in keys || "label" in keys) -> Dataset.Moods
+            "label" in keys -> Dataset.Activities
+            else -> null
+        }
+    }
+
     private fun jsonToRow(o: JsonObject): Row = o.entries.associate { (k, v) ->
         k to when (v) {
             is JsonNull -> ""
@@ -192,8 +203,11 @@ object DataTransfer {
     private fun cleanList(e: JsonElement?): List<Row>? =
         (e as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let(::jsonToRow) }
 
-    /** Reads a .json / .csv / .zip file into raw rows per dataset. [only] restricts to one dataset (per-dataset import). */
-    fun parseImport(fileName: String, bytes: ByteArray, only: Dataset?): Map<Dataset, List<Row>> {
+    /**
+     * Reads a backup (.json / .zip of CSVs / a single .csv) into raw rows per dataset. A lone CSV or a bare JSON array is
+     * recognised by its column names, so a file exported by any part of the app (or the web app) can be imported.
+     */
+    fun parseImport(fileName: String, bytes: ByteArray): Map<Dataset, List<Row>> {
         val ext = fileName.substringAfterLast('.', "").lowercase()
         if (ext !in listOf("csv", "json", "zip")) throw ImportException("format")
         if (bytes.size > MAX_IMPORT_BYTES) throw ImportException("size")
@@ -202,7 +216,7 @@ object DataTransfer {
             when (ext) {
                 "json" -> {
                     val json = Json.parseToJsonElement(bytes.toString(Charsets.UTF_8))
-                    if (json is JsonArray) cleanList(json)?.let { out[only ?: Dataset.Entries] = it }
+                    if (json is JsonArray) cleanList(json)?.let { out[detectDataset(it) ?: Dataset.Entries] = it }
                     else if (json is JsonObject) {
                         val dsName = (json["dataset"] as? JsonPrimitive)?.content
                         val data = json["data"]
@@ -210,12 +224,13 @@ object DataTransfer {
                             Dataset.entries.forEach { ds -> cleanList(data[ds.key])?.let { out[ds] = it } }
                         } else if (Dataset.of(dsName) != null) {
                             cleanList(data)?.let { out[Dataset.of(dsName)!!] = it }
-                        } else cleanList(data)?.let { out[only ?: Dataset.Entries] = it }
+                        } else cleanList(data)?.let { out[detectDataset(it) ?: Dataset.Entries] = it }
                     }
                 }
                 "csv" -> {
-                    if (only == null) throw ImportException("format") // a lone CSV doesn't say which dataset it is
-                    out[only] = tableToObjects(parseCsv(bytes.toString(Charsets.UTF_8)))
+                    val rows = tableToObjects(parseCsv(bytes.toString(Charsets.UTF_8)))
+                    val ds = detectDataset(rows) ?: throw ImportException("invalid")
+                    out[ds] = rows
                 }
                 else -> ZipInputStream(ByteArrayInputStream(bytes)).use { z ->
                     var e = z.nextEntry
@@ -238,10 +253,6 @@ object DataTransfer {
             throw ImportException("read")
         }
         if (out.isEmpty()) throw ImportException("invalid")
-        if (only != null) {
-            val rows = out[only] ?: throw ImportException("mismatch")
-            return mapOf(only to rows)
-        }
         return out
     }
 

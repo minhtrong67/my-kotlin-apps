@@ -1,85 +1,145 @@
-# Moody for Android
+# Moody — Android
 
-Bản **Android native** (Kotlin + Jetpack Compose + Material Design 3) của web app Moody — nhật ký tâm trạng hằng ngày.
+A fast, private mood journal. Check in once a day with a mood, activities and a note, then look back at your history, calendar and statistics.
 
-- Kotlin 2.0, Jetpack Compose (BOM 2024.12), Material 3
-- Room + DataStore (chế độ khách, lưu trên máy)
-- Firebase Auth (Google, qua Credential Manager) + Firestore — **cùng cấu trúc dữ liệu với web**, nên cùng một tài khoản Google sẽ thấy cùng dữ liệu ở web và Android
-- Nhắc nhở bằng AlarmManager (chạy cả khi app đã đóng, đặt lại sau khi khởi động máy) — web không làm được
-- Song ngữ Tiếng Việt / English (đổi ngôn ngữ từng app, theo thiết bị hoặc chọn thủ công)
+Native Android app written in **Kotlin** with **Jetpack Compose** and **Material Design 3** (including Material You dynamic color). It shares its data model with the Moody web app, so one Google account shows the same journal on both.
 
-## Chạy thử
+---
 
-1. Mở thư mục này bằng **Android Studio** (Ladybug trở lên), JDK 17.
-2. Đợi Gradle Sync, chọn thiết bị/emulator (API 26+), bấm Run.
+## Features
 
-App chạy được ngay ở **chế độ khách** (dữ liệu lưu trên máy) mà không cần Firebase.
-
-## Bật đăng nhập Google + đồng bộ (dùng chung project Firebase với web)
-
-Cấu hình Firebase nằm trong file **`.env`** ở thư mục gốc (đã được `.gitignore`, không commit, không cần `google-services.json`):
-
-1. Sao chép `.env.example` thành `.env` và điền 6 giá trị (lấy trong Firebase Console → Project settings → Your apps → Android, hoặc từ file `google-services.json` cũ):
-   `FIREBASE_PROJECT_ID`, `FIREBASE_PROJECT_NUMBER`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_APP_ID`, `FIREBASE_API_KEY`, `GOOGLE_WEB_CLIENT_ID` (OAuth client loại *Web*).
-2. Package name đăng ký trên Firebase phải là `com.minhtrong67.moody`, và đã thêm **SHA-1** (`./gradlew signingReport`). Bật Google ở Authentication.
-3. Build lại. Không có `.env` thì app vẫn chạy ở chế độ khách.
-4. Trên CI có thể đặt cùng tên đó làm biến môi trường thay cho file `.env`.
-
-Lưu ý bảo mật: API key của Firebase không phải bí mật tuyệt đối (nó nằm trong APK), hãy **giới hạn key theo package + SHA-1** trong Google Cloud Console → APIs & Services → Credentials, và dùng Firestore Rules (chỉ chủ tài khoản đọc/ghi `users/{uid}/...`).
-
-## Đối chiếu với web
-
-| Web | Android |
+| Area | What you get |
 |---|---|
-| Hôm nay (lời chào, thẻ check-in, chuỗi ngày, TB tuần, 7 ngày, gần đây) | `TodayScreen` |
-| Check-in full-screen (ngày giờ, 5 mood, hoạt động, ghi chú, xác nhận khi sửa) | `CheckInScreen` |
-| Lịch sử: tìm kiếm, lọc, sắp xếp, vuốt để sửa/xóa, lịch tháng + tóm tắt | `HistoryScreen` |
-| Thống kê ngày/tuần/tháng/năm, 2 biểu đồ tròn, chú thích %, xuất ảnh PNG | `StatsScreen` (chụp đúng vùng đang hiển thị, chia sẻ qua share sheet) |
-| Quản lý hoạt động / tâm trạng | `ManageScreens` |
-| 19 màu chủ đề Material 3, sáng/tối/hệ thống, cỡ chữ, ngôn ngữ, trang mặc định | `SettingsScreen`, bảng màu sinh từ `palettes.js` |
-| Xuất/nhập CSV, JSON, "toàn bộ" (.zip 3 CSV) | `transfer/DataTransfer.kt` (file tương thích hai chiều với web) |
-| Nhắc nhở (chỉ khi mở app) | Nhắc hằng ngày / báo cáo tuần / tháng bằng AlarmManager (xem mục Nhắc nhở) |
+| **Today** | Greeting, today's check-in card, streak, weekly average, week strip, recent entries. |
+| **Check-in** | Five moods, activity chips, quick note, date & time picker, discard guard, swipe-friendly full-screen form. |
+| **History** | One scrolling page: search, filters & sorting, swipe to edit / delete, month calendar with day details. |
+| **Statistics** | Day / week / month / year views, mood and activity charts, animated wavy progress bars. |
+| **Report image** | One tap creates a polished **1080 × 1920 (9:16)** PNG saved to *Pictures/Moody*. |
+| **Reminders** | Daily check-in, weekly and monthly report reminders that work with the app closed. |
+| **Theming** | 19 palettes, **Material You** (follows the wallpaper), light / dark / system, text size. |
+| **Languages** | English and Vietnamese, switchable in-app without a restart. |
+| **Data** | Guest mode (on-device) or Google sign-in with Firestore sync; export / import everything as JSON or CSV. |
+| **Navigation** | Swipe between tabs; swipe right on *Today* to open the sidebar. |
 
-## Chưa chuyển (có chủ đích)
+## Tech stack
 
-- Landing page marketing và nút "Cài đặt ứng dụng" (PWA) — không còn ý nghĩa trong app native.
-- Xuất/nhập **.xlsx** (CSV/JSON/ZIP đã đủ để trao đổi dữ liệu với web). Có thể thêm bằng thư viện `fastexcel`.
+- Kotlin 2.0, Jetpack Compose (BOM 2024.12), Material 3, `HorizontalPager`
+- Room (guest data) · DataStore (settings) · kotlinx.serialization
+- Firebase Auth + Firestore, Google sign-in through Credential Manager
+- AlarmManager + BroadcastReceivers for reminders
+- Coil for avatars · `sh.calvin.reorderable` for drag-and-drop lists
+- Gradle Kotlin DSL with a version catalog, KSP, R8 (minify + shrink resources)
 
-## Nếu app bị văng
+Minimum Android version: **8.0 (API 26)** · Target / compile SDK: **35**
 
-Lần mở lại kế tiếp, Moody tự hiện hộp thoại "Lần trước Moody đã đóng đột ngột" kèm nguyên văn lỗi. Bấm **Sao chép** và gửi lại là đủ để sửa (không cần adb).
+## Getting started
 
-## Ghi chú bản mới
+### Prerequisites
+- Android Studio Ladybug (2024.2) or newer
+- JDK 17
+- An Android device or emulator (API 26+)
 
-- Màu chủ đạo mặc định **Teal**; thêm tuỳ chọn **Tự động (Material You)** (Android 12+) trong Cài đặt → Màu chủ đạo.
-- Vuốt ngang để chuyển giữa 4 tab (Hôm nay / Lịch sử / Thống kê / Cài đặt). Trong danh sách Lịch sử, vuốt trên một thẻ là sửa/xoá (cần vuốt xa), vuốt ở vùng trống để đổi tab.
-- File APK được đặt tên `Moody-v1.0.0-release.apk` / `Moody-v1.0.0-debug.apk` (đổi `appVersionName` trong `app/build.gradle.kts`).
-- Font: luôn dùng font hệ thống của điện thoại (không còn tuỳ chọn font).
-- Icon: adaptive icon (nền teal + mặt cười), có cả icon đơn sắc cho "Themed icons" của Android 13+.
+### Run it
+```bash
+git clone <your-repo-url> && cd MoodyAndroid
+./gradlew installDebug          # Windows: .\gradlew.bat installDebug
+```
+Without Firebase configuration the app still runs in **guest mode** (data stays on the device).
 
-## Nhắc nhở hoạt động thế nào
+### Enable Google sign-in and sync
+Firebase settings live in a git-ignored **`.env`** file — no `google-services.json`, no Google Services plugin.
 
-- Dùng `AlarmManager` (không dùng WorkManager vì WorkManager có thể bị trễ hàng giờ khi máy ở chế độ Doze).
-- Android 13+: app xin quyền thông báo khi bạn bật một nhắc nhở.
-- Android 12+: để nhắc **đúng giờ**, vào Cài đặt → Nhắc nhở → "Cho phép báo thức chính xác". Nếu không cấp, nhắc nhở vẫn chạy nhưng có thể trễ vài phút.
-- Samsung/Xiaomi/Oppo… hay chặn app nền: đặt Moody ở "Không hạn chế/Không tối ưu pin" (có nút mở thẳng trong Cài đặt).
-- Nhắc hằng ngày tự bỏ qua nếu bạn đã check-in hôm nay. Nút "Thử sau 10 giây" kiểm tra cả đường báo thức → thông báo (khóa màn hình rồi chờ).
-- Báo thức được đặt lại tự động sau khi khởi động máy, cập nhật app, đổi giờ/múi giờ.
+1. Copy `.env.example` to `.env`.
+2. Fill in the values from *Firebase console → Project settings → Your apps → Android*:
 
-## Muốn thấy độ mượt thật sự
+   | Key | Meaning |
+   |---|---|
+   | `FIREBASE_PROJECT_ID` | Project ID |
+   | `FIREBASE_PROJECT_NUMBER` | Project number (sender ID) |
+   | `FIREBASE_STORAGE_BUCKET` | Storage bucket (optional) |
+   | `FIREBASE_APP_ID` | Android app ID (`1:…:android:…`) |
+   | `FIREBASE_API_KEY` | Web API key |
+   | `GOOGLE_WEB_CLIENT_ID` | OAuth **web** client ID (client type 3) |
 
-Bản **debug** của Jetpack Compose chậm hơn rất nhiều. Hãy thử bản release (đã ký tạm bằng khóa debug):
-`gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
+3. Register the package `com.minhtrong67.moody` in Firebase and add your **SHA-1** (`./gradlew signingReport`). Enable the Google provider under *Authentication*.
+4. Rebuild. The same keys can be provided as environment variables on CI.
 
-## Cấu trúc
+> The API key ends up inside the APK (this is how Firebase works). Restrict it to your package name + SHA-1 in Google Cloud Console and protect data with Firestore rules (`users/{uid}/…` readable only by its owner).
+
+## Build a release APK
+
+```bash
+./gradlew assembleRelease
+```
+
+Output: `app/build/outputs/apk/release/Moody-v1.0.0-build1-release.apk`
+
+**File naming:** `Moody-v<versionName>-build<versionCode>-<buildType>.apk`. Change `appVersionName` / `appVersionCode` at the top of `app/build.gradle.kts` to bump a release.
+
+**Signing:** copy `keystore.properties.example` to `keystore.properties` (git-ignored) and fill in your keystore details; the release build then uses your key. Without it the APK is signed with the debug key — fine for sideloading, not for publishing.
+
+**Smooth first run:** an APK installed outside the Play Store is compiled lazily. Force ahead-of-time compilation once:
+```bash
+adb shell cmd package compile -m speed-profile -f com.minhtrong67.moody
+```
+
+## Reminders
+
+Reminders use `AlarmManager` (not WorkManager), so they fire on time even in Doze.
+
+- **Android 13+** asks for the notification permission when you enable a reminder.
+- **Android 12+**: grant *Alarms & reminders* (Settings → Reminders → *Not getting notifications?*) for exact timing; otherwise they can be a few minutes late.
+- **Samsung / Xiaomi / Oppo**: set Moody to *Unrestricted* in battery settings.
+- Alarms are restored after reboot, app update, and time-zone or clock changes.
+- The daily reminder is skipped if you already checked in today.
+
+## Data import / export
+
+Settings → **Export & import data** handles everything at once.
+
+| Format | Export | Import |
+|---|---|---|
+| **JSON** | One file: `{ "app": "moody", "dataset": "all", "version": 1, "data": { entries, activities, moods } }` | Same file; a bare array is also recognised |
+| **CSV** | A `.zip` with `entries.csv`, `activities.csv`, `moods.csv` | The `.zip`, or a single `.csv` (the type is detected from its columns) |
+
+Files are compatible with the Moody web app. Imports merge into existing data (matched by id, or by date + time) and never delete anything.
+
+## Permissions
+
+| Permission | Why |
+|---|---|
+| `INTERNET`, `ACCESS_NETWORK_STATE` | Google sign-in and Firestore sync |
+| `POST_NOTIFICATIONS` | Reminder notifications (Android 13+) |
+| `SCHEDULE_EXACT_ALARM` | On-time reminders (Android 12+, user-granted) |
+| `RECEIVE_BOOT_COMPLETED` | Re-schedule reminders after a reboot |
+
+## Project structure
 
 ```
 app/src/main/java/com/minhtrong67/moody/
-  data/        models, Repository (Room ↔ Firestore), local/ remote/ auth/
-  transfer/    xuất/nhập dữ liệu
-  notify/      nhắc nhở (WorkManager)
-  ui/          theme, components, screens, điều hướng (MoodyRoot)
-  util/        ngày tháng, thống kê
+├── data/        models, repository (Room ⇄ Firestore), local/ remote/ auth/
+├── transfer/    JSON / CSV import & export
+├── notify/      reminders (AlarmManager, receivers, notifications)
+├── ui/
+│   ├── theme/       palettes, Material 3 theme, Material You
+│   ├── components/  cards, dialogs, segmented control, skeletons, charts
+│   ├── screens/     Login, Today, Check-in, History, Stats, Settings, Manage
+│   └── MoodyRoot.kt shell: pager, drawer, top bar, check-in overlay
+└── util/        dates, statistics, report renderer
 ```
 
-> Lưu ý: project được viết và kiểm tra cú pháp bằng trình biên dịch Kotlin, nhưng **chưa build đầy đủ** với Android SDK trong môi trường tạo ra nó. Nếu Android Studio báo lỗi nhỏ ở lần Sync/Build đầu (phiên bản thư viện, API đã đổi tên…), gửi nguyên văn lỗi cho mình để sửa.
+**Architecture:** single-activity, unidirectional data flow. `MainViewModel` exposes `StateFlow`s from `DataRepository`, which reads Room (guest) or Firestore (signed in) behind one API.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| *Google sign-in fails* | Check the SHA-1 and package name in Firebase, that the Google provider is enabled, and `GOOGLE_WEB_CLIENT_ID` in `.env`. |
+| *Sign-in button missing / "not set up"* | `.env` is missing or incomplete — see **Enable Google sign-in**. |
+| *No reminders* | Open Settings → Reminders → *Not getting notifications?* and fix what is flagged. |
+| *App closed unexpectedly* | On the next launch Moody shows the error text — tap **Copy** and share it. |
+| *Choppy animations* | Use a release build and run the `compile -m speed-profile` command above. |
+
+## Credits
+
+Developed by **minhtrong67**, with help from **Claude AI**.

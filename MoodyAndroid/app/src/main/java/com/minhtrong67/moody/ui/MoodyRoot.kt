@@ -83,7 +83,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -188,6 +194,24 @@ private fun MainShell(
     val page = pager.currentPage
     LaunchedEffect(manage, page) { scrollBehavior.state.contentOffset = 0f }   // a new page starts un-scrolled
 
+    // First tab + swipe left->right: the pager has nothing left to scroll, so the leftover drag opens the drawer.
+    val pageNow by rememberUpdatedState(page)
+    val manageNow by rememberUpdatedState(manage)
+    val density = LocalDensity.current
+    val openDrawerOnOverscroll = remember(drawer) {
+        object : NestedScrollConnection {
+            private var dragged = 0f
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && pageNow == 0 && manageNow == null && available.x > 0f && consumed.x == 0f) {
+                    dragged += available.x
+                    if (dragged > with(density) { 48.dp.toPx() }) { dragged = 0f; scope.launch { drawer.open() } }
+                }
+                return Offset.Zero
+            }
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity { dragged = 0f; return Velocity.Zero }
+        }
+    }
+
     fun goPage(i: Int) {
         if (manage == null) scope.launch { pager.animateScrollToPage(i) }
         else { manage = null; scope.launch { pager.scrollToPage(i) } }
@@ -291,7 +315,7 @@ private fun MainShell(
                 // "Fade through" between the pager and a Manage page.
                 AnimatedContent(
                     targetState = manage,
-                    modifier = Modifier.fillMaxSize().padding(inner),
+                    modifier = Modifier.fillMaxSize().padding(inner).nestedScroll(openDrawerOnOverscroll),
                     transitionSpec = {
                         (fadeIn(tween(230, delayMillis = 70)) + scaleIn(tween(230, delayMillis = 70, easing = FastOutSlowInEasing), initialScale = 0.96f)) togetherWith fadeOut(tween(70))
                     },
@@ -309,7 +333,7 @@ private fun MainShell(
                             onUpdate = { k, e, l -> vm.updateMood(k, e, l) },
                             onReset = { vm.resetMood(it) },
                         )
-                        else -> HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { it }) { p ->
+                        else -> HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { it }) { p ->
                             when (p) {
                                 0 -> TodayScreen(
                                     entries = entries, user = user,

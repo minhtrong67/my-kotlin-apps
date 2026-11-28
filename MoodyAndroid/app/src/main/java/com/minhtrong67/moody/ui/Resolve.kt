@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import com.minhtrong67.moody.data.ActivitiesState
 import com.minhtrong67.moody.data.ActivityDef
 import com.minhtrong67.moody.data.MoodConfig
@@ -23,10 +24,11 @@ val LocalToaster = staticCompositionLocalOf<Toaster> { error("Toaster not provid
 
 /** Root-scoped snackbar helper (survives the screen that triggered it being closed). */
 class Toaster(private val host: SnackbarHostState, private val scope: CoroutineScope) {
-    fun show(message: String) {
+    fun show(message: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
         scope.launch {
             host.currentSnackbarData?.dismiss()
-            host.showSnackbar(message, duration = SnackbarDuration.Short)
+            val result = host.showSnackbar(message, actionLabel, duration = if (actionLabel != null) SnackbarDuration.Long else SnackbarDuration.Short)
+            if (result == SnackbarResult.ActionPerformed) onAction?.invoke()
         }
     }
 }

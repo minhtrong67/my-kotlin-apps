@@ -69,6 +69,7 @@ import com.minhtrong67.moody.ui.components.ConfirmDialog
 import com.minhtrong67.moody.ui.components.EmptyText
 import com.minhtrong67.moody.ui.components.MoodBubble
 import com.minhtrong67.moody.ui.components.MoodyCard
+import com.minhtrong67.moody.ui.components.MoodyDialog
 import com.minhtrong67.moody.ui.components.SwipeActionRow
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -86,33 +87,31 @@ fun EmojiNameDialog(
     var emoji by rememberSaveable { mutableStateOf(initialEmoji) }
     var label by rememberSaveable { mutableStateOf(initialLabel) }
     val valid = emoji.isNotBlank() && label.isNotBlank()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.width(92.dp)) {
-                    Text(stringResource(R.string.manage_emoji), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
-                    OutlinedTextField(
-                        value = emoji, onValueChange = { emoji = it.take(8) }, singleLine = true,
-                        textStyle = MaterialTheme.typography.headlineSmall.copy(textAlign = TextAlign.Center),
-                        shape = RoundedCornerShape(16.dp),
-                    )
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.manage_displayName), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
-                    OutlinedTextField(
-                        value = label, onValueChange = { label = it.take(60) }, singleLine = true,
-                        placeholder = if (placeholder != null) ({ Text(placeholder) }) else null,
-                        shape = RoundedCornerShape(16.dp),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    )
-                }
+    MoodyDialog(
+        onDismissRequest = onDismiss, title = title,
+        dismissLabel = stringResource(R.string.common_cancel), confirmLabel = stringResource(R.string.common_save),
+        onConfirm = { onSave(emoji.trim(), label.trim()) }, confirmEnabled = valid, centered = false,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.width(92.dp)) {
+                Text(stringResource(R.string.manage_emoji), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+                OutlinedTextField(
+                    value = emoji, onValueChange = { emoji = it.take(8) }, singleLine = true,
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(textAlign = TextAlign.Center),
+                    shape = RoundedCornerShape(16.dp),
+                )
             }
-        },
-        dismissButton = { ActionButton(stringResource(R.string.common_cancel), Icons.Rounded.Close, onDismiss, tonal = true) },
-        confirmButton = { ActionButton(stringResource(R.string.common_save), Icons.Rounded.Check, { onSave(emoji.trim(), label.trim()) }, enabled = valid) },
-    )
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.manage_displayName), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+                OutlinedTextField(
+                    value = label, onValueChange = { label = it.take(60) }, singleLine = true,
+                    placeholder = if (placeholder != null) ({ Text(placeholder) }) else null,
+                    shape = RoundedCornerShape(16.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -181,7 +180,7 @@ fun ManageActivitiesScreen(
         Spacer(Modifier.height(12.dp))
         ActionButton(stringResource(R.string.manageActs_add), Icons.Rounded.Add, { adding = true }, modifier = Modifier.fillMaxWidth().height(56.dp))
         Spacer(Modifier.height(12.dp))
-        if (shown.isEmpty()) EmptyText(stringResource(R.string.manageActs_noResults))
+        if (shown.isEmpty()) EmptyText(stringResource(R.string.manageActs_noResults), emoji = "🔎")
         LazyColumn(state = lazy, contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(shown, key = { _, a -> a.id }) { index, a ->
                 ReorderableItem(reorder, key = a.id) { isDragging ->

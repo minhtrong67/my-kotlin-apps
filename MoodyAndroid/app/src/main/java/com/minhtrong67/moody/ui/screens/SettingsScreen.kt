@@ -144,7 +144,8 @@ fun SettingsScreen(
 
     var colorsOpen by rememberSaveable { mutableStateOf(false) }
     var dataOpen by rememberSaveable { mutableStateOf(false) }
-    var format by rememberSaveable { mutableStateOf("csv") }
+    var format by rememberSaveable { mutableStateOf("json") }
+    var busy by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
     var helpOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -176,9 +177,11 @@ fun SettingsScreen(
         val j = job; job = null
         if (uri == null || j == null) return
         scope.launch {
+            busy = true
             val ok = withContext(Dispatchers.IO) {
                 runCatching { ctx.contentResolver.openOutputStream(uri)?.use { it.write(j.bytes) } ?: error("no stream") }.isSuccess
             }
+            busy = false
             toaster.show(if (ok) ctx.getString(R.string.settings_exported, j.fileName) else ctx.getString(R.string.settings_exportFailed))
         }
     }
@@ -190,14 +193,6 @@ fun SettingsScreen(
         Dataset.Entries -> DataTransfer.entriesToRows(entries ?: emptyList(), activities.associateBy { it.id })
         Dataset.Activities -> DataTransfer.activitiesToRows(activities)
         Dataset.Moods -> DataTransfer.moodsToRows(moods)
-    }
-
-    fun exportDataset(ds: Dataset) {
-        val rows = rowsFor(ds)
-        if (rows.isEmpty()) { toaster.show(ctx.getString(R.string.settings_exportEmpty)); return }
-        val name = "moody-${ds.key}-${todayISO()}.$format"
-        job = ExportJob(name, if (format == "json") DataTransfer.buildJson(ds, rows) else DataTransfer.buildCsv(ds, rows))
-        if (format == "json") saveJson.launch(name) else saveCsv.launch(name)
     }
 
     fun exportAll() {
@@ -212,7 +207,6 @@ fun SettingsScreen(
     }
 
     // ---------------- import ----------------
-    var importTarget by remember { mutableStateOf<String?>(null) }   // dataset key or "all"
 
     fun displayName(uri: Uri): String =
         ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
@@ -220,13 +214,12 @@ fun SettingsScreen(
         } ?: "import"
 
     fun handleImport(uri: Uri) {
-        val target = importTarget ?: return
+        busy = true
         scope.launch {
-            val only = if (target == "all") null else Dataset.of(target)
             val parsed = withContext(Dispatchers.IO) {
                 runCatching {
                     val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw DataTransfer.ImportException("read")
-                    DataTransfer.parseImport(displayName(uri), bytes, only)
+                    DataTransfer.parseImport(displayName(uri), bytes)
                 }
             }
             val err = parsed.exceptionOrNull()
@@ -236,7 +229,6 @@ fun SettingsScreen(
                     "format" -> R.string.settings_importErr_format
                     "size" -> R.string.settings_importErr_size
                     "invalid" -> R.string.settings_importErr_invalid
-                    "mismatch" -> R.string.settings_importErr_mismatch
                     else -> R.string.settings_importErr_read
                 }))
                 return@launch
@@ -274,10 +266,11 @@ fun SettingsScreen(
                 if (added + updated == 0) ctx.getString(R.string.settings_importNothing)
                 else ctx.getString(R.string.settings_importDone, added, updated, skipped)
             )
-        }
+        }.invokeOnCompletion { busy = false }
     }
+
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) handleImport(uri) }
-    fun pickImport(target: String) { importTarget = target; picker.launch(arrayOf("*/*")) }
+    fun pickImport() { picker.launch(arrayOf("*/*")) }
 
     // ---------------- UI ----------------
     if (showTime) {
@@ -410,11 +403,11 @@ fun SettingsScreen(
                     if (on) withNotifPermission { vm.setDailyEnabled(true) } else vm.setDailyEnabled(false)
                 }
                 Divider()
-                SwitchItem(stringResource(R.string.settings_remindWeekly), settings.weeklyEnabled, leading = { Icon(Icons.Rounded.CalendarViewWeek, null, tint = cs.primary) }) { on ->
+                SwitchItem(stringResource(R.string.settings_remindWeekly), settings.weeklyEnabled, subtitle = stringResource(R.string.settings_remindWeeklyWhen), leading = { Icon(Icons.Rounded.CalendarViewWeek, null, tint = cs.primary) }) { on ->
                     if (on) withNotifPermission { vm.setWeeklyEnabled(true) } else vm.setWeeklyEnabled(false)
                 }
                 Divider()
-                SwitchItem(stringResource(R.string.settings_remindMonthly), settings.monthlyEnabled, leading = { Icon(Icons.Rounded.CalendarMonth, null, tint = cs.primary) }) { on ->
+                SwitchItem(stringResource(R.string.settings_remindMonthly), settings.monthlyEnabled, subtitle = stringResource(R.string.settings_remindMonthlyWhen), leading = { Icon(Icons.Rounded.CalendarMonth, null, tint = cs.primary) }) { on ->
                     if (on) withNotifPermission { vm.setMonthlyEnabled(true) } else vm.setMonthlyEnabled(false)
                 }
                 Divider()
@@ -474,42 +467,20 @@ fun SettingsScreen(
 
             // ---------- Data ----------
             Section(stringResource(R.string.settings_data)) {
-                SettingItem(
-                    title = stringResource(R.string.settings_exportImport),
-                    subtitle = stringResource(R.string.settings_exportImportSub),
-                    leading = { Icon(Icons.Rounded.FileDownload, null, tint = cs.primary) },
-                    onClick = { dataOpen = !dataOpen },
-                    trailing = {
-                        val rot by animateFloatAsState(if (dataOpen) 180f else 0f, label = "chev2")
-                        Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(rot), tint = cs.onSurfaceVariant)
-                    },
-                )
-                AnimatedVisibility(dataOpen) {
-                    Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-                        Text(stringResource(R.string.settings_dataHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-                        Spacer(Modifier.height(12.dp))
-                        SegmentedTabs(listOf("csv" to "CSV", "json" to "JSON"), format, { format = it })
-                        Spacer(Modifier.height(8.dp))
-                        Dataset.entries.forEach { ds ->
-                            DataRow(
-                                stringResource(when (ds) {
-                                    Dataset.Entries -> R.string.settings_dataset_entries
-                                    Dataset.Activities -> R.string.settings_dataset_activities
-                                    Dataset.Moods -> R.string.settings_dataset_moods
-                                }),
-                                onExport = { exportDataset(ds) }, onImport = { pickImport(ds.key) },
-                            )
-                            HorizontalDivider()
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.FileDownload, null, tint = cs.primary) }
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.settings_exportImport), style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.settings_dataAllHint), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
                         }
-                        DataRow(
-                            stringResource(R.string.settings_all), onExport = { exportAll() }, onImport = { pickImport("all") },
-                            exportLabel = stringResource(R.string.settings_exportAll), importLabel = stringResource(R.string.settings_importAll),
-                        )
-                        Text(
-                            stringResource(if (format == "json") R.string.settings_allHint_json else R.string.settings_allHint_csv),
-                            style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
-                        )
                     }
+                    SegmentedTabs(listOf("json" to "JSON", "csv" to "CSV"), format, { format = it })
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ActionButton(stringResource(R.string.settings_exportBtn), Icons.Rounded.FileDownload, { exportAll() }, enabled = !busy, modifier = Modifier.weight(1f).height(52.dp))
+                        ActionButton(stringResource(R.string.settings_importBtn), Icons.Rounded.FileUpload, { pickImport() }, tonal = true, enabled = !busy, modifier = Modifier.weight(1f).height(52.dp))
+                    }
+                    AnimatedVisibility(busy) { androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth()) }
                 }
             }
 
@@ -582,10 +553,14 @@ private fun SwitchItem(
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             if (subtitle != null) {
-                Text(
-                    subtitle, style = MaterialTheme.typography.labelLarge, color = cs.primary,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).then(if (onSubtitleClick != null) Modifier.clickable(onClick = onSubtitleClick) else Modifier).padding(vertical = 2.dp),
-                )
+                if (onSubtitleClick != null) {
+                    Text(
+                        subtitle, style = MaterialTheme.typography.labelLarge, color = cs.primary,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onSubtitleClick).padding(vertical = 2.dp),
+                    )
+                } else {
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                }
             }
         }
         Switch(checked = checked, onCheckedChange = onChange)
@@ -659,23 +634,5 @@ private fun NameChip(text: String, icon: ImageVector?) {
     ) {
         if (icon != null) Icon(icon, null, Modifier.size(14.dp), tint = cs.primary)
         Text(text, style = MaterialTheme.typography.labelLarge, color = cs.primary)
-    }
-}
-
-@Composable
-private fun DataRow(
-    title: String,
-    onExport: () -> Unit,
-    onImport: () -> Unit,
-    exportLabel: String = stringResource(R.string.settings_exportBtn),
-    importLabel: String = stringResource(R.string.settings_importBtn),
-) {
-    Column(Modifier.padding(vertical = 8.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton(exportLabel, Icons.Rounded.FileDownload, onExport, modifier = Modifier.weight(1f))
-            ActionButton(importLabel, Icons.Rounded.FileUpload, onImport, tonal = true, modifier = Modifier.weight(1f))
-        }
     }
 }

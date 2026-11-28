@@ -181,6 +181,57 @@ fun ActionButton(
     }
 }
 
+/**
+ * App dialog: roomy card (28dp corners, 24dp padding, near full width) with a centred header and TWO equal-width,
+ * full-height action buttons side by side (label + icon + background colour).
+ */
+@Composable
+fun MoodyDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    dismissLabel: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier,
+    headerIcon: ImageVector? = null,
+    danger: Boolean = false,
+    confirmIcon: ImageVector = if (danger) Icons.Rounded.Delete else Icons.Rounded.Check,
+    confirmEnabled: Boolean = true,
+    onDismiss: () -> Unit = onDismissRequest,
+    centered: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    androidx.compose.material3.BasicAlertDialog(
+        onDismissRequest = onDismissRequest,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = modifier.padding(horizontal = 20.dp).fillMaxWidth().widthIn(max = 440.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp,
+        ) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start) {
+                if (headerIcon != null) {
+                    Icon(headerIcon, null, Modifier.size(32.dp), tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.height(14.dp))
+                }
+                Text(
+                    title, style = MaterialTheme.typography.headlineSmall,
+                    textAlign = if (centered) TextAlign.Center else TextAlign.Start, modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(14.dp))
+                content()
+                Spacer(Modifier.height(24.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ActionButton(dismissLabel, Icons.Rounded.Close, onDismiss, tonal = true, modifier = Modifier.weight(1f).height(52.dp))
+                    ActionButton(confirmLabel, confirmIcon, onConfirm, danger = danger, enabled = confirmEnabled, modifier = Modifier.weight(1f).height(52.dp))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun ConfirmDialog(
     title: String,
@@ -193,28 +244,24 @@ fun ConfirmDialog(
     dismissLabel: String = stringResource(R.string.common_cancel),
     headerIcon: ImageVector? = null,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = headerIcon?.let { ic -> { Icon(ic, null, tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) } },
-        title = { Text(title, textAlign = if (headerIcon != null) TextAlign.Center else TextAlign.Start) },
-        text = { Text(text) },
-        dismissButton = { ActionButton(dismissLabel, Icons.Rounded.Close, onDismiss, tonal = true) },
-        confirmButton = { ActionButton(confirmLabel, confirmIcon, onConfirm, danger = danger) },
-    )
+    MoodyDialog(
+        onDismissRequest = onDismiss, title = title, dismissLabel = dismissLabel, confirmLabel = confirmLabel,
+        onConfirm = onConfirm, headerIcon = headerIcon, danger = danger, confirmIcon = confirmIcon,
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    }
 }
 
-/** Material 3 has no TimePickerDialog, so wrap TimePicker in an AlertDialog. */
+/** Material 3 has no TimePickerDialog, so wrap TimePicker in our dialog. */
 @Composable
 fun TimePickerDialog(initialHour: Int, initialMinute: Int, onConfirm: (Int, Int) -> Unit, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val state = rememberTimePickerState(initialHour, initialMinute, is24Hour = DateFormat.is24HourFormat(ctx))
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.checkin_pickTime)) },
-        text = { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TimePicker(state = state) } },
-        dismissButton = { ActionButton(stringResource(R.string.common_cancel), Icons.Rounded.Close, onDismiss, tonal = true) },
-        confirmButton = { ActionButton(stringResource(R.string.common_ok), Icons.Rounded.Check, { onConfirm(state.hour, state.minute) }) },
-    )
+    MoodyDialog(
+        onDismissRequest = onDismiss, title = stringResource(R.string.checkin_pickTime),
+        dismissLabel = stringResource(R.string.common_cancel), confirmLabel = stringResource(R.string.common_ok),
+        onConfirm = { onConfirm(state.hour, state.minute) },
+    ) { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TimePicker(state = state) } }
 }
 
 /**
@@ -295,10 +342,12 @@ fun GroupTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = modifier.padding(start = 4.dp, bottom = 8.dp))
 }
 
+/** Friendly empty state: a big emoji over a short line of text. */
 @Composable
-fun EmptyText(text: String, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun EmptyText(text: String, modifier: Modifier = Modifier, emoji: String? = "🌱") {
+    Column(modifier.fillMaxWidth().padding(vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (emoji != null) Text(emoji, fontSize = 40.sp)
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
 

@@ -89,6 +89,7 @@ import com.minhtrong67.moody.ui.components.ConfirmDialog
 import com.minhtrong67.moody.ui.components.DropdownField
 import com.minhtrong67.moody.ui.components.EmptyText
 import com.minhtrong67.moody.ui.components.Grid3
+import com.minhtrong67.moody.ui.components.ListSkeleton
 import com.minhtrong67.moody.ui.components.MoodBubble
 import com.minhtrong67.moody.ui.components.MoodyCard
 import com.minhtrong67.moody.ui.components.SegmentedTabs
@@ -105,6 +106,9 @@ import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
+/**
+ * The WHOLE page scrolls (title, tabs, search and filters move away with the list) — one LazyColumn.
+ */
 @Composable
 fun HistoryScreen(
     entries: List<Entry>?,
@@ -113,32 +117,13 @@ fun HistoryScreen(
     onDelete: (id: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var view by rememberSaveable { mutableStateOf("list") }
-    Column(modifier.padding(horizontal = 20.dp)) {
-        Text(stringResource(R.string.history_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
-        SegmentedTabs(
-            options = listOf("list" to stringResource(R.string.history_list), "calendar" to stringResource(R.string.history_calendar)),
-            selected = view, onSelect = { view = it },
-            icons = mapOf("list" to Icons.AutoMirrored.Rounded.List, "calendar" to Icons.Rounded.CalendarMonth),
-        )
-        Spacer(Modifier.height(16.dp))
-        if (entries == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        } else if (view == "list") {
-            ListView(entries, onEdit, onDelete)
-        } else {
-            CalendarView(entries, onEdit, onNewForDate)
-        }
-    }
-}
-
-@Composable
-private fun ListView(entries: List<Entry>, onEdit: (String) -> Unit, onDelete: (String) -> Unit) {
     val moods = LocalMoods.current
     val activities = LocalActivities.current
     val moodByKey = remember(moods) { moods.associateBy { it.key } }
     val activityById = remember(activities) { activities.associateBy { it.id } }
+    val cs = MaterialTheme.colorScheme
 
+    var view by rememberSaveable { mutableStateOf("list") }
     var period by rememberSaveable { mutableStateOf("all") }
     var moodFilter by rememberSaveable { mutableStateOf("all") }
     var sort by rememberSaveable { mutableStateOf("date_desc") }
@@ -149,24 +134,26 @@ private fun ListView(entries: List<Entry>, onEdit: (String) -> Unit, onDelete: (
     val activeFilters = (if (period != "all") 1 else 0) + (if (moodFilter != "all") 1 else 0) + (if (sort != "date_desc") 1 else 0)
 
     val filtered = remember(entries, period, moodFilter, sort, search, activityById) {
-        val now = today()
-        val q = search.trim().lowercase()
-        entries.filter { e ->
-            if (moodFilter != "all" && e.mood != moodFilter) return@filter false
-            val d = isoToDate(e.date)
-            if (period == "week" && ChronoUnit.DAYS.between(d, now) !in 0..6) return@filter false
-            if (period == "month" && !(d.month == now.month && d.year == now.year)) return@filter false
-            if (q.isNotEmpty()) {
-                val labels = e.activities.joinToString(" ") { activityById[it]?.label ?: "" }
-                if (!"${e.note} $labels".lowercase().contains(q)) return@filter false
-            }
-            true
-        }.let { list ->
-            when (sort) {
-                "date_asc" -> list.sortedWith(compareBy<Entry>({ it.date }, { it.instant }))
-                "score_desc" -> list.sortedByDescending { it.score }
-                "score_asc" -> list.sortedBy { it.score }
-                else -> list.sortedWith(compareByDescending<Entry> { it.date }.thenByDescending { it.instant })
+        if (entries == null) emptyList() else {
+            val now = today()
+            val q = search.trim().lowercase()
+            entries.filter { e ->
+                if (moodFilter != "all" && e.mood != moodFilter) return@filter false
+                val d = isoToDate(e.date)
+                if (period == "week" && ChronoUnit.DAYS.between(d, now) !in 0..6) return@filter false
+                if (period == "month" && !(d.month == now.month && d.year == now.year)) return@filter false
+                if (q.isNotEmpty()) {
+                    val labels = e.activities.joinToString(" ") { activityById[it]?.label ?: "" }
+                    if (!"${e.note} $labels".lowercase().contains(q)) return@filter false
+                }
+                true
+            }.let { list ->
+                when (sort) {
+                    "date_asc" -> list.sortedWith(compareBy<Entry>({ it.date }, { it.instant }))
+                    "score_desc" -> list.sortedByDescending { it.score }
+                    "score_asc" -> list.sortedBy { it.score }
+                    else -> list.sortedWith(compareByDescending<Entry> { it.date }.thenByDescending { it.instant })
+                }
             }
         }
     }
@@ -183,76 +170,94 @@ private fun ListView(entries: List<Entry>, onEdit: (String) -> Unit, onDelete: (
         )
     }
 
-    Column(Modifier.fillMaxSize()) {
-        OutlinedTextField(
-            value = search, onValueChange = { search = it },
-            placeholder = { Text(stringResource(R.string.history_searchPlaceholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            leadingIcon = { Icon(Icons.Rounded.Search, null) },
-            trailingIcon = { if (search.isNotEmpty()) IconButton(onClick = { search = "" }) { Icon(Icons.Rounded.Close, null) } },
-            singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-
-        MoodyCard(Modifier.fillMaxWidth(), onClick = { filtersOpen = !filtersOpen }, contentPadding = 12.dp) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Rounded.Tune, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(stringResource(R.string.history_filters), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                if (activeFilters > 0) {
-                    Box(Modifier.size(24.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                        Text(activeFilters.toString(), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item(key = "title", contentType = "title") {
+            Text(stringResource(R.string.history_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
+        }
+        item(key = "tabs", contentType = "tabs") {
+            SegmentedTabs(
+                options = listOf("list" to stringResource(R.string.history_list), "calendar" to stringResource(R.string.history_calendar)),
+                selected = view, onSelect = { view = it },
+                icons = mapOf("list" to Icons.AutoMirrored.Rounded.List, "calendar" to Icons.Rounded.CalendarMonth),
+            )
+        }
+        when {
+            entries == null -> item(key = "skeleton", contentType = "skeleton") { ListSkeleton(4, Modifier.padding(top = 8.dp)) }
+            view == "calendar" -> item(key = "calendar", contentType = "calendar") {
+                CalendarView(entries, onEdit, onNewForDate)
+            }
+            else -> {
+                item(key = "search", contentType = "search") {
+                    OutlinedTextField(
+                        value = search, onValueChange = { search = it },
+                        placeholder = { Text(stringResource(R.string.history_searchPlaceholder), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                        trailingIcon = { if (search.isNotEmpty()) IconButton(onClick = { search = "" }) { Icon(Icons.Rounded.Close, null) } },
+                        singleLine = true, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                }
+                item(key = "filters", contentType = "filters") {
+                    Column {
+                        MoodyCard(Modifier.fillMaxWidth(), onClick = { filtersOpen = !filtersOpen }, contentPadding = 12.dp) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(Icons.Rounded.Tune, null, tint = cs.onSurfaceVariant)
+                                Text(stringResource(R.string.history_filters), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                                if (activeFilters > 0) {
+                                    Box(Modifier.size(24.dp).clip(CircleShape).background(cs.primary), contentAlignment = Alignment.Center) {
+                                        Text(activeFilters.toString(), color = cs.onPrimary, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                Icon(if (filtersOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+                            }
+                        }
+                        AnimatedVisibility(filtersOpen) {
+                            Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                DropdownField(
+                                    stringResource(R.string.history_period),
+                                    listOf("all" to stringResource(R.string.history_period_all), "week" to stringResource(R.string.history_period_week), "month" to stringResource(R.string.history_period_month)),
+                                    period, { period = it }, Modifier.fillMaxWidth(),
+                                )
+                                DropdownField(
+                                    stringResource(R.string.history_mood),
+                                    listOf("all" to stringResource(R.string.history_allMoods)) + moods.map { it.key to "${it.emoji} ${it.label}" },
+                                    moodFilter, { moodFilter = it }, Modifier.fillMaxWidth(),
+                                )
+                                DropdownField(
+                                    stringResource(R.string.history_sort),
+                                    listOf(
+                                        "date_desc" to stringResource(R.string.history_sort_date_desc),
+                                        "date_asc" to stringResource(R.string.history_sort_date_asc),
+                                        "score_desc" to stringResource(R.string.history_sort_score_desc),
+                                        "score_asc" to stringResource(R.string.history_sort_score_asc),
+                                    ),
+                                    sort, { sort = it }, Modifier.fillMaxWidth(),
+                                )
+                                ActionButton(
+                                    stringResource(R.string.history_resetFilters), Icons.Rounded.RestartAlt,
+                                    onClick = { period = "all"; moodFilter = "all"; sort = "date_desc" },
+                                    tonal = true, enabled = activeFilters > 0, modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
                     }
                 }
-                Icon(if (filtersOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
-            }
-        }
-        AnimatedVisibility(filtersOpen) {
-            Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                DropdownField(
-                    stringResource(R.string.history_period),
-                    listOf("all" to stringResource(R.string.history_period_all), "week" to stringResource(R.string.history_period_week), "month" to stringResource(R.string.history_period_month)),
-                    period, { period = it },
-                    Modifier.fillMaxWidth(),
-                )
-                DropdownField(
-                    stringResource(R.string.history_mood),
-                    listOf("all" to stringResource(R.string.history_allMoods)) + moods.map { it.key to "${it.emoji} ${it.label}" },
-                    moodFilter, { moodFilter = it },
-                    Modifier.fillMaxWidth(),
-                )
-                DropdownField(
-                    stringResource(R.string.history_sort),
-                    listOf(
-                        "date_desc" to stringResource(R.string.history_sort_date_desc),
-                        "date_asc" to stringResource(R.string.history_sort_date_asc),
-                        "score_desc" to stringResource(R.string.history_sort_score_desc),
-                        "score_asc" to stringResource(R.string.history_sort_score_asc),
-                    ),
-                    sort, { sort = it },
-                    Modifier.fillMaxWidth(),
-                )
-                ActionButton(
-                    stringResource(R.string.history_resetFilters), Icons.Rounded.RestartAlt,
-                    onClick = { period = "all"; moodFilter = "all"; sort = "date_desc" },
-                    tonal = true, enabled = activeFilters > 0, modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Text(
-            stringResource(R.string.history_count, filtered.size) + " · " + stringResource(R.string.history_swipeHint),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-        )
-        if (filtered.isEmpty()) {
-            EmptyText(stringResource(R.string.history_empty))
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(bottom = 96.dp, top = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(filtered, key = { it.id }, contentType = { "entry" }) { e ->
-                    EntryCard(e, moodByKey[e.mood], activityById, onEdit = { onEdit(e.id) }, onDelete = { pendingDelete = e }, modifier = Modifier.animateItem())
+                item(key = "count", contentType = "count") {
+                    Text(
+                        stringResource(R.string.history_count, filtered.size) + " · " + stringResource(R.string.history_swipeHint),
+                        style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+                    )
+                }
+                if (filtered.isEmpty()) {
+                    item(key = "empty", contentType = "empty") { EmptyText(stringResource(R.string.history_empty)) }
+                } else {
+                    items(filtered, key = { it.id }, contentType = { "entry" }) { e ->
+                        EntryCard(e, moodByKey[e.mood], activityById, onEdit = { onEdit(e.id) }, onDelete = { pendingDelete = e }, modifier = Modifier.animateItem())
+                    }
                 }
             }
         }
@@ -330,7 +335,7 @@ private fun CalendarView(entries: List<Entry>, onEdit: (String) -> Unit, onNewFo
         }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { cursorText = cursor.minusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, stringResource(R.string.history_prevMonth)) }
             AnimatedContent(
@@ -385,7 +390,6 @@ private fun CalendarView(entries: List<Entry>, onEdit: (String) -> Unit, onNewFo
         }
         Spacer(Modifier.height(20.dp))
         MonthSummary(ym, byDate)
-        Spacer(Modifier.height(96.dp))
     }
 }
 

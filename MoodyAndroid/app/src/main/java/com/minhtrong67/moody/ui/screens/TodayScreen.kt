@@ -99,7 +99,7 @@ fun TodayScreen(
         Spacer(Modifier.height(20.dp))
 
         if (entries == null) {
-            Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            com.minhtrong67.moody.ui.components.TodaySkeleton()
             return@Column
         }
 

@@ -11,8 +11,8 @@ plugins {
 val appVersionName = "1.0.0"
 val appVersionCode = 1
 
-// APK file name: Moody-v1.0.0-release.apk / Moody-v1.0.0-debug.apk
-base { archivesName.set("Moody-v$appVersionName") }
+// APK file name: <App>-v<versionName>-build<versionCode>-<buildType>.apk  e.g. Moody-v1.0.0-build1-release.apk
+base { archivesName.set("Moody-v$appVersionName-build$appVersionCode") }
 
 // ---- Firebase config comes from ".env" (git-ignored) or from real environment variables (CI) ----
 // No google-services.json and no google-services plugin: the values become the same string resources the plugin would
@@ -25,6 +25,12 @@ val envProps = Properties().apply {
 fun envOf(key: String): String? =
     (System.getenv(key) ?: envProps.getProperty(key))?.trim()
         ?.removeSurrounding("\"")?.removeSurrounding("'")?.takeIf { it.isNotEmpty() }
+
+// ---- Release signing: keystore.properties (git-ignored). Without it the release build is signed with the debug key. ----
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }
+}
 
 val firebaseResources = mapOf(
     "google_app_id" to "FIREBASE_APP_ID",
@@ -56,11 +62,21 @@ android {
         }
     }
 
+    signingConfigs {
+        if (keystoreProps.isNotEmpty()) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Out of the box the release build is signed with the debug key so you can sideload it and feel the real
-            // (R8-optimised, much smoother) performance. Replace with your own keystore before publishing.
-            signingConfig = signingConfigs.getByName("debug")
+            // keystore.properties present -> your release key; otherwise the debug key, so the APK can still be sideloaded.
+            signingConfig = if (keystoreProps.isNotEmpty()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

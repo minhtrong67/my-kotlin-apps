@@ -230,7 +230,7 @@ fun CheckInScreen(
         },
     ) { inner ->
         if (entries == null) {
-            Box(Modifier.fillMaxSize().padding(inner), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            com.minhtrong67.moody.ui.components.CheckInSkeleton(Modifier.fillMaxSize().padding(inner).padding(horizontal = 20.dp, vertical = 16.dp))
             return@Scaffold
         }
         Column(Modifier.fillMaxSize().padding(inner).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp)) {

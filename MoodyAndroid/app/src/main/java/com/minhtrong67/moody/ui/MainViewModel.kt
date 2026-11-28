@@ -17,7 +17,9 @@ import com.minhtrong67.moody.notify.Notifications
 import com.minhtrong67.moody.notify.ReminderKind
 import com.minhtrong67.moody.notify.ReminderScheduler
 import com.minhtrong67.moody.util.todayISO
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOn
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,7 +41,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val authInitializing: StateFlow<Boolean> = auth.initializing
 
     /** null = still loading (switching account / first snapshot). */
-    val entries: StateFlow<List<Entry>?> = repo.entries().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val entries: StateFlow<List<Entry>?> = repo.entries().distinctUntilChanged().flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val activitiesState: StateFlow<ActivitiesState?> = repo.activitiesState().stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val moodOverrides: StateFlow<Map<String, MoodOverride>?> = repo.moodOverrides().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 

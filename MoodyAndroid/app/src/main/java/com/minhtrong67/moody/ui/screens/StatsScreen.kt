@@ -41,7 +41,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,6 +56,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -70,7 +70,15 @@ import com.minhtrong67.moody.R
 import com.minhtrong67.moody.data.Entry
 import com.minhtrong67.moody.data.MoodConfig
 import com.minhtrong67.moody.ui.LocalActivities
+import com.minhtrong67.moody.ui.LocalActivityContext
 import com.minhtrong67.moody.ui.LocalLocale
+import com.minhtrong67.moody.util.ReportColors
+import com.minhtrong67.moody.util.ReportData
+import com.minhtrong67.moody.util.ReportRenderer
+import com.minhtrong67.moody.util.ReportSlice
+import com.minhtrong67.moody.util.daysOfWeek
+import com.minhtrong67.moody.util.isoToDate
+import androidx.compose.ui.res.stringArrayResource
 import com.minhtrong67.moody.ui.LocalMoods
 import com.minhtrong67.moody.ui.LocalToaster
 import com.minhtrong67.moody.ui.components.ActionButton
@@ -115,7 +123,6 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
     var exporting by remember { mutableStateOf<String?>(null) }
     val period = Period.entries.first { it.key == periodKey }
     val cursor = LocalDate.parse(cursorText)
-    val layer = rememberGraphicsLayer()
 
     val label = when (period) {
         Period.Day -> fullDate(cursor, locale)
@@ -129,21 +136,18 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
     })
     val failedMsg = stringResource(R.string.stats_exportFailed)
 
-    // The report layer is recorded ONLY while exporting. Recording it permanently would re-draw this whole tall page twice
-    // on every frame (the wave animation invalidates it 60x/s) and starve the RenderThread.
-    var capturing by remember { mutableStateOf(false) }
-    suspend fun captureAndExport() {
-        try {
-            capturing = true
-            withFrameNanos { }            // frame 1: draw pass records the layer
-            withFrameNanos { }            // frame 2: recorded content is ready
-            val bitmap = layer.toImageBitmap().asAndroidBitmap()
-            capturing = false
-            exportReport(ctx, bitmap, label)
-        } finally {
-            capturing = false
-        }
-    }
+    val savedMsg = stringResource(R.string.report_saved)
+    val openLabel = stringResource(R.string.report_open)
+    val reportTitle = stringResource(R.string.report_title)
+    val topActivitiesTitle = stringResource(R.string.report_topActivities)
+    val weekdayLabels = stringArrayResource(R.array.weekdays_short).toList()
+    val activityCtx = LocalActivityContext.current
+    val generatedFooter = stringResource(R.string.report_generated, java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+    val labels = ReportLabels(
+        avgMood = stringResource(R.string.stats_avgMood), days = stringResource(R.string.stats_checkinDays),
+        streak = stringResource(R.string.stats_streak), topMood = stringResource(R.string.stats_topMood),
+        moodShare = stringResource(R.string.stats_share), trend = stringResource(R.string.report_trend),
+    )
 
     val scroll = rememberScrollState()
     val showTop by remember { androidx.compose.runtime.derivedStateOf { scroll.value > 500 } }
@@ -164,7 +168,7 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
         }
 
         if (entries == null) {
-            Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            com.minhtrong67.moody.ui.components.StatsSkeleton()
             return@Column
         }
 
@@ -191,7 +195,25 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
             onClick = {
                 scope.launch {
                     exporting = "png"
-                    runCatching { captureAndExport() }.onFailure { toaster.show(failedMsg) }
+                    runCatching {
+                        val data = buildReportData(
+                            labels, reportTitle, topActivitiesTitle, generatedFooter, label, period, cursor, byDate,
+                            periodEntries, distribution, activitySlices, moods, weekdayLabels, calcStreak(byDate),
+                        )
+                        val colors = reportColors(cs, dark)
+                        val logo = android.graphics.BitmapFactory.decodeResource(ctx.resources, R.mipmap.ic_logo)
+                        val bitmap = withContext(Dispatchers.Default) { ReportRenderer.render(ctx, data, colors, logo) }
+                        val safe = label.replace(Regex("[\\s/,→]+"), "-")
+                        ReportRenderer.saveToGallery(ctx, bitmap, "Moody-$safe.png")
+                    }.onSuccess { uri ->
+                        if (uri != null) toaster.show(savedMsg, openLabel) {
+                            runCatching {
+                                activityCtx.startActivity(
+                                    Intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/png").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        }
+                    }.onFailure { toaster.show(failedMsg) }
                     exporting = null
                 }
             },
@@ -199,20 +221,7 @@ fun StatsScreen(entries: List<Entry>?, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(20.dp))
 
-        // Captured area (exactly what is exported): stat tiles + 2 charts with legends.
-        Column(
-            Modifier
-                .drawWithContent {
-                    if (capturing) {
-                        layer.record { this@drawWithContent.drawContent() }
-                        drawLayer(layer)
-                    } else {
-                        drawContent()
-                    }
-                }
-                .background(cs.surface)
-                .padding(vertical = 12.dp),
-        ) {
+        Column(Modifier.padding(vertical = 12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Tile(Icons.Rounded.SentimentSatisfied, null, stringResource(R.string.stats_avgMood), avg?.let { "%.1f/5".format(Locale.US, it) } ?: "—", Color(0xFF8FBF7F), Modifier.weight(1f))
                 Tile(Icons.Rounded.CalendarMonth, null, stringResource(R.string.stats_checkinDays), periodEntries.size.toString(), Color(0xFF9FB8C8), Modifier.weight(1f))
@@ -326,19 +335,47 @@ private fun Legend(items: List<Slice>) {
     }
 }
 
-/** Saves the captured bitmap as a PNG in the cache and opens the share sheet. */
-private suspend fun exportReport(context: Context, captured: Bitmap, label: String) {
-    val file = withContext(Dispatchers.IO) {
-        val bmp = if (captured.config == Bitmap.Config.HARDWARE) captured.copy(Bitmap.Config.ARGB_8888, false) else captured
-        val dir = File(context.cacheDir, "reports").apply { mkdirs() }
-        val safe = label.replace(Regex("[\\s/,→]+"), "-")
-        File(dir, "moody-stats-$safe.png").also { f -> f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+private class ReportLabels(val avgMood: String, val days: String, val streak: String, val topMood: String, val moodShare: String, val trend: String)
+
+private fun reportColors(cs: androidx.compose.material3.ColorScheme, dark: Boolean) = ReportColors(
+    bgTop = lerp(cs.surface, cs.primaryContainer, if (dark) 0.55f else 0.7f).toArgb(),
+    bgBottom = cs.surface.toArgb(),
+    card = (if (dark) cs.surfaceContainerHighest else lerp(cs.surfaceContainerLowest, cs.primary, 0.03f)).toArgb(),
+    cardStroke = (if (dark) cs.outlineVariant.copy(alpha = 0.4f) else cs.primary.copy(alpha = 0.16f)).toArgb(),
+    onSurface = cs.onSurface.toArgb(), onSurfaceVariant = cs.onSurfaceVariant.toArgb(),
+    primary = cs.primary.toArgb(), onPrimary = cs.onPrimary.toArgb(),
+    primaryContainer = cs.primaryContainer.toArgb(), onPrimaryContainer = cs.onPrimaryContainer.toArgb(),
+    track = cs.surfaceContainerHighest.toArgb(),
+)
+
+private fun buildReportData(
+    l: ReportLabels, title: String, activitiesTitle: String, footer: String, label: String,
+    period: Period, cursor: LocalDate, byDate: Map<String, Entry>, periodEntries: List<Entry>,
+    distribution: List<Slice>, activitySlices: List<Slice>, moods: List<com.minhtrong67.moody.data.MoodDef>,
+    weekdayLabels: List<String>, streak: Int,
+): ReportData {
+    val avg = if (periodEntries.isEmpty()) null else periodEntries.sumOf { it.score }.toDouble() / periodEntries.size
+    val nearest = avg?.let { a -> moods.minByOrNull { kotlin.math.abs(it.score - a) } }
+    val top = distribution.maxByOrNull { it.count }?.takeIf { it.count > 0 }
+
+    // trend: week/month = one point per day, year = one point per month, day = none
+    val (values, labelsX) = when (period) {
+        Period.Day -> null to emptyList()
+        Period.Week -> daysOfWeek(cursor).let { days -> days.map { byDate[it.toString()]?.score?.toDouble() } to days.indices.map { weekdayLabels.getOrElse(it) { "" } } }
+        Period.Month -> (1..cursor.lengthOfMonth()).let { r -> r.map { byDate[cursor.withDayOfMonth(it).toString()]?.score?.toDouble() } to r.map { it.toString() } }
+        Period.Year -> (1..12).let { r ->
+            val byMonth = byDate.values.filter { isoToDate(it.date).year == cursor.year }.groupBy { isoToDate(it.date).monthValue }
+            r.map { m -> byMonth[m]?.let { list -> list.sumOf { e -> e.score }.toDouble() / list.size } } to r.map { it.toString() }
+        }
     }
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "image/png"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(send, context.getString(R.string.stats_shareFile)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    return ReportData(
+        appName = "Moody", title = title, periodLabel = label,
+        avg = avg, avgEmoji = nearest?.emoji ?: "🙂", avgLabel = nearest?.label ?: "—", avgCaption = l.avgMood,
+        days = periodEntries.size, daysLabel = l.days, streak = streak, streakLabel = l.streak,
+        topValue = top?.let { "${it.emoji} ${it.label}" } ?: "—", topLabel = l.topMood,
+        moodTitle = l.moodShare, moods = distribution.map { ReportSlice(it.emoji, it.label, it.color.toArgb(), it.count) },
+        trendTitle = l.trend, trend = values, trendLabels = labelsX, scoreColors = moods.associate { it.score to it.color.toArgb() },
+        activitiesTitle = activitiesTitle, activities = activitySlices.take(5).map { ReportSlice(it.emoji, it.label, it.color.toArgb(), it.count) },
+        footer = footer,
+    )
 }
